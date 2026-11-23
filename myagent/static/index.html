@@ -422,6 +422,20 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
 .rail { width: auto; background: none; padding: 0; border: 0; overflow: visible; margin: 0; }
 #side > * { flex: none; } #side #sessBox { flex: none; }
 .ovhead b { white-space: nowrap; }
+
+/* ---- cleanup + model picker ---- */
+.who { font-size: 12px; color: var(--muted); padding: 10px 10px 2px; gap: 8px; }
+.who .dot { flex: none; }
+#modelPicker { width: min(520px, 92vw); padding: 0; }
+#mpSearch { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 14px 16px; font-size: 15px; outline: none; color: var(--text); }
+#mpInfo { font-size: 12px; color: var(--muted); padding: 8px 16px 0; }
+#mpList { max-height: 380px; overflow-y: auto; padding: 6px; }
+.mp { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-family: var(--monoF); font-size: 13px; }
+.mp:hover, .mp.sel { background: var(--hover); } .mp.cur { color: var(--accent); font-weight: 600; } .mp.cur::after { content: "✓"; margin-left: auto; }
+.mpfoot { display: flex; justify-content: space-between; padding: 8px 16px 12px; border-top: 1px solid var(--line); }
+.mlogo { background: color-mix(in srgb, var(--warn) 18%, var(--panel)); color: var(--warn); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mlogo { background: color-mix(in srgb, var(--warn) 22%, var(--panel)); } }
+.navbtn em:empty { display: none; }
 </style>
 </head>
 <body>
@@ -468,16 +482,15 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
   <div class="section">Make it yours</div>
   <button class="navbtn" data-set="instr"><svg><use href="#i-file"/></svg>Context &amp; rules</button>
   <button class="navbtn" data-set="model"><svg><use href="#i-brain"/></svg>Models</button>
-  <button class="navbtn" data-set="tools"><svg><use href="#i-term"/></svg>Tools<em id="toolCount">·</em></button>
+  <button class="navbtn" data-set="tools"><svg><use href="#i-term"/></svg>Tools<em id="toolCount"></em></button>
   <button class="navbtn" data-set="mcp"><svg><use href="#i-plug"/></svg>Connectors</button>
   <button class="navbtn" data-set="sched"><svg><use href="#i-map"/></svg>Automations</button>
   <button class="navbtn" id="navUsage"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Usage &amp; cost</button>
   <button class="navbtn" id="navActivity"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Activity</button>
-  <div class="promo"><small>Open by design</small><b class="serif">Small harness. Big possibilities.</b><a id="zipBtn">Get the project ZIP <svg><use href="#i-up"/></svg></a></div>
   <div class="side-foot">
     <button class="navbtn" id="openSettings"><svg><use href="#i-gear"/></svg>Settings</button>
     <button class="navbtn" id="navHelp"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg>A little help<em>?</em></button>
-    <div class="who"><span class="wsav">Y</span><span><b>Your workspace</b><small><span class="dot" id="dot"></span><span id="who">Local &amp; private</span></small></span></div>
+    <div class="who"><span class="dot" id="dot"></span><span id="who">Connecting…</span></div>
   </div>
 </aside>
 
@@ -487,13 +500,11 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
     <span class="crumbs"><svg><use href="#i-folder"/></svg><button id="folderPill" title="Working folder"><span id="folderName">My workspace</span></button><i>/</i><b id="crumbHere">Agent playground</b></span>
     <button class="pill" id="wtPill" hidden title="This session works on its own branch in a separate folder"><svg><use href="#i-map"/></svg><span id="wtName"></span></button>
     <span class="spacer"></span>
-    <span class="live"><i class="dot"></i>Local-first workspace</span>
     <span class="pill" id="costPill" title="Cost and tokens for this session"><b id="cost">$0.00</b><span id="tokens">0 tokens</span></span>
     <button class="iconbtn" id="shareBtn" title="Share this session (GitHub gist)" aria-label="Share"><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></button>
     <button class="iconbtn" id="winBtn" title="New window" aria-label="New window"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v11"/></svg></button>
     <button class="jump" id="jumpBtn"><svg><use href="#i-search"/></svg><span>Jump to anything…</span><kbd>⌘K</kbd></button>
     <button class="iconbtn" id="keysBtn" title="Help and keyboard shortcuts" aria-label="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg></button>
-    <span class="avatar">Y</span>
   </div>
   <div id="banner"><span id="bannerText"></span><span class="spacer"></span><button class="btn small primary" id="bannerBtn">Download</button><button class="iconbtn" id="bannerX" aria-label="Dismiss"><svg><use href="#i-x"/></svg></button></div>
   <div class="page">
@@ -512,7 +523,6 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
       <button class="ghost" id="planBtn" title="Plan mode: research and propose a plan before changing anything"><svg><use href="#i-map"/></svg>Plan mode</button>
       <button class="tagbtn" id="browserToggle" title="Built-in browser"><i class="dot"></i>Browser preview</button>
       <button class="ghost" id="termToggle" title="Terminal (Ctrl+`)"><svg><use href="#i-term"/></svg>Terminal</button>
-      <button class="ghost" id="runtimeBtn">Connect runtime <svg><use href="#i-up"/></svg></button>
     </div>
     <div class="grid">
       <section class="card chatcard">
@@ -525,7 +535,7 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
           <button class="ctab" data-c="git"><svg><use href="#i-folder"/></svg>Files<em id="fileCount"></em></button>
           <button class="ctab" data-c="term"><svg><use href="#i-term"/></svg>Run logs</button>
           <button class="ctab" data-c="browser"><svg><use href="#i-eye"/></svg>Preview</button>
-          <span class="spacer"></span><span class="safe"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Safe preview</span>
+          <span class="spacer"></span>
         </nav>
         <div class="cbody">
           <section id="welcome">
@@ -599,15 +609,16 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
           <div class="rrow ctx"><span class="rico"><svg><use href="#i-file"/></svg></span><span><b id="railCtx">No project instructions</b><small id="railCtxSub">Memory enabled</small></span></div>
           <div class="savednote"><svg><use href="#i-undo"/></svg>Your next edit, safely saved.<span class="spacer"></span><button class="linkbtn" id="railUndo">View</button></div>
         </div>
-        <div class="card promo2"><small>Open by design</small><b class="serif">Yours. All the way down.</b><p>A real Python harness. No black boxes.</p><a id="zipBtn2">Download the project <svg><use href="#i-up"/></svg></a></div>
       </aside>
     </div>
-    <div class="pagefoot"><span>✳ Built to do more, with you in control.</span><button class="linkbtn" id="footKeys">Keyboard shortcuts <kbd>?</kbd></button></div>
   </div>
 </main>
 
 
 
+<dialog id="modelPicker" aria-label="Choose a model"><input id="mpSearch" placeholder="Search models…" aria-label="Search models">
+  <div id="mpInfo"></div><div id="mpList"></div>
+  <div class="mpfoot"><button class="linkbtn" id="mpSettings">Provider, key &amp; more settings</button><button class="linkbtn" id="mpRefresh">Refresh list</button></div></dialog>
 <dialog id="keys" aria-label="Keyboard shortcuts"><div class="dlg-head"><h2 class="serif">Keyboard shortcuts</h2><button class="iconbtn" id="closeKeys" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
   <div class="dlg-body"><table>
     <tr><td><kbd>Enter</kbd></td><td>Send</td></tr><tr><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>New line</td></tr>
@@ -1377,14 +1388,13 @@ $("navTasks").onclick = $("taskBoardBtn").onclick = () => { navSet("navTasks"); 
 document.querySelectorAll("[data-set]").forEach(b => b.onclick = () => openSettings(b.dataset.set === "instr" ? "instr" : b.dataset.set));
 $("navUsage").onclick = () => uiCommand("cost");
 $("navActivity").onclick = () => api("/api/logs/open").catch(e => notice(e.message));
-$("navHelp").onclick = $("footKeys").onclick = () => $("keys").showModal();
+$("navHelp").onclick = () => $("keys").showModal();
 $("wsBox").onclick = $("railWsBtn").onclick = () => openSettings("model");
-$("railModelBtn").onclick = $("runtimeBtn").onclick = () => openSettings("model");
+$("railModelBtn").onclick = () => openModelPicker();
 $("viewCodeBtn").onclick = () => openPanel("git");
 $("newSessionBtn").onclick = () => $("newchat").click();
 $("exportBtn").onclick = () => uiCommand("export");
-const repoZip = () => api("/api/open-url", { url: "https://github.com/lightcode4/incredible-herness/archive/refs/heads/main.zip" }).catch(() => {});
-$("zipBtn").onclick = $("zipBtn2").onclick = repoZip;
+
 $("checkpointsBtn").onclick = $("railUndo").onclick = () => {
   const btns = [...document.querySelectorAll(".turnfoot button")];
   if (btns.length) { btns[btns.length - 1].scrollIntoView({ behavior: "smooth", block: "center" }); btns[btns.length - 1].focus(); }
@@ -1413,7 +1423,7 @@ showConfig = function (c) {
   $("railWsSub").textContent = (c.sandbox && c.sandbox !== "off" ? "Sandboxed" : "Full access") + " · " + (c.auto ? "Auto-approve" : "Asks first");
   $("railCtx").textContent = c.instructions?.length ? c.instructions.join(", ") + " loaded" : "No project instructions";
   $("railCtxSub").textContent = (c.rules?.allow?.length || 0) + (c.rules?.deny?.length || 0) + " rules · Memory enabled";
-  $("toolCount").textContent = (c.mcp_status || []).reduce((a, m) => a + (m.tools || 0), 0) || "·";
+  $("toolCount").textContent = (c.mcp_status || []).reduce((a, m) => a + (m.tools || 0), 0) || "";
   $("planBtn").classList.toggle("on", !!c.plan);
   $("footMode").textContent = (c.auto ? "Auto-approve" : "Approval on") + " · " + (c.sandbox && c.sandbox !== "off" ? "sandboxed" : "unsandboxed");
 };
@@ -1474,6 +1484,49 @@ $("testConn").onclick = async () => {
   const r = await api("/api/test-connection", connBody()).catch(e => ({ error: e.message }));
   $("connResult").textContent = r.ok ? `✓ Works — the model replied “${r.reply}”.` : r.error; $("connResult").style.color = r.ok ? "var(--ok)" : "var(--bad)";
 };
+
+// ---------- Model picker (live list from the provider) ----------
+let mpModels = [], mpSel = 0, mpLoaded = "";
+async function openModelPicker() {
+  $("modelPicker").showModal(); $("mpSearch").value = ""; $("mpSearch").focus();
+  const key = config.provider + "|" + (config.base_url || "");
+  if (mpLoaded !== key || !mpModels.length) await mpFetch(); else mpRender();
+}
+async function mpFetch() {
+  $("mpInfo").textContent = "Loading models from your provider…"; $("mpList").innerHTML = "";
+  const r = await api("/api/models", {}).catch(e => ({ error: e.message }));
+  if (r.error) { mpModels = []; $("mpInfo").textContent = r.error; mpRender(); return; }
+  mpModels = r.models; mpLoaded = config.provider + "|" + (config.base_url || "");
+  $("models").innerHTML = mpModels.map(m => `<option value="${esc(m)}">`).join("");
+  mpRender();
+}
+function mpRender() {
+  const q = $("mpSearch").value.trim().toLowerCase();
+  const list = (mpModels.length ? mpModels : (MODELS[config.provider] || [])).filter(m => !q || m.toLowerCase().includes(q));
+  if (q && !list.includes($("mpSearch").value.trim())) list.push($("mpSearch").value.trim());
+  if (mpModels.length) $("mpInfo").textContent = `${mpModels.length} models available · ${({ claude: "Anthropic", openai: config.base_url || "OpenAI", local: "local server" })[config.provider]}`;
+  mpSel = Math.min(mpSel, Math.max(0, list.length - 1));
+  $("mpList").innerHTML = "";
+  list.slice(0, 200).forEach((m, i) => { const r = el("div", "mp" + (m === config.model ? " cur" : "") + (i === mpSel ? " sel" : "")); r.textContent = m; r.onclick = () => mpChoose(m); $("mpList").appendChild(r); });
+  $("mpList")._items = list;
+}
+async function mpChoose(m) {
+  $("modelPicker").close();
+  try { await api("/api/config", { model: m }); startChatting(); notice(`Model switched to ${m}.`); } catch (e) { startChatting(); notice(e.message); }
+}
+$("mpSearch").addEventListener("input", () => { mpSel = 0; mpRender(); });
+$("mpSearch").addEventListener("keydown", e => {
+  const list = $("mpList")._items || [];
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); mpSel = (mpSel + (e.key === "ArrowDown" ? 1 : -1) + list.length) % Math.max(1, list.length); mpRender(); $("mpList").querySelector(".sel")?.scrollIntoView({ block: "nearest" }); }
+  else if (e.key === "Enter" && list[mpSel]) { e.preventDefault(); mpChoose(list[mpSel]); }
+});
+$("mpRefresh").onclick = mpFetch;
+$("mpSettings").onclick = () => { $("modelPicker").close(); openSettings("model"); };
+$("modelPicker").addEventListener("click", e => { if (e.target === $("modelPicker")) $("modelPicker").close(); });
+$("modelPill").onclick = openModelPicker;
+// settings: load the model list automatically when the dialog opens on the Model tab
+const _openSettings2 = openSettings;
+openSettings = async function (tab) { await _openSettings2(tab); if (!tab || tab === "model") $("loadModels").click(); };
 
 loadChats(); $("input").focus();
 setTimeout(() => { if (config.build > 0) api("/api/update").then(r => { if (r.update) showUpdate(r); }).catch(() => {}); }, 4000);
