@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 (async () => {
   const url = process.argv[2]; const b = await chromium.launch();
-  const pg = await b.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, colorScheme: 'light' });
+  const pg = await b.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: 'light' });
   const errors = []; pg.on('pageerror', e => errors.push(String(e)));
   await pg.goto(url); await pg.waitForFunction(() => document.getElementById('modelName').textContent !== 'model');
   await pg.screenshot({ path: 'shot-1-welcome.png' });
@@ -20,15 +20,15 @@ const { chromium } = require('playwright');
   await pg.waitForFunction(() => document.querySelector('#termBox').innerText.includes('hello from the herness terminal\n') || document.querySelector('#termBox .xterm-rows').innerText.split('hello from the herness terminal').length > 2, null, { timeout: 15000 });
   await pg.screenshot({ path: 'shot-6-terminal.png' });
   // Browser panel: navigate with the URL bar, click inside the page
-  await pg.click('.ptabs .tab[data-v="browser"]'); await pg.fill('#burl', process.argv[3]); await pg.press('#burl', 'Enter');
+  await pg.click('.ctab[data-c="browser"]'); await pg.fill('#burl', process.argv[3]); await pg.press('#burl', 'Enter');
   await pg.waitForSelector('#bimg[src^="data:"]', { timeout: 30000 }); await pg.waitForTimeout(800);
   const box = await pg.locator('#bimg').boundingBox();
   await pg.mouse.click(box.x + box.width * 0.1, box.y + box.height * 0.27); await pg.waitForTimeout(1500);
   await pg.screenshot({ path: 'shot-7-browser.png' });
   // Git panel
-  await pg.click('.ptabs .tab[data-v="git"]'); await pg.waitForSelector('.gfile', { timeout: 10000 });
+  await pg.click('.ctab[data-c="git"]'); await pg.waitForSelector('.gfile', { timeout: 10000 });
   await pg.click('.gfile'); await pg.waitForTimeout(500); await pg.screenshot({ path: 'shot-8-git.png' });
-  await pg.click('#closePanel');
+  await pg.click('.ctab[data-c="chat"]');
   // Slash command menu
   await pg.fill('#input', '/re'); await pg.waitForSelector('#cmdMenu.show'); await pg.screenshot({ path: 'shot-9-commands.png' });
   await pg.fill('#input', '');

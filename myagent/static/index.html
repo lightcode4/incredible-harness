@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Incredible Herness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif&display=swap">
 <link rel="stylesheet" href="/vendor/xterm.css">
 <script src="/vendor/xterm.js"></script>
 <script src="/vendor/addon-fit.js"></script>
@@ -286,6 +288,140 @@ body.agent-browsing .agentbadge { display: block; }
 .lmcp textarea { min-height: 40px; font-family: ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
 .mstat { font-size: 12px; color: var(--muted); } .mstat.bad { color: var(--bad); } .mstat.ok { color: var(--ok); }
 @media (max-width: 760px) { aside { position: absolute; z-index: 5; height: 100%; } #welcome h1 { font-size: 28px; } #costPill { display: none; } }
+
+/* ===================== Harness design (sage) ===================== */
+:root {
+  --bg: #f7f8f4; --side: #eff2e9; --panel: #ffffff; --text: #2d3b2c; --muted: #8b9382; --faint: #a0a794; --body: #687260;
+  --line: #e1e6da; --line-soft: #e9ede3; --accent: #526c40; --accent-hover: #35492e; --accent-text: #fff; --hover: #f6f8f2;
+  --user: #e6eddd; --code: #f3f5ef; --codeblock: #24301f; --codetext: #e8eee0; --ok: #526c40; --bad: #b76360; --warn: #cb8d68; --plan: #526c40;
+  --soft: #e6eddd; --shadow: 0 1px 2px rgba(45,59,44,.04), 0 8px 24px rgba(45,59,44,.05);
+  --sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --serifF: "Instrument Serif", Georgia, serif; --monoF: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161a14; --side: #1b2018; --panel: #20261d; --text: #e5eadc; --muted: #98a28d; --faint: #6f7866; --body: #aab39f;
+  --line: #313a2b; --line-soft: #2a3225; --accent: #8fb071; --accent-hover: #a5c487; --accent-text: #12160f; --hover: #262d22;
+  --user: #2c3726; --code: #262d22; --codeblock: #12160f; --codetext: #e5eadc; --ok: #8fb071; --bad: #e29a96; --warn: #e2b08f; --plan: #8fb071;
+  --soft: #2c3726; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.3);
+} }
+body { font-family: var(--sans); font-size: 14.5px; background: var(--bg); }
+.serif, h1.serif, .assistant h1, .assistant h2, .assistant h3 { font-family: var(--serifF); font-weight: 400; }
+.mono, code, pre, .toolcard .sum, kbd, .codeblock pre { font-family: var(--monoF) !important; }
+aside { width: 232px; background: var(--side); padding: 18px 12px 12px; overflow-y: auto; gap: 1px; }
+aside.hidden { margin-left: -232px; }
+.brand { padding: 0 6px 14px; gap: 8px; }
+.brand .logo { width: auto; height: auto; background: none; color: var(--text); font-size: 30px; font-style: italic; font-weight: 700; }
+.brand b { font-size: 26px; color: var(--faint); font-weight: 400; } .brand b span { color: var(--accent); }
+.wsbox { display: flex; align-items: center; gap: 10px; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 9px 10px; margin-bottom: 6px; text-align: left; }
+.wsbox svg { width: 14px; height: 14px; transform: rotate(90deg); color: var(--muted); }
+.wsav { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; font-weight: 600; flex: none; }
+.wst { flex: 1; min-width: 0; } .wst b, .who b { display: block; font-size: 13.5px; } .wst small, .who small { display: flex; gap: 5px; align-items: center; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.section { text-transform: uppercase; letter-spacing: .12em; font-size: 10.5px; color: var(--faint); padding: 14px 10px 6px; }
+.navbtn { font-size: 14px; color: var(--body); padding: 7px 10px; border-radius: 9px; }
+.navbtn svg { width: 17px; height: 17px; color: var(--muted); }
+.navbtn em { margin-left: auto; font-style: normal; font-size: 11px; color: var(--muted); background: var(--line-soft); border-radius: 6px; padding: 0 6px; }
+.navbtn.on { background: var(--soft); color: var(--text); font-weight: 600; } .navbtn.on svg { color: var(--accent); }
+.navbtn.newchat { color: var(--accent); font-weight: 600; }
+#sessBox { display: none; margin: 2px 0 6px 8px; border-left: 1px solid var(--line); padding-left: 6px; }
+#sessBox.open { display: block; } #chatList { max-height: 260px; }
+.promo { margin: 14px 2px 8px; background: var(--accent-hover); color: #eef3e6; border-radius: 12px; padding: 14px; display: grid; gap: 8px; position: relative; overflow: hidden; }
+.promo small, .promo2 small { text-transform: uppercase; letter-spacing: .12em; font-size: 9.5px; opacity: .75; }
+.promo b { font-size: 24px; line-height: 1.1; font-weight: 400; }
+.promo a { display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,.3); border-radius: 8px; padding: 6px 9px; font-size: 12px; cursor: pointer; }
+.promo a svg, .promo2 a svg, .linkbtn svg { width: 13px; height: 13px; transform: rotate(45deg); }
+.side-foot { margin-top: 6px; }
+.who { display: flex; gap: 10px; align-items: center; padding: 10px 6px 2px; border-top: 1px solid var(--line); margin-top: 6px; }
+.who .wsav { background: #ecdcc9; color: #8a6a4c; border-radius: 50%; }
+.topbar { border-bottom: 1px solid var(--line); padding: 10px 24px; min-height: 60px; gap: 10px; background: var(--bg); }
+.crumbs { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); } .crumbs svg { width: 16px; height: 16px; }
+.crumbs button { border: 0; background: none; color: var(--muted); padding: 0; } .crumbs b { color: var(--text); font-weight: 500; } .crumbs i { font-style: normal; color: var(--faint); }
+.live { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
+#costPill { border: 0; background: none; font-family: var(--monoF); font-size: 12.5px; } #costPill b { color: var(--accent); }
+.jump { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 6px 10px; color: var(--muted); min-width: 200px; font-size: 13px; }
+.jump svg { width: 15px; height: 15px; } .jump span { flex: 1; text-align: left; }
+.jump kbd, .pagefoot kbd { font-size: 10.5px; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; background: var(--bg); }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: #ecdcc9; color: #8a6a4c; display: grid; place-items: center; font-size: 13px; }
+main { overflow: hidden; }
+.page { flex: 1; min-height: 0; overflow-y: auto; padding: 26px 32px 14px; display: flex; flex-direction: column; gap: 16px; }
+.pagehead { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.eyebrow { text-transform: uppercase; letter-spacing: .18em; font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.eyebrow::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--warn); }
+.pagehead h1 { font-size: 46px; line-height: 1.05; margin: 6px 0 4px; letter-spacing: -.01em; }
+.pagehead .sub { margin: 0; color: var(--body); font-size: 14px; }
+.btn { display: inline-flex; align-items: center; gap: 7px; border-radius: 10px; padding: 8px 14px; border-color: var(--line); }
+.btn svg { width: 15px; height: 15px; } .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.ghostbtn { border: 0; background: none; color: var(--body); display: flex; gap: 6px; align-items: center; font-size: 13.5px; padding: 8px; }
+.ghostbtn svg { width: 15px; height: 15px; }
+.modelbar { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; flex-wrap: wrap; }
+.modelchip { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 2px 10px 2px 0; border-right: 1px solid var(--line); }
+.modelchip b { font-weight: 600; font-size: 14.5px; } .modelchip small { color: var(--muted); font-size: 11.5px; }
+.modelchip svg { width: 13px; height: 13px; transform: rotate(90deg); color: var(--muted); }
+.mlogo { width: 30px; height: 30px; border-radius: 8px; background: #f6e9dd; color: #c47d4f; display: grid; place-items: center; font-size: 18px; flex: none; }
+.sdk { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; } .sdk svg { width: 13px; height: 13px; }
+.modelbar .ghost { border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; font-size: 12.5px; }
+.modelbar .ghost.on { background: var(--soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.tagbtn { border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 10%, var(--panel)); color: var(--warn); border-radius: 6px; padding: 4px 9px; font-size: 11.5px; display: flex; gap: 6px; align-items: center; }
+.tagbtn .dot { background: var(--warn); width: 5px; height: 5px; }
+#runtimeBtn svg { width: 12px; height: 12px; transform: rotate(45deg); }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; flex: 1; min-height: 560px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+.chatcard { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.cardhead { display: flex; align-items: center; gap: 10px; padding: 14px 16px 6px; }
+.chaticon { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 10px; display: grid; place-items: center; color: var(--muted); }
+.chaticon svg { width: 16px; height: 16px; } .ctitle b { display: block; font-size: 14.5px; font-weight: 600; } .ctitle small { color: var(--muted); font-size: 11.5px; }
+.status { font-size: 11px; color: var(--accent); background: var(--soft); border-radius: 6px; padding: 2px 8px; display: flex; gap: 5px; align-items: center; }
+.status::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.status.busy { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--panel)); }
+.ctabs { display: flex; align-items: center; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+.ctab { border: 0; background: none; color: var(--muted); font-size: 13.5px; padding: 12px 8px; border-bottom: 2px solid transparent; display: flex; gap: 6px; align-items: center; margin-bottom: -1px; }
+.ctab svg { width: 15px; height: 15px; } .ctab.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.ctab em { font-style: normal; font-size: 10.5px; background: var(--line-soft); border-radius: 5px; padding: 0 5px; color: var(--muted); }
+.safe { font-size: 11px; color: var(--faint); display: flex; gap: 5px; align-items: center; } .safe svg { width: 13px; height: 13px; }
+.cbody { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+#welcome { flex: 1; padding: 30px 24px; justify-content: center; }
+.empty { font-size: 30px; color: var(--text); margin-bottom: 14px; text-align: center; }
+body:not(.chatting) #scroll { display: none; } body.chatting #welcome { display: none; }
+body:not(.chatting) #dock, #dock { display: flex; }
+#scroll { flex: 1; } .col { max-width: 900px; padding: 0 22px; }
+#panel { display: none; flex: 1; min-height: 0; flex-direction: column; width: auto; max-width: none; min-width: 0; border-left: 0; position: static; }
+body.panel-open #panel { display: flex; } body.panel-open #scroll, body.panel-open #welcome { display: none !important; }
+#dock { border-top: 1px solid var(--line); padding: 12px 16px 10px; flex-direction: column; align-items: stretch; gap: 6px; }
+.composer { max-width: none; border-radius: 12px; box-shadow: none; }
+.send { border-radius: 9px; }
+.foot { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); } .foot span { display: flex; gap: 5px; align-items: center; } .foot svg { width: 11px; height: 11px; }
+.user { background: var(--soft); border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line)); border-radius: 12px; }
+details.toolcard { border-radius: 10px; box-shadow: none; }
+.rail { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.overview { padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 6px; }
+.ovhead { display: flex; justify-content: space-between; align-items: center; } .ovhead b { font-weight: 600; font-size: 15px; }
+.ovplan { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--body); margin-top: 4px; } #todoFrac { font-family: var(--monoF); color: var(--muted); }
+.bar { height: 4px; background: var(--line-soft); border-radius: 4px; overflow: hidden; } .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.rail #todos { display: block; border: 0; background: none; } .rail #todos ul { padding: 4px 0; max-height: 200px; }
+.rail #todos li { font-size: 12.5px; color: var(--body); } .rail #todos li.completed { color: var(--muted); text-decoration: none; }
+.linkbtn { border: 0; background: none; color: var(--muted); font-size: 11.5px; display: inline-flex; gap: 4px; align-items: center; padding: 2px 0; }
+.rsec { text-transform: uppercase; letter-spacing: .12em; font-size: 9.5px; color: var(--faint); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
+.rrow { display: flex; align-items: center; gap: 10px; border: 0; background: none; text-align: left; padding: 4px 0; width: 100%; }
+.rrow > span:nth-child(2) { flex: 1; min-width: 0; } .rrow b { display: block; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rrow small { font-size: 11px; color: var(--muted); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rrow > svg { width: 13px; height: 13px; color: var(--faint); }
+.rico { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 8px; display: grid; place-items: center; color: var(--muted); flex: none; } .rico svg { width: 15px; height: 15px; }
+.nums { display: flex; gap: 18px; padding: 8px 0; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); margin-top: 6px; }
+.nums small { display: block; font-size: 10.5px; color: var(--faint); } .nums b { font-family: var(--monoF); font-weight: 500; font-size: 17px; color: var(--accent); }
+.savednote { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding-top: 6px; } .savednote svg { width: 12px; height: 12px; }
+.promo2 { padding: 18px; background: linear-gradient(135deg, var(--soft), var(--panel)); display: grid; gap: 6px; }
+.promo2 small { color: var(--muted); } .promo2 b { font-size: 28px; font-weight: 400; color: var(--text); line-height: 1.1; } .promo2 p { margin: 0; font-size: 11.5px; color: var(--muted); }
+.promo2 a { color: var(--accent); font-size: 12.5px; display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+.pagefoot { display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); padding: 0 2px; }
+#todos summary { display: none; }
+#palette { width: min(560px, 92vw); } #palette input { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 14px 16px; font-size: 15px; outline: none; }
+#palList { max-height: 360px; overflow-y: auto; padding: 6px; } .pal { padding: 8px 10px; border-radius: 8px; display: flex; gap: 10px; font-size: 13.5px; cursor: pointer; }
+.pal small { color: var(--muted); margin-left: auto; } .pal.on, .pal:hover { background: var(--hover); }
+@media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } .rail { display: none; } .jump span, .live { display: none; } .jump { min-width: 0; } }
+@media (max-width: 760px) { .page { padding: 16px; } .pagehead h1 { font-size: 34px; } .pagehead .btn:not(.primary), .ghostbtn { display: none; } }
+
+.rail { width: auto; background: none; padding: 0; border: 0; overflow: visible; margin: 0; }
+#side > * { flex: none; } #side #sessBox { flex: none; }
+.ovhead b { white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -317,70 +453,97 @@ body.agent-browsing .agentbadge { display: block; }
 </svg>
 <div id="dropHint">Drop files to attach</div>
 
-<aside id="side">
-  <div class="brand"><div class="logo"><svg><use href="#i-spark"/></svg></div><b class="serif">Incredible Herness</b></div>
-  <button class="navbtn newchat" id="newchat"><svg><use href="#i-plus"/></svg>New chat</button>
-  <button class="navbtn small" id="parallelChat" title="Run another agent at the same time on its own git branch and folder"><svg><use href="#i-agent"/></svg>Parallel chat (worktree)</button>
-  <div class="section">Recent chats</div>
-  <div id="chatList"></div>
+<aside id="side" aria-label="Navigation">
+  <div class="brand"><div class="logo serif" aria-hidden="true">H</div><b class="serif">herness<span>.</span></b></div>
+  <button class="wsbox" id="wsBox" title="Workspace folder"><span class="wsav">M</span><span class="wst"><b id="wsName">My workspace</b><small id="wsPath">Personal workspace</small></span><svg><use href="#i-chev"/></svg></button>
+  <div class="section">Workspace</div>
+  <button class="navbtn on" id="navPlay"><svg><use href="#i-spark"/></svg>Agent playground</button>
+  <button class="navbtn" id="navSessions"><svg><use href="#i-list"/></svg>Sessions<em id="sessCount">0</em></button>
+  <div id="sessBox"><button class="navbtn newchat" id="newchat"><svg><use href="#i-plus"/></svg>New session</button>
+    <button class="navbtn small" id="parallelChat" title="Run another agent at the same time on its own git branch and folder"><svg><use href="#i-agent"/></svg>Parallel session (worktree)</button>
+    <div id="chatList"></div></div>
+  <button class="navbtn" id="navFiles"><svg><use href="#i-folder"/></svg>Workspace</button>
+  <button class="navbtn" id="navTasks"><svg><use href="#i-list"/></svg>Tasks &amp; plans</button>
+  <button class="navbtn" id="navGit"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-4 3.5-10 5.5"/></svg>Source control</button>
+  <div class="section">Make it yours</div>
+  <button class="navbtn" data-set="instr"><svg><use href="#i-file"/></svg>Context &amp; rules</button>
+  <button class="navbtn" data-set="model"><svg><use href="#i-brain"/></svg>Models</button>
+  <button class="navbtn" data-set="tools"><svg><use href="#i-term"/></svg>Tools<em id="toolCount">·</em></button>
+  <button class="navbtn" data-set="mcp"><svg><use href="#i-plug"/></svg>Connectors</button>
+  <button class="navbtn" data-set="sched"><svg><use href="#i-map"/></svg>Automations</button>
+  <button class="navbtn" id="navUsage"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Usage &amp; cost</button>
+  <button class="navbtn" id="navActivity"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Activity</button>
+  <div class="promo"><small>Open by design</small><b class="serif">Small harness. Big possibilities.</b><a id="zipBtn">Get the project ZIP <svg><use href="#i-up"/></svg></a></div>
   <div class="side-foot">
-    <div class="who"><span class="dot" id="dot"></span><span id="who">Connecting…</span></div>
     <button class="navbtn" id="openSettings"><svg><use href="#i-gear"/></svg>Settings</button>
+    <button class="navbtn" id="navHelp"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg>A little help<em>?</em></button>
+    <div class="who"><span class="wsav">Y</span><span><b>Your workspace</b><small><span class="dot" id="dot"></span><span id="who">Local &amp; private</span></small></span></div>
   </div>
 </aside>
 
 <main>
   <div class="topbar">
     <button class="iconbtn" id="toggleSide" title="Toggle sidebar (Ctrl+B)" aria-label="Toggle sidebar"><svg><use href="#i-side"/></svg></button>
-    <button class="pill" id="folderPill" title="Working folder"><svg><use href="#i-folder"/></svg><span id="folderName">…</span></button>
-    <button class="pill" id="wtPill" hidden title="This chat works on its own branch in a separate folder"><svg><use href="#i-map"/></svg><span id="wtName"></span></button>
-    <span class="pill" id="instrPill" hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
+    <span class="crumbs"><svg><use href="#i-folder"/></svg><button id="folderPill" title="Working folder"><span id="folderName">My workspace</span></button><i>/</i><b id="crumbHere">Agent playground</b></span>
+    <button class="pill" id="wtPill" hidden title="This session works on its own branch in a separate folder"><svg><use href="#i-map"/></svg><span id="wtName"></span></button>
     <span class="spacer"></span>
-    <button class="iconbtn" id="shareBtn" title="Share this chat (GitHub gist)" aria-label="Share this chat"><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></button>
+    <span class="live"><i class="dot"></i>Local-first workspace</span>
+    <span class="pill" id="costPill" title="Cost and tokens for this session"><b id="cost">$0.00</b><span id="tokens">0 tokens</span></span>
+    <button class="iconbtn" id="shareBtn" title="Share this session (GitHub gist)" aria-label="Share"><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></button>
     <button class="iconbtn" id="winBtn" title="New window" aria-label="New window"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v11"/></svg></button>
-    <button class="iconbtn" id="keysBtn" title="Keyboard shortcuts (Ctrl+/)" aria-label="Keyboard shortcuts"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></button>
-    <button class="iconbtn" id="termToggle" title="Terminal (Ctrl+`)" aria-label="Terminal"><svg><use href="#i-term"/></svg></button>
-    <button class="iconbtn" id="browserToggle" title="Browser" aria-label="Browser"><svg><use href="#i-globe"/></svg></button>
-    <span class="pill" id="costPill" title="Cost and tokens for this chat"><b id="cost">$0.00</b><span id="tokens">0 tokens</span></span>
+    <button class="jump" id="jumpBtn"><svg><use href="#i-search"/></svg><span>Jump to anything…</span><kbd>⌘K</kbd></button>
+    <button class="iconbtn" id="keysBtn" title="Help and keyboard shortcuts" aria-label="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg></button>
+    <span class="avatar">Y</span>
   </div>
-  <div id="banner"><span id="bannerText"></span><span class="spacer"></span><button class="btn small primary" id="bannerBtn">Download</button><button class="iconbtn" id="bannerX"><svg><use href="#i-x"/></svg></button></div>
-
-  <section id="welcome">
-    <h1 class="serif"><span class="logo"><svg><use href="#i-spark"/></svg></span><span id="greet">What are we building?</span></h1>
-    <div class="composer" id="composer">
-      <div id="cmdMenu"></div>
-      <div id="files"></div>
-      <textarea id="input" aria-label="Message" rows="1" placeholder="Ask Incredible Herness to build, fix or explain something… (type / for commands)"></textarea>
-      <div class="comp-row">
-        <button class="ghost" id="attach" title="Attach images, PDFs or text files" aria-label="Attach files"><svg><use href="#i-clip"/></svg></button>
-        <button class="ghost" id="micBtn" title="Voice typing" aria-label="Voice typing"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
-        <button class="ghost" id="planBtn" title="Plan mode: research and propose a plan before changing anything"><svg><use href="#i-map"/></svg>Plan</button>
-        <button class="ghost" id="modelPill"><span id="modelName">model</span></button>
-        <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg><use href="#i-up"/></svg></button>
-      </div>
-      <input type="file" id="fileInput" multiple hidden>
+  <div id="banner"><span id="bannerText"></span><span class="spacer"></span><button class="btn small primary" id="bannerBtn">Download</button><button class="iconbtn" id="bannerX" aria-label="Dismiss"><svg><use href="#i-x"/></svg></button></div>
+  <div class="page">
+    <div class="pagehead">
+      <div><div class="eyebrow">Your personal agent</div><h1 class="serif" id="greet">Good things start here.</h1><p class="sub">A little intelligence. A lot of possibility.</p></div>
+      <span class="spacer"></span>
+      <button class="ghostbtn" id="checkpointsBtn" title="Undo the most recent file changes"><svg><use href="#i-undo"/></svg>Checkpoints</button>
+      <button class="btn" id="viewCodeBtn"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>View code</button>
+      <button class="btn primary" id="newSessionBtn"><svg><use href="#i-plus"/></svg>New session</button>
     </div>
-    <div class="chips">
-      <button class="chip">Explain what this folder contains</button>
-      <button class="chip">Find and fix a bug</button>
-      <button class="chip">Write tests for my code</button>
-      <button class="chip">Build a small web page and preview it</button>
+    <div class="modelbar">
+      <button class="modelchip" id="modelPill"><span class="mlogo serif">✳</span><b id="modelName">model</b><small id="modelBy">by Anthropic</small><svg><use href="#i-chev"/></svg></button>
+      <span class="sdk"><i class="dot"></i><span id="sdkName">Anthropic SDK</span></span>
+      <span id="instrPill" class="sdk" hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
+      <span class="spacer"></span>
+      <button class="ghost" id="planBtn" title="Plan mode: research and propose a plan before changing anything"><svg><use href="#i-map"/></svg>Plan mode</button>
+      <button class="tagbtn" id="browserToggle" title="Built-in browser"><i class="dot"></i>Browser preview</button>
+      <button class="ghost" id="termToggle" title="Terminal (Ctrl+`)"><svg><use href="#i-term"/></svg>Terminal</button>
+      <button class="ghost" id="runtimeBtn">Connect runtime <svg><use href="#i-up"/></svg></button>
     </div>
-  </section>
-
-  <div id="scroll"><div class="col"><div id="log" role="log" aria-live="polite" aria-label="Conversation"></div></div></div>
-  <div id="dock"><details id="todos" open><summary><svg><use href="#i-list"/></svg><span id="todoSum">Tasks</span></summary><ul id="todoList"></ul></details></div>
-</main>
-
-<section id="panel">
-  <div id="resizer"></div>
-  <div class="ptabs">
-    <button class="tab" data-v="term"><svg><use href="#i-term"/></svg>Terminal</button>
-    <button class="tab" data-v="browser"><svg><use href="#i-globe"/></svg>Browser</button>
-    <button class="tab" data-v="git"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-4 3.5-10 5.5"/></svg>Git</button>
-    <span class="spacer"></span>
-    <button class="iconbtn" id="closePanel" title="Close panel"><svg><use href="#i-x"/></svg></button>
-  </div>
+    <div class="grid">
+      <section class="card chatcard">
+        <div class="cardhead"><span class="chaticon"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
+          <span class="ctitle"><b id="chatHead">New session</b><small id="chatSub">Local workspace</small></span>
+          <span class="spacer"></span><span class="status" id="chatStatus">Ready</span>
+          <button class="iconbtn" id="exportBtn" title="Export conversation" aria-label="Export conversation"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></button></div>
+        <nav class="ctabs" role="tablist">
+          <button class="ctab on" data-c="chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Conversation</button>
+          <button class="ctab" data-c="git"><svg><use href="#i-folder"/></svg>Files<em id="fileCount"></em></button>
+          <button class="ctab" data-c="term"><svg><use href="#i-term"/></svg>Run logs</button>
+          <button class="ctab" data-c="browser"><svg><use href="#i-eye"/></svg>Preview</button>
+          <span class="spacer"></span><span class="safe"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Safe preview</span>
+        </nav>
+        <div class="cbody">
+          <section id="welcome">
+            <div class="empty serif">What would you like to build?</div>
+            <div class="chips">
+              <button class="chip">Explain what this folder contains</button>
+              <button class="chip">Find and fix a bug</button>
+              <button class="chip">Write tests for my code</button>
+              <button class="chip">Build a small web page and preview it</button>
+            </div>
+          </section>
+          <div id="scroll"><div class="col"><div id="log" role="log" aria-live="polite" aria-label="Conversation"></div></div></div>
+          <section id="panel">
+            <div class="ptabs" hidden>
+              <button class="tab" data-v="term">Terminal</button><button class="tab" data-v="browser">Browser</button><button class="tab" data-v="git">Git</button>
+              <button class="iconbtn" id="closePanel" aria-label="Close"><svg><use href="#i-x"/></svg></button>
+            </div>
+            <div id="resizer" hidden></div>
   <div class="pview" data-v="term">
     <div class="termbar"><span id="termInfo">Terminal</span><span class="spacer"></span><button class="btn small" id="termRestart">New terminal</button></div>
     <div id="termBox"></div>
@@ -404,13 +567,52 @@ body.agent-browsing .agentbadge { display: block; }
     <div id="bview" tabindex="0"><span class="agentbadge">Agent is browsing</span><img id="bimg" alt="Browser view" draggable="false">
       <div id="bempty"><b>Herness browser</b>Type a URL above, or ask the agent to open a page. You can click and type here too.<div id="bstatus" style="margin-top:10px"></div></div></div>
   </div>
-</section>
+          </section>
+        </div>
+        <div id="dock">
+<div class="composer" id="composer">
+      <div id="cmdMenu"></div>
+      <div id="files"></div>
+      <textarea id="input" aria-label="Message" rows="1" placeholder="Ask Incredible Herness to build, fix or explain something… (type / for commands)"></textarea>
+      <div class="comp-row">
+        <button class="ghost" id="attach" title="Attach images, PDFs or text files" aria-label="Attach files"><svg><use href="#i-clip"/></svg></button>
+        <button class="ghost" id="micBtn" title="Voice typing" aria-label="Voice typing"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg><use href="#i-up"/></svg></button>
+      </div>
+      <input type="file" id="fileInput" multiple hidden>
+    </div>
+          <div class="foot"><span><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Your API key. Your machine. Your rules.</span><span id="footMode">Local workspace</span></div>
+        </div>
+      </section>
+      <aside class="rail">
+        <div class="card overview">
+          <div class="ovhead"><b>Run overview</b><span class="status" id="railStatus">Idle</span></div>
+          <div class="ovplan"><span id="todoSum">No plan yet</span><span id="todoFrac"></span></div>
+          <div class="bar"><i id="todoBar"></i></div>
+          <details id="todos" open><summary hidden></summary><ul id="todoList"></ul></details>
+          <button class="linkbtn" id="taskBoardBtn">Open task board <svg><use href="#i-up"/></svg></button>
+          <div class="rsec">Model</div>
+          <button class="rrow" id="railModelBtn"><span class="mlogo serif">✳</span><span><b id="railModel">—</b><small id="railProv">—</small></span><svg><use href="#i-chev"/></svg></button>
+          <div class="rsec">Workspace</div>
+          <button class="rrow" id="railWsBtn"><span class="rico"><svg><use href="#i-folder"/></svg></span><span><b id="railWs">—</b><small id="railWsSub">—</small></span><svg><use href="#i-up"/></svg></button>
+          <div class="nums"><span><small>Tokens used</small><b id="railTok">0</b></span><span><small>Cost</small><b id="railCost">$0.00</b></span></div>
+          <div class="rrow ctx"><span class="rico"><svg><use href="#i-file"/></svg></span><span><b id="railCtx">No project instructions</b><small id="railCtxSub">Memory enabled</small></span></div>
+          <div class="savednote"><svg><use href="#i-undo"/></svg>Your next edit, safely saved.<span class="spacer"></span><button class="linkbtn" id="railUndo">View</button></div>
+        </div>
+        <div class="card promo2"><small>Open by design</small><b class="serif">Yours. All the way down.</b><p>A real Python harness. No black boxes.</p><a id="zipBtn2">Download the project <svg><use href="#i-up"/></svg></a></div>
+      </aside>
+    </div>
+    <div class="pagefoot"><span>✳ Built to do more, with you in control.</span><button class="linkbtn" id="footKeys">Keyboard shortcuts <kbd>?</kbd></button></div>
+  </div>
+</main>
+
+
 
 <dialog id="keys" aria-label="Keyboard shortcuts"><div class="dlg-head"><h2 class="serif">Keyboard shortcuts</h2><button class="iconbtn" id="closeKeys" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
   <div class="dlg-body"><table>
     <tr><td><kbd>Enter</kbd></td><td>Send</td></tr><tr><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>New line</td></tr>
     <tr><td><kbd>/</kbd></td><td>Commands menu</td></tr><tr><td><kbd>Esc</kbd></td><td>Stop the agent</td></tr>
-    <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>,</kbd></td><td>Settings</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>K</kbd></td><td>New chat</td></tr>
+    <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>,</kbd></td><td>Settings</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>K</kbd></td><td>Jump to anything</td></tr>
     <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>B</kbd></td><td>Show or hide the sidebar</td></tr><tr><td><kbd>Ctrl</kbd>+<kbd>`</kbd></td><td>Terminal</td></tr>
     <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>New window</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>/</kbd></td><td>This list</td></tr>
     <tr><td>Drag a chat</td><td>Reorder chats in the sidebar</td></tr>
@@ -1152,6 +1354,104 @@ $("bview").addEventListener("keydown", e => {
   e.preventDefault();
 });
 $("bview").addEventListener("paste", e => { const t = e.clipboardData?.getData("text"); if (t) { e.preventDefault(); binput({ type: "text", text: t }); } });
+
+
+// ===================== Harness design wiring =====================
+function dockComposer() { if (!$("dock").contains($("composer"))) $("dock").prepend($("composer")); }
+function undockComposer() { dockComposer(); }
+dockComposer();
+const _openPanel = openPanel, _closePanel = closePanel;
+openPanel = function (tab) { _openPanel(tab); setTab(tab); };
+closePanel = function () { _closePanel(); setTab("chat"); };
+function setTab(t) { document.querySelectorAll(".ctab").forEach(b => b.classList.toggle("on", b.dataset.c === t)); $("crumbHere").textContent = { chat: "Agent playground", git: "Source control", term: "Run logs", browser: "Preview" }[t] || "Agent playground"; }
+document.querySelectorAll(".ctab").forEach(b => b.onclick = () => b.dataset.c === "chat" ? closePanel() : openPanel(b.dataset.c));
+$("greet").textContent = "Good things start here.";
+const navSet = (id) => { document.querySelectorAll("aside .navbtn").forEach(b => b.classList.toggle("on", b.id === id)); };
+$("navPlay").onclick = () => { navSet("navPlay"); closePanel(); };
+$("navSessions").onclick = () => { $("sessBox").classList.toggle("open"); loadChats(); };
+$("navFiles").onclick = () => { navSet("navFiles"); openPanel("term"); };
+$("navGit").onclick = () => { navSet("navGit"); openPanel("git"); };
+$("navTasks").onclick = $("taskBoardBtn").onclick = () => { navSet("navTasks"); closePanel(); $("todos").scrollIntoView({ behavior: "smooth" }); if (!(lastTodos || []).length) { startChatting(); notice("No plan yet. For bigger jobs the agent writes one here, or turn on Plan mode."); } };
+document.querySelectorAll("[data-set]").forEach(b => b.onclick = () => openSettings(b.dataset.set === "instr" ? "instr" : b.dataset.set));
+$("navUsage").onclick = () => uiCommand("cost");
+$("navActivity").onclick = () => api("/api/logs/open").catch(e => notice(e.message));
+$("navHelp").onclick = $("footKeys").onclick = () => $("keys").showModal();
+$("wsBox").onclick = $("railWsBtn").onclick = () => openSettings("model");
+$("railModelBtn").onclick = $("runtimeBtn").onclick = () => openSettings("model");
+$("viewCodeBtn").onclick = () => openPanel("git");
+$("newSessionBtn").onclick = () => $("newchat").click();
+$("exportBtn").onclick = () => uiCommand("export");
+const repoZip = () => api("/api/open-url", { url: "https://github.com/lightcode4/incredible-herness/archive/refs/heads/main.zip" }).catch(() => {});
+$("zipBtn").onclick = $("zipBtn2").onclick = repoZip;
+$("checkpointsBtn").onclick = $("railUndo").onclick = () => {
+  const btns = [...document.querySelectorAll(".turnfoot button")];
+  if (btns.length) { btns[btns.length - 1].scrollIntoView({ behavior: "smooth", block: "center" }); btns[btns.length - 1].focus(); }
+  else { startChatting(); notice("No changes to undo yet. Every message that edits files gets an Undo button."); }
+};
+let lastTodos = [];
+const _setTodos = setTodos;
+setTodos = function (todos) {
+  lastTodos = todos || []; _setTodos(todos); $("todos").classList.add("show");
+  const done = lastTodos.filter(t => t.status === "completed").length, n = lastTodos.length;
+  $("todoSum").textContent = !n ? "No plan yet" : done === n ? "A little plan. All done." : (lastTodos.find(t => t.status === "in_progress")?.content || "Working through the plan");
+  $("todoFrac").textContent = n ? `${done} / ${n}` : ""; $("todoBar").style.width = n ? (done * 100 / n) + "%" : "0";
+};
+const _setCost = setCost;
+setCost = function (c, t, priced) { _setCost(c, t, priced); $("railTok").textContent = fmtTok(t || 0); $("railCost").textContent = money(c || 0); };
+const _showConfig = showConfig;
+showConfig = function (c) {
+  _showConfig(c);
+  const prov = { claude: "Anthropic", openai: "OpenAI-compatible", local: "Local model" }[c.provider] || c.provider;
+  $("modelName").textContent = c.model; $("modelBy").textContent = "by " + prov;
+  $("sdkName").textContent = { claude: "Anthropic SDK", openai: "OpenAI SDK", local: "Ollama / LM Studio" }[c.provider] || "";
+  $("railModel").textContent = c.model; $("railProv").textContent = prov + (c.provider === "claude" ? " · effort " + c.effort : "");
+  const cwd = c.chat_cwd || c.cwd || "", parts = cwd.split(/[\\/]/).filter(Boolean), name = parts[parts.length - 1] || "My workspace";
+  $("wsName").textContent = $("railWs").textContent = $("folderName").textContent = name;
+  $("wsPath").textContent = cwd; $("wsBox").querySelector(".wsav").textContent = name[0]?.toUpperCase() || "M";
+  $("railWsSub").textContent = (c.sandbox && c.sandbox !== "off" ? "Sandboxed" : "Full access") + " · " + (c.auto ? "Auto-approve" : "Asks first");
+  $("railCtx").textContent = c.instructions?.length ? c.instructions.join(", ") + " loaded" : "No project instructions";
+  $("railCtxSub").textContent = (c.rules?.allow?.length || 0) + (c.rules?.deny?.length || 0) + " rules · Memory enabled";
+  $("toolCount").textContent = (c.mcp_status || []).reduce((a, m) => a + (m.tools || 0), 0) || "·";
+  $("planBtn").classList.toggle("on", !!c.plan);
+  $("footMode").textContent = (c.auto ? "Auto-approve" : "Approval on") + " · " + (c.sandbox && c.sandbox !== "off" ? "sandboxed" : "unsandboxed");
+};
+const _setBusy = setBusy;
+setBusy = function (b) { _setBusy(b); for (const id of ["chatStatus", "railStatus"]) { $(id).textContent = b ? "Working" : (document.body.classList.contains("chatting") ? "Completed" : "Ready"); $(id).classList.toggle("busy", b); } };
+const _replay = replay;
+replay = function (ev) { _replay(ev); $("chatHead").textContent = ev.chat?.title || "New session"; $("chatSub").textContent = ev.chat?.worktree ? "Branch " + ev.chat.worktree.branch : (ev.chat?.cwd || "Local workspace"); setBusy(!!ev.busy); };
+const _userMsg = userMsg;
+userMsg = function (ev) { _userMsg(ev); if ($("chatHead").textContent === "New session") $("chatHead").textContent = ev.text.split("\n")[0].slice(0, 70); };
+let chatCache = [];
+const _loadChats = loadChats;
+loadChats = async function () { await _loadChats(); chatCache = [...document.querySelectorAll("#chatList .chatitem")].map(x => ({ id: x.dataset.id, title: x.title }));
+  $("sessCount").textContent = chatCache.length; };
+// Jump to anything (⌘K)
+function palette() {
+  if (!$("palette")) { const d = el("dialog"); d.id = "palette"; d.innerHTML = '<input id="palIn" placeholder="Jump to a session, command or setting…" aria-label="Search"><div id="palList"></div>'; document.body.appendChild(d);
+    $("palIn").addEventListener("input", palRender); $("palIn").addEventListener("keydown", palKey); d.addEventListener("click", e => { if (e.target === d) d.close(); }); }
+  $("palIn").value = ""; palSel = 0; palRender(); $("palette").showModal(); $("palIn").focus();
+}
+let palSel = 0, palItems = [];
+function palRender() {
+  const q = $("palIn").value.toLowerCase();
+  const nav = [["New session", () => $("newchat").click()], ["Parallel session (worktree)", () => $("parallelChat").click()], ["Source control", () => openPanel("git")],
+    ["Run logs (terminal)", () => openPanel("term")], ["Preview (browser)", () => openPanel("browser")], ["Settings", () => openSettings()], ["Models", () => openSettings("model")],
+    ["Connectors", () => openSettings("mcp")], ["Automations", () => openSettings("sched")], ["Context & rules", () => openSettings("instr")], ["Keyboard shortcuts", () => $("keys").showModal()]]
+    .map(([t, f]) => ({ t, k: "Go to", f }));
+  const cmds = (config.commands || []).map(c => ({ t: "/" + c.name, k: c.description, f: () => { $("input").value = "/" + c.name + " "; autosize(); $("input").focus(); } }));
+  const chats = chatCache.map(c => ({ t: c.title, k: "Session", f: () => api("/api/chat/open", { id: c.id }) }));
+  palItems = [...nav, ...chats, ...cmds].filter(i => !q || i.t.toLowerCase().includes(q) || i.k.toLowerCase().includes(q)).slice(0, 40);
+  palSel = Math.min(palSel, Math.max(0, palItems.length - 1));
+  $("palList").innerHTML = ""; palItems.forEach((it, i) => { const r = el("div", "pal" + (i === palSel ? " on" : "")); r.innerHTML = "<span></span><small></small>";
+    r.firstChild.textContent = it.t; r.lastChild.textContent = it.k; r.onclick = () => { $("palette").close(); it.f(); }; $("palList").appendChild(r); });
+}
+function palKey(e) {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); palSel = (palSel + (e.key === "ArrowDown" ? 1 : -1) + palItems.length) % Math.max(1, palItems.length); palRender(); }
+  else if (e.key === "Enter" && palItems[palSel]) { e.preventDefault(); $("palette").close(); palItems[palSel].f(); }
+}
+$("jumpBtn").onclick = palette;
+document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); e.stopImmediatePropagation(); palette(); } }, true);
+setTodos([]); setBusy(false);
 
 loadChats(); $("input").focus();
 setTimeout(() => { if (config.build > 0) api("/api/update").then(r => { if (r.update) showUpdate(r); }).catch(() => {}); }, 4000);
