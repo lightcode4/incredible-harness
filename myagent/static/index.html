@@ -492,6 +492,11 @@ body.models-open #modelsView { display: block !important; }
 #provMenu { left: 0; }
 #side .brand { padding-bottom: 6px; }
 #railWsBtn { cursor: pointer; } #railWsBtn:hover b { color: var(--accent); }
+.modeseg { display: flex; background: var(--side); border: 1px solid var(--line); border-radius: 11px; padding: 3px; gap: 2px; }
+.modeseg button { border: 0; background: none; color: var(--muted); border-radius: 8px; width: 36px; height: 30px; display: grid; place-items: center; }
+.modeseg button svg { width: 17px; height: 17px; } .modeseg button:hover { color: var(--text); }
+.modeseg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+#side > .newchat { margin: 4px 0 2px; }
 </style>
 </head>
 <body>
@@ -526,10 +531,11 @@ body.models-open #modelsView { display: block !important; }
 <aside id="side" aria-label="Navigation">
   <div class="brand"><div class="logo serif" aria-hidden="true">H</div><b class="serif">herness<span>.</span></b></div>
   <button class="wsbox" id="wsBox" title="Workspace folder" hidden><span class="wsav">M</span><span class="wst"><b id="wsName">My workspace</b><small id="wsPath">Personal workspace</small></span><svg><use href="#i-chev"/></svg></button>
+  <button class="navbtn newchat" id="newchat"><svg><use href="#i-plus"/></svg>New session</button>
   <div class="section">Workspace</div>
   <button class="navbtn on" id="navPlay"><svg><use href="#i-spark"/></svg>Agent playground</button>
   <button class="navbtn" id="navSessions"><svg><use href="#i-list"/></svg>Sessions<em id="sessCount">0</em></button>
-  <div id="sessBox"><button class="navbtn newchat" id="newchat"><svg><use href="#i-plus"/></svg>New session</button>
+  <div id="sessBox">
     <button class="navbtn small" id="parallelChat" title="Run another agent at the same time on its own git branch and folder"><svg><use href="#i-agent"/></svg>Parallel session (worktree)</button>
     <div id="chatList"></div></div>
   <button class="navbtn" id="navFiles"><svg><use href="#i-folder"/></svg>Workspace</button>
@@ -557,6 +563,10 @@ body.models-open #modelsView { display: block !important; }
     <button class="pill" id="wtPill" hidden title="This session works on its own branch in a separate folder"><svg><use href="#i-map"/></svg><span id="wtName"></span></button>
     <span class="spacer"></span>
     <span class="pill" id="costPill" title="Cost and tokens for this session"><b id="cost">$0.00</b><span id="tokens">0 tokens</span></span>
+    <div class="modeseg" role="tablist" aria-label="View">
+      <button id="modeChat" class="on" title="Chat" aria-label="Chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><circle cx="16.5" cy="16.5" r="3.2" fill="var(--panel)"/></svg></button>
+      <button id="modeCode" title="Code: changed files and diffs" aria-label="Code"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></button>
+    </div>
     <button class="iconbtn" id="termToggle" title="Terminal (Ctrl+`)" aria-label="Terminal"><svg><use href="#i-term"/></svg></button>
     <button class="iconbtn" id="browserToggle" title="Built-in browser" aria-label="Browser"><svg><use href="#i-globe"/></svg></button>
     <button class="jump" id="jumpBtn"><svg><use href="#i-search"/></svg><span>Jump to anything…</span><kbd>⌘K</kbd></button>
@@ -567,9 +577,9 @@ body.models-open #modelsView { display: block !important; }
     <div class="pagehead">
       <div><div class="eyebrow">Your personal agent</div><h1 class="serif" id="greet">Good things start here.</h1><p class="sub">A little intelligence. A lot of possibility.</p></div>
       <span class="spacer"></span>
-      <button class="ghostbtn" id="checkpointsBtn" title="Undo the most recent file changes"><svg><use href="#i-undo"/></svg>Checkpoints</button>
-      <button class="btn" id="viewCodeBtn"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>View code</button>
-      <button class="btn primary" id="newSessionBtn"><svg><use href="#i-plus"/></svg>New session</button>
+      <button hidden class="ghostbtn" id="checkpointsBtn" title="Undo the most recent file changes"><svg><use href="#i-undo"/></svg>Checkpoints</button>
+      <button hidden class="btn" id="viewCodeBtn"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>View code</button>
+      <button hidden class="btn primary" id="newSessionBtn"><svg><use href="#i-plus"/></svg>New session</button>
     </div>
     <div class="modelbar">
       <div id="provMenu" class="card" hidden role="menu" aria-label="Choose a provider">
@@ -708,7 +718,7 @@ body.models-open #modelsView { display: block !important; }
     <tr><td><kbd>Enter</kbd></td><td>Send</td></tr><tr><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>New line</td></tr>
     <tr><td><kbd>/</kbd></td><td>Commands menu</td></tr><tr><td><kbd>Esc</kbd></td><td>Stop the agent</td></tr>
     <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>,</kbd></td><td>Settings</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>K</kbd></td><td>Jump to anything</td></tr>
-    <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>B</kbd></td><td>Show or hide the sidebar</td></tr><tr><td><kbd>Ctrl</kbd>+<kbd>`</kbd></td><td>Terminal</td></tr>
+    <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>B</kbd></td><td>Show or hide the sidebar</td></tr><tr><td><kbd>Ctrl</kbd>+<kbd>`</kbd></td><td>Terminal</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd></td><td>Switch Chat / Code</td></tr>
     <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>New window</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>/</kbd></td><td>This list</td></tr>
     <tr><td>Drag a chat</td><td>Reorder chats in the sidebar</td></tr>
   </table></div></dialog>
@@ -1037,7 +1047,7 @@ const refreshChats = () => { clearTimeout(chatsTimer); chatsTimer = setTimeout(l
 es.onmessage = m => {
   const ev = JSON.parse(m.data);
   if (ev.kind === "replay" && ev.client && ev.client !== CLIENT) { refreshChats(); return; }
-  if (ev.chat && currentChat && ev.chat !== currentChat) { if (["status", "approve", "turn_end", "user"].includes(ev.kind)) refreshChats(); return; }
+  if (typeof ev.chat === "string" && currentChat && ev.chat !== currentChat) { if (["status", "approve", "turn_end", "user"].includes(ev.kind)) refreshChats(); return; }
   handle(ev);
 };
 es.onerror = () => { $("who").textContent = "Engine disconnected"; $("dot").classList.add("off"); };
@@ -1213,7 +1223,8 @@ $("input").addEventListener("input", autosize);
 $("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMsg(); } });
 $("send").onclick = sendMsg;
 document.querySelectorAll(".chip").forEach(c => c.onclick = () => { $("input").value = c.textContent; autosize(); $("input").focus(); });
-$("newchat").onclick = async () => { if (busy) await api("/api/stop").catch(() => {}); await api("/api/clear").catch(e => notice(e.message)); $("input").focus(); };
+$("newchat").onclick = async () => { if (busy) await api("/api/stop").catch(() => {}); if (typeof closeModelsView === "function") { closeModelsView(); closePanel(); }
+  await api("/api/clear").catch(e => notice(e.message)); $("input").focus(); };
 document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key === ",") { e.preventDefault(); openSettings(); } if (e.key === "Escape" && busy && !$("settings").open) api("/api/stop"); });
 const h = new Date().getHours(); $("greet").textContent = (h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening") + ". What are we building?";
 window.addEventListener("pywebviewready", () => { $("pick").hidden = false; $("pick").onclick = async () => { const p = await window.pywebview.api.pick_folder(); if (p) $("cwd").value = p; }; });
@@ -1478,7 +1489,8 @@ dockComposer();
 const _openPanel = openPanel, _closePanel = closePanel;
 openPanel = function (tab) { _openPanel(tab); setTab(tab); };
 closePanel = function () { _closePanel(); setTab("chat"); };
-function setTab(t) { document.querySelectorAll(".ctab").forEach(b => b.classList.toggle("on", b.dataset.c === t)); $("crumbHere").textContent = { chat: "Agent playground", git: "Source control", term: "Run logs", browser: "Preview" }[t] || "Agent playground"; }
+function setTab(t) { document.querySelectorAll(".ctab").forEach(b => b.classList.toggle("on", b.dataset.c === t));
+  $("modeChat").classList.toggle("on", t !== "git"); $("modeCode").classList.toggle("on", t === "git"); $("crumbHere").textContent = { chat: "Agent playground", git: "Source control", term: "Run logs", browser: "Preview" }[t] || "Agent playground"; }
 document.querySelectorAll(".ctab").forEach(b => b.onclick = () => b.dataset.c === "chat" ? closePanel() : openPanel(b.dataset.c));
 $("greet").textContent = "Good things start here.";
 const navSet = (id) => { document.querySelectorAll("aside .navbtn").forEach(b => b.classList.toggle("on", !!id && b.id === id)); };
@@ -1771,6 +1783,11 @@ const _navPlayClick = $("navPlay").onclick; $("navPlay").onclick = () => { close
 const _showConfigP = showConfig; showConfig = function (c) { _showConfigP(c); if (c.service !== provCurrent) { provCurrent = c.service; loadProviders(); } else renderProviders(); };
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderProviders);
 loadProviders();
+
+// ---------- Chat / Code switch ----------
+$("modeChat").onclick = () => { closeModelsView(); closePanel(); navSet("navPlay"); };
+$("modeCode").onclick = () => { closeModelsView(); openPanel("git"); navSet("navGit"); };
+document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") { e.preventDefault(); $("modeCode").classList.contains("on") ? $("modeChat").click() : $("modeCode").click(); } });
 
 loadChats(); $("input").focus();
 setTimeout(() => { if (config.build > 0) api("/api/update").then(r => { if (r.update) showUpdate(r); }).catch(() => {}); }, 4000);

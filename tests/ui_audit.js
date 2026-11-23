@@ -73,7 +73,6 @@ async function overlaps(pg, label) {
       await pg.fill('#palIn', 'git'); check('Palette search finds Source control', (await pg.innerText('#palList')).includes('Source control')); await pg.keyboard.press('Escape');
       await pg.click('#keysBtn'); check('Help button opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
       // --- header & model bar
-      await pg.click('#viewCodeBtn'); check('View code opens Git', await pg.isVisible('#gitView')); await pg.click('.ctab[data-c="chat"]');
       const narrow = (await pg.locator('#modelPill').boundingBox()).width;
       await pg.hover('#modelPill'); await pg.waitForTimeout(400);
       const wide = (await pg.locator('#modelPill').boundingBox()).width;
@@ -99,7 +98,6 @@ async function overlaps(pg, label) {
       await pg.click('#termToggle'); check('Terminal button opens Run logs', await pg.isVisible('#termBox'));
       await pg.click('#browserToggle'); check('Browser preview opens Preview', await pg.isVisible('#bview'));
       for (const t of ['git', 'term', 'browser', 'chat']) { await pg.click(`.ctab[data-c="${t}"]`); await overlaps(pg, `tab ${t}`); }
-      await pg.click('#checkpointsBtn'); check('Checkpoints responds', true);
       // --- right rail
 
       await pg.click('#taskBoardBtn'); check('Open task board responds', true);
@@ -116,6 +114,19 @@ async function overlaps(pg, label) {
       check('A message runs, asks approval and finishes', true);
       check('Run overview shows the plan', (await pg.innerText('#todoList')).includes('Handle empty input'));
       check('Chat title updates', (await pg.innerText('#chatHead')) !== 'New session');
+      // New session really starts a new one, and old sessions reopen
+      const firstTitle = await pg.innerText('#chatHead');
+      await pg.click('#side > .newchat'); await pg.waitForTimeout(800);
+      check('New session starts an empty session', (await pg.innerText('#chatHead')) === 'New session' && !(await pg.isVisible('#scroll')) && await pg.isVisible('#welcome'));
+      if (!(await pg.isVisible('#chatList'))) { await pg.click('#navSessions'); await pg.waitForTimeout(500); }
+      await pg.locator('#chatList .chatitem', { hasText: firstTitle.slice(0, 20) }).first().click(); await pg.waitForTimeout(800);
+      check('Opening a past session shows it again', (await pg.innerText('#chatHead')) === firstTitle && (await pg.innerText('#log')).includes('Done.'));
+      // Chat / Code switch
+      await pg.click('#modeCode'); await pg.waitForTimeout(300);
+      check('Code switch shows changed files', await pg.isVisible('#gitView') && await pg.evaluate(() => document.getElementById('modeCode').classList.contains('on')));
+      await pg.click('#modeChat'); await pg.waitForTimeout(300);
+      check('Chat switch returns to the conversation', await pg.isVisible('#log') && await pg.evaluate(() => document.getElementById('modeChat').classList.contains('on')));
+      check('Header has no Checkpoints / View code / New session', !(await pg.isVisible('#checkpointsBtn')) && !(await pg.isVisible('#viewCodeBtn')) && !(await pg.isVisible('#newSessionBtn')));
       await overlaps(pg, 'after a turn');
       await pg.screenshot({ path: 'audit-1440.png' });
     } else {
