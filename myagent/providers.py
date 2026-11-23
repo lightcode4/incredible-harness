@@ -62,6 +62,32 @@ def _pdf_text(p: dict) -> str:
         return f"(could not read this PDF: {e})"
 
 
+PARALLEL_TOOLS = {"task"}
+
+
+def run_calls(run_tool, calls: list) -> list:
+    """Run one round of tool calls. Several sub-agent (task) calls run at the same time; everything else runs in
+    order. Results come back in the original order."""
+    results: list = [None] * len(calls)
+    par = [i for i, (n, _) in enumerate(calls) if n in PARALLEL_TOOLS]
+    futures = {}
+    if len(par) > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        pool = ThreadPoolExecutor(max_workers=min(len(par), 4))
+        futures = {i: pool.submit(run_tool, *calls[i]) for i in par}
+        pool.shutdown(wait=False)
+    try:
+        for i, (n, a) in enumerate(calls):
+            if i not in futures:
+                results[i] = run_tool(n, a)
+        for i, f in futures.items():
+            results[i] = f.result()
+    finally:
+        for f in futures.values():
+            f.cancel()
+    return results
+
+
 def _result_text(content) -> str:
     """Text-only form of a tool result (for providers without native image/PDF support in tool results)."""
     if isinstance(content, str):
@@ -223,8 +249,8 @@ class ClaudeProvider:
             if not tool_uses:
                 return
             results = []
-            for tu in tool_uses:
-                out, is_error = run_tool(tu.name, tu.input)
+            done = run_calls(run_tool, [(tu.name, tu.input) for tu in tool_uses])
+            for tu, (out, is_error) in zip(tool_uses, done):
                 if not isinstance(out, str):  # text + screenshot parts
                     out = [self._result_block(p) for p in out]
                 results.append({"type": "tool_result", "tool_use_id": tu.id, "content": out, "is_error": is_error})
@@ -269,6 +295,11 @@ class ClaudeProvider:
 
     def restore(self, messages: list) -> None:
         self.messages = messages
+
+    def reset_with_summary(self, summary: str) -> None:
+        self.compactions = getattr(self, "compactions", 0) + 1
+        self.messages = [{"role": "user", "content": f"Summary of our conversation so far:\n{summary}"},
+                         {"role": "assistant", "content": [{"type": "text", "text": "Understood. I'll continue from there."}]}]
 
 
 # --------------------------------------------------------------------------- OpenAI / compatible / local
@@ -326,7 +357,8 @@ class OpenAIProvider:
         return self.client.chat.completions.create(**kw)
 
     def _stream(self, ui: UI):
-        stream = self._create(model=self.model, messages=self.messages, tools=self.tools, stream=True)
+        stream = self._create(model=self.model, messages=self.messages, stream=True,
+                              **({"tools": self.tools} if self.tools else {}))
         text, calls, finish = [], {}, None
         for chunk in stream:
             if getattr(chunk, "usage", None):
@@ -371,10 +403,12 @@ class OpenAIProvider:
                                           "decisions, files changed, current state and next steps. Be specific and complete."},
             {"role": "user", "content": convo}])
         summary = r.choices[0].message.content or ""
+        self.compactions = getattr(self, "compactions", 0) + 1
         self.messages = [{"role": "system", "content": self.system},
                          {"role": "user", "content": f"Summary of our conversation so far:\n{summary}"},
                          {"role": "assistant", "content": "Understood. I'll continue from there."}]
         self.last_prompt_tokens = 0
+        self.compactions = getattr(self, "compactions", 0) + 1
 
     def turn(self, parts, run_tool: RunTool, ui: UI) -> None:
         self._maybe_compact(ui)
@@ -392,14 +426,21 @@ class OpenAIProvider:
                     ui.notice("Reply hit the output limit.")
                 return
             images = []
+            parsed = []
             for c in calls:
+                try:
+                    parsed.append(json.loads(c["arguments"] or "{}"))
+                except json.JSONDecodeError:
+                    parsed.append(None)
+            good = [i for i, a in enumerate(parsed) if a is not None and finish != "length"]
+            ran = dict(zip(good, run_calls(run_tool, [(calls[i]["name"], parsed[i]) for i in good])))
+            for i, c in enumerate(calls):
                 if finish == "length":
                     out, err = "Not run: output hit the length limit mid tool call. Retry in smaller steps.", True
+                elif i in ran:
+                    out, err = ran[i]
                 else:
-                    try:
-                        out, err = run_tool(c["name"], json.loads(c["arguments"] or "{}"))
-                    except json.JSONDecodeError:
-                        out, err = json.dumps({"INVALID_JSON": c["arguments"][:2000]}), True
+                    out, err = json.dumps({"INVALID_JSON": c["arguments"][:2000]}), True
                 if not isinstance(out, str):  # tool messages are text-only here; images follow as a user message
                     images += [p for p in out if p["type"] == "image"]
                     out = _result_text(out)
@@ -430,3 +471,9 @@ class OpenAIProvider:
 
     def restore(self, messages: list) -> None:
         self.messages = messages or [{"role": "system", "content": self.system}]
+
+    def reset_with_summary(self, summary: str) -> None:
+        self.messages = [{"role": "system", "content": self.system},
+                         {"role": "user", "content": f"Summary of our conversation so far:\n{summary}"},
+                         {"role": "assistant", "content": "Understood. I'll continue from there."}]
+        self.last_prompt_tokens = 0

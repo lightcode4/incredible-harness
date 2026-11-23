@@ -126,6 +126,7 @@ UI_COMMANDS = {
     "clear": "Start a new chat", "plan": "Toggle plan mode", "model": "Change model or provider",
     "cost": "Show this chat's cost", "export": "Export this chat", "help": "List commands",
     "parallel": "Start a parallel chat in its own worktree", "memory": "Edit what Herness remembers",
+    "compact": "Summarize the conversation to free up context", "fork": "Copy this chat to try another direction",
 }
 
 
@@ -147,6 +148,44 @@ def _load_dir(d: Path) -> dict:
 def commands(cwd: str) -> dict:
     """name -> (description, prompt template). Project commands override personal ones, which override built-ins."""
     return {**BUILTIN_COMMANDS, **_load_dir(HOME / "commands"), **_load_dir(Path(cwd) / ".herness" / "commands")}
+
+
+def skills(cwd: str) -> dict:
+    """name -> (description, folder). A skill is a folder with SKILL.md (optional front matter: name, description).
+    Project skills (<project>/.herness/skills) override personal ones (~/.incredible-herness/skills)."""
+    out = {}
+    for base in (HOME / "skills", Path(cwd) / ".herness" / "skills"):
+        if not base.is_dir():
+            continue
+        for d in sorted(base.iterdir()):
+            f = d / "SKILL.md"
+            if not f.is_file():
+                continue
+            text = f.read_text(errors="replace")
+            name, desc = d.name, ""
+            m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
+            if m:
+                nm = re.search(r"^name:\s*(.+)$", m.group(1), re.M)
+                dm = re.search(r"^description:\s*(.+)$", m.group(1), re.M)
+                name = nm.group(1).strip().strip("\"'") if nm else name
+                desc = dm.group(1).strip().strip("\"'") if dm else ""
+            if not desc:
+                body = text[m.end():] if m else text
+                desc = next((ln.strip("# ").strip() for ln in body.splitlines() if ln.strip()), "")[:200]
+            out[name.lower()] = (desc, d)
+    return out
+
+
+def load_skill(cwd: str, name: str) -> str:
+    sk = skills(cwd).get((name or "").lower().strip())
+    if not sk:
+        have = ", ".join(skills(cwd)) or "none"
+        raise ValueError(f"No skill named {name}. Available skills: {have}.")
+    desc, d = sk
+    text = (d / "SKILL.md").read_text(errors="replace")
+    files = [p.relative_to(d).as_posix() for p in sorted(d.rglob("*")) if p.is_file() and p.name != "SKILL.md"][:100]
+    extra = ("\n\nFiles in this skill (folder " + str(d) + "):\n" + "\n".join("- " + f for f in files)) if files else ""
+    return f"Skill folder: {d}\n\n{text}{extra}"
 
 
 def expand_command(text: str, cwd: str) -> str | None:

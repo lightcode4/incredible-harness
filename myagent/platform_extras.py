@@ -228,3 +228,53 @@ def import_settings(data: dict, config: dict) -> dict:
         if not incoming.get(k):
             incoming.pop(k, None)
     return {**config, **incoming}
+
+
+# ---------------------------------------------------------------- access from anywhere
+def find_cloudflared() -> str | None:
+    import shutil as _sh
+    for c in (_sh.which("cloudflared"), "/opt/homebrew/bin/cloudflared", "/usr/local/bin/cloudflared",
+              str(Path.home() / ".local/bin/cloudflared"), r"C:\Program Files (x86)\cloudflared\cloudflared.exe",
+              r"C:\Program Files\cloudflared\cloudflared.exe"):
+        if c and Path(c).is_file():
+            return c
+    return None
+
+
+def start_tunnel(port: int, timeout: float = 40):
+    """Start a Cloudflare quick tunnel to 127.0.0.1:port. Returns (process, https URL)."""
+    import re as _re
+    import subprocess as _sp
+    import threading as _th
+    exe = find_cloudflared()
+    if not exe:
+        raise RuntimeError("Access from anywhere needs Cloudflare's free cloudflared tool. Install it with "
+                           "`brew install cloudflared` (Mac) or `winget install Cloudflare.cloudflared` (Windows), then try again.")
+    proc = _sp.Popen([exe, "tunnel", "--no-autoupdate", "--url", f"http://127.0.0.1:{port}"], stdout=_sp.PIPE,
+                     stderr=_sp.STDOUT, text=True, errors="replace", stdin=_sp.DEVNULL)
+    found, lines = {}, []
+
+    def read():
+        for line in proc.stdout:
+            lines.append(line)
+            m = _re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line)
+            if m and "url" not in found:
+                found["url"] = m.group(0)
+    _th.Thread(target=read, daemon=True).start()
+    import time as _t
+    end = _t.time() + timeout
+    while _t.time() < end and "url" not in found and proc.poll() is None:
+        _t.sleep(0.2)
+    if "url" not in found:
+        stop_tunnel(proc)
+        raise RuntimeError("Cloudflare did not give an address. " + "".join(lines[-5:])[-600:])
+    return proc, found["url"]
+
+
+def stop_tunnel(proc) -> None:
+    if proc and proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(5)
+        except Exception:
+            proc.kill()

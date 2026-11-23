@@ -5,12 +5,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import test_loop
 from test_loop import SCRIPT, start_fake
 start_fake()
-work = Path(tempfile.mkdtemp()); (work / "app.py").write_text("def total(xs):\n    return sum(xs)\n")
+work = Path(tempfile.mkdtemp()); (work / "app.py").write_text("def total(xs):\n    return sum(xs)\n\n\n\n\ndef avg(xs):\n    return total(xs) / len(xs)\n")
 for c in (["init", "-q", "-b", "main"], ["config", "user.email", "t@e.com"], ["config", "user.name", "T"], ["add", "-A"], ["commit", "-qm", "init"]):
     subprocess.run(["git", *c], cwd=work, check=True)
 from myagent.gui import start_server
 SCRIPT[:] = [("tool", "todo_write", {"todos": [{"content": "Read app.py", "status": "completed"}, {"content": "Handle empty input", "status": "in_progress"}]}),
-             ("tool", "edit_file", {"path": "app.py", "old_text": "    return sum(xs)", "new_text": "    return sum(xs or [])"}), ("text", "Done.")]
+             ("tool", "edit_file", {"path": "app.py", "old_text": "    return sum(xs)", "new_text": "    return sum(xs or [])"}), ("text", "Done."),
+             ("tool", "multi_edit", {"path": "app.py", "edits": [{"old_text": "def total(xs):", "new_text": "def total(xs=()):"},
+                                                                {"old_text": "/ len(xs)", "new_text": "/ max(len(xs), 1)"}]}),
+             ("text", "Reviewed."), ("text", "Edited answer."), ("text", "SUMMARY: total and avg were tidied.")]
 import os
 server, url, session = start_server(str(work))
 lang = os.environ.get("HERNESS_UI_LANG", "")

@@ -39,7 +39,7 @@ async function overlaps(pg, label) {
 (async () => {
   const b = await chromium.launch();
   for (const [w, h, scheme] of [[1440, 900, 'light'], [1100, 760, 'dark'], [820, 900, 'light']]) {
-    const pg = await b.newPage({ viewport: { width: w, height: h }, colorScheme: scheme });
+    const pg = await b.newPage({ viewport: { width: w, height: h }, colorScheme: scheme });  globalThis.__pg = pg;
     const errors = []; pg.on('pageerror', e => errors.push(String(e).slice(0, 160)));
     await pg.goto(url); await pg.waitForFunction(() => document.getElementById('modelName').textContent !== 'model');
     await pg.waitForTimeout(500);
@@ -126,6 +126,31 @@ async function overlaps(pg, label) {
       check('Code switch shows changed files', await pg.isVisible('#gitView') && await pg.evaluate(() => document.getElementById('modeCode').classList.contains('on')));
       await pg.click('#modeChat'); await pg.waitForTimeout(300);
       check('Chat switch returns to the conversation', await pg.isVisible('#log') && await pg.evaluate(() => document.getElementById('modeChat').classList.contains('on')));
+      // context meter, per-change review, /compact, fork, edit & resend
+      check('Context meter shows how full the chat is', await pg.isVisible('#ctxMeter') && /\d+%/.test(await pg.innerText('#ctxText')));
+      await pg.fill('#input', 'Tidy both functions'); await pg.keyboard.press('Enter');
+      await pg.waitForSelector('.hunk', { timeout: 15000 });
+      check('Approval lists each change separately', (await pg.locator('.hunk').count()) === 2);
+      await overlaps(pg, 'change review');
+      await pg.locator('.hunk input').nth(1).uncheck(); await pg.getByRole('button', { name: 'Apply selected' }).click();
+      await pg.waitForFunction(() => document.querySelectorAll('.turnfoot').length >= 2, null, { timeout: 15000 });
+      check('Apply selected applies only the chosen change', (await pg.innerText('#log')).includes('Applied 1 of 2'));
+      await pg.locator('.umsg').first().hover(); await pg.waitForTimeout(250);
+      check('Hovering a message shows Edit and Fork', await pg.locator('.umsg').first().getByRole('button', { name: 'Edit' }).isVisible());
+      const before = await pg.innerText('#chatHead');
+      await pg.locator('.umsg').first().getByRole('button', { name: 'Fork' }).click(); await pg.waitForTimeout(900);
+      check('Fork opens a copy of the chat', (await pg.innerText('#chatHead')).startsWith('Fork:') && (await pg.innerText('#log')).includes('Forked from'), await pg.innerText('#chatHead'));
+      await pg.locator('.umsg').first().hover(); await pg.locator('.umsg').first().getByRole('button', { name: 'Edit' }).click();
+      check('Edit turns the message into an editor', await pg.isVisible('.uedit textarea'));
+      await overlaps(pg, 'message editor');
+      await pg.fill('.uedit textarea', 'Make total() handle None too'); await pg.getByRole('button', { name: 'Save & resend' }).click();
+      await pg.waitForFunction(() => document.getElementById('log').innerText.includes('Edited answer.'), null, { timeout: 15000 });
+      const log2 = await pg.innerText('#log');
+      check('Save & resend replaces the message and continues', log2.includes('Make total() handle None too') && !log2.includes('handle an empty list'), log2.slice(0, 200));
+      await pg.fill('#input', '/compact'); await pg.keyboard.press('Enter');
+      await pg.waitForFunction(() => document.getElementById('log').innerText.includes('Conversation summarized'), null, { timeout: 15000 });
+      check('/compact summarizes the chat', true);
+      check('Older messages can no longer be rewound after a summary', (await pg.locator('.uacts').count()) === 0);
       check('Header has no Checkpoints / View code / New session', !(await pg.isVisible('#checkpointsBtn')) && !(await pg.isVisible('#viewCodeBtn')) && !(await pg.isVisible('#newSessionBtn')));
       await overlaps(pg, 'after a turn');
       await pg.screenshot({ path: 'audit-1440.png' });
@@ -137,4 +162,4 @@ async function overlaps(pg, label) {
   }
   await b.close();
   console.log(JSON.stringify({ passed: passed.length, problems }, null, 1));
-})().catch(e => { console.error('AUDIT CRASHED', String(e).slice(0, 400)); process.exit(1); });
+})().catch(async e => { console.error('AUDIT CRASHED', String(e).slice(0, 400)); try { console.error('LOG:', (await globalThis.__pg.innerText('#log')).slice(-1500)); } catch (_) {} process.exit(1); });

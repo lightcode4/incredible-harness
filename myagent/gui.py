@@ -39,19 +39,21 @@ from .browser import Browser, NeedsBrowser, install_chromium
 from .computer import Computer, ComputerError
 from .providers import ClaudeProvider, OpenAIProvider, cost_of
 from .terminal import Terminal
-from .tools import (FILE_CHANGING, MUTATING, READONLY_TOOLS, TOOLS, ToolError, Workspace, describe,
+from .tools import (FILE_CHANGING, MUTATING, READONLY_TOOLS, TOOLS, ToolError, Workspace, apply_hunks, describe, hunks,
                     project_instructions, validate)
 
 PAGE = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf-8")
 HOME = Path.home() / ".incredible-herness"
 CONFIG_FILE = HOME / "settings.json"
 CHATS = HOME / "chats"
+HOOK_KINDS = ("session_start", "on_prompt", "before_tool", "after_edit", "before_finish")
 DEFAULT_MODELS = {"claude": "claude-opus-5-5", "openai": "gpt-5", "local": "llama3.1"}
 LOCAL_URL = "http://localhost:11434/v1"
 IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 
-def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: bool = False, language: str = "") -> str:
+def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: bool = False, language: str = "",
+                  skills: dict | None = None) -> str:
     s = (
         "You are Incredible Herness, a capable software and computer agent working on the user's machine. "
         "You can run shell commands, read, write and edit files (including PDFs and Jupyter notebooks), search, "
@@ -76,6 +78,9 @@ def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: 
               "act in small steps, and check the result with another screenshot.")
     if language:
         s += f"\n- Always write your replies to the user in {language}."
+    if skills:
+        s += ("\n\nSkills you can use (call use_skill with the name to load full instructions when a task matches):\n" +
+              "\n".join(f"- {n}: {d}" for n, (d, _) in skills.items()))
     if memory.strip():
         s += "\n\nWhat you remember about the user (from earlier chats):\n" + memory
     if instructions:
@@ -85,10 +90,43 @@ def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: 
 
 SUBAGENT_SYSTEM = ("You are a research sub-agent with read-only tools. Investigate exactly what you are asked, "
                    "then reply with a concise, specific report (file paths, line numbers, facts). Do not ask questions.")
+SUBAGENT_KINDS = {
+    "explore": ("You are a fast explore sub-agent with read-only tools. Find the files, symbols and facts asked for "
+                "(use grep, glob, code_symbols, find_references). Reply with a short list of paths, line numbers and facts."),
+    "plan": ("You are a planning sub-agent with read-only tools. Study the code involved, then reply with a concrete "
+             "step-by-step implementation plan: files to change, what to change in each, risks and how to verify."),
+    "research": ("You are a research sub-agent with read-only tools, including web_search and fetch_url. Investigate "
+                 "carefully, check sources, and reply with a concise report with facts, links and file references."),
+}
 
 
 class Stop(Exception):
     pass
+
+
+CONTEXT_WINDOWS = [("haiku", 200_000), ("claude", 1_000_000), ("gemini", 1_000_000), ("gpt-4.1", 1_000_000),
+                   ("gpt-5", 400_000), ("grok-4", 256_000), ("kimi", 256_000), ("qwen", 256_000), ("deepseek", 128_000),
+                   ("llama", 128_000), ("mistral", 128_000), ("gpt-oss", 128_000), ("glm", 200_000)]
+
+
+def context_window(model: str, override: int = 0) -> int:
+    """How many tokens of conversation the model can hold (approximate; Settings can override)."""
+    if override:
+        return int(override)
+    m = (model or "").lower()
+    return next((n for key, n in CONTEXT_WINDOWS if key in m), 128_000)
+
+
+class QuietUI:
+    """Runs a helper model call without showing its text in the chat."""
+    def __init__(self, chat): self.chat = chat
+    def text(self, c): self.chat._check()
+    def thinking(self, c): self.chat._check()
+    def end_block(self): pass
+    def notice(self, m): pass
+    def server_tool(self, s): pass
+    def usage(self, m, u): self.chat.usage(m, u, count_context=False)
+    def before_request(self): self.chat.before_request()
 
 
 # Website addresses people paste, mapped to the service's real OpenAI-compatible API address.
@@ -224,6 +262,8 @@ class Chat:
         self.provider = None
         self.ws: Workspace | None = None
         self.instruction_files: list[str] = []
+        self.context = 0  # tokens the model saw on its last request
+        self._partial: set | None = None
         self.build()
 
     # ---------------------------------------------------------------- setup
@@ -231,7 +271,9 @@ class Chat:
         cfg = {**self.app.config, "cwd": self.cwd}
         old = self.provider.serialize() if (keep_history and self.provider) else None
         old_kind = getattr(self, "_provider_kind", None)
+        comp = getattr(self.provider, "compactions", 0)
         self.provider = self.app.make_provider(cfg)
+        self.provider.compactions = comp
         self._provider_kind = cfg["provider"]
         if old and old_kind == cfg["provider"]:
             self.provider.restore(old)
@@ -278,13 +320,19 @@ class Chat:
     def server_tool(self, summary):
         self.emit("server_tool", text=summary)
 
-    def usage(self, model, u):
+    def usage(self, model, u, count_context: bool = True):
         c = cost_of(model, u)
         self.tokens += sum(u.values())
         if c is not None:
             self.cost += c
             self.turn_cost += c
-        self.emit("usage", cost=round(self.cost, 4), tokens=self.tokens, priced=c is not None)
+        if count_context:
+            self.context = u.get("input", 0) + u.get("cache_read", 0) + u.get("cache_write", 0)
+        self.emit("usage", cost=round(self.cost, 4), tokens=self.tokens, priced=c is not None, **self.context_info())
+
+    def context_info(self) -> dict:
+        window = context_window(self.app.config.get("model", ""), self.app.config.get("context_window") or 0)
+        return {"context": self.context, "window": window}
 
     def before_request(self):
         self._check()
@@ -382,6 +430,8 @@ class Chat:
             answer = self._ask(info, rule)
             if answer.get("decision") == "always":
                 self.app.add_rule(self.rules_dir, rule)
+            elif answer.get("decision") == "partial" and info.get("hunks"):
+                self._partial = {int(i) for i in answer.get("hunks") or []}
             elif answer.get("decision") != "allow":
                 fb = answer.get("feedback") or "The user declined."
                 self.emit("tool_result", id=info["id"], output=f"Declined. {fb}", error=True)
@@ -415,6 +465,13 @@ class Chat:
         if problem:
             self.emit("tool", id=secrets.token_hex(4), summary=f"invalid {name} call", error=True)
             return f"Invalid input: {problem} Fix the call and try again.", True
+        hook = self.app.hooks_for(self.rules_dir).get("before_tool", "").strip()
+        if hook and name not in ("todo_write", "use_skill"):
+            code, out = extras.run_hook(hook, self.cwd, {"HERNESS_TOOL": name, "HERNESS_INPUT": json.dumps(args)[:100_000]})
+            self.emit("hook", name="before tool", command=hook, ok=code == 0, output=out[-1500:])
+            if code != 0:
+                self.emit("tool", id=secrets.token_hex(4), name=name, summary=describe(name, args), blocked="Blocked by a hook")
+                return f"Blocked by the user's before-tool check `{hook}`:\n{out[-3000:]}", True
         if name == "todo_write":
             self.todos = args["todos"]
             self.emit("todos", todos=self.todos)
@@ -425,6 +482,12 @@ class Chat:
             return out, False
         if name == "task":
             return self._subagent(args)
+        if name == "use_skill":
+            self.emit("tool", id=secrets.token_hex(4), name=name, summary=describe(name, args))
+            try:
+                return extras.load_skill(self.cwd, args["name"]), False
+            except ValueError as e:
+                return str(e), True
         if name == "open_preview":
             return self._preview(args["target"])
         if name.startswith("browser_"):
@@ -437,6 +500,13 @@ class Chat:
         diff = self.ws.preview_diff(name, args)
         if diff:
             info["diff"] = diff
+            try:
+                hs = hunks(*self.ws.proposed(name, args)[1:])
+                if 1 < len(hs) <= 60 and name != "notebook_edit":
+                    info["hunks"] = hs
+            except ToolError:
+                pass
+        self._partial = None
         if name in MUTATING:
             refusal = self.gate(name, args, info)
             if refusal:
@@ -444,8 +514,18 @@ class Chat:
         else:
             self.emit("tool", **info)
         self.ws.sandbox = self.app.config.get("sandbox", "off")
+        partial, self._partial = self._partial, None
         try:
-            out, err = self.ws.run(name, args), False
+            if partial is not None:
+                p, old, new = self.ws.proposed(name, args)
+                n = len(info["hunks"])
+                self.ws.run("write_file", {"path": str(p), "content": apply_hunks(old, new, partial)})
+                skipped = [h for h in info["hunks"] if h["i"] not in partial]
+                out, err = (f"The user applied only {len(partial)} of your {n} changes to {p.name}. These changes were NOT "
+                            "applied (do not re-apply them unless asked):\n" +
+                            "\n".join(f"@ line {h['line']}\n{h['text']}" for h in skipped)), False
+            else:
+                out, err = self.ws.run(name, args), False
         except ToolError as e:
             out, err = str(e), True
         except Exception as e:
@@ -472,7 +552,8 @@ class Chat:
 
     def _subagent(self, args: dict):
         call_id = secrets.token_hex(6)
-        self.emit("tool", id=call_id, name="task", summary=f"Sub-agent: {args['description']}")
+        kind = args.get("kind") if args.get("kind") in SUBAGENT_KINDS else None
+        self.emit("tool", id=call_id, name="task", summary=f"{(kind or 'sub').capitalize()}-agent: {args['description']}")
         parent = self
 
         class SubUI:
@@ -485,7 +566,8 @@ class Chat:
             def usage(self, m, u): parent.usage(m, u)
             def before_request(self): parent.before_request()
 
-        allowed = {t["name"] for t in READONLY_TOOLS}
+        tools = [t for t in READONLY_TOOLS if kind in (None, "research") or not t.get("client_web")]
+        allowed = {t["name"] for t in tools}
 
         def sub_run(name, a):
             parent._check()
@@ -499,8 +581,9 @@ class Chat:
                 return str(e), True
 
         try:
-            sub = self.app.make_provider({**self.app.config, "cwd": self.cwd}, tools=READONLY_TOOLS, system=SUBAGENT_SYSTEM,
-                                         fast=True)
+            sub = self.app.make_provider({**self.app.config, "cwd": self.cwd, "web": self.app.config.get("web") and kind != "explore"},
+                                         tools=tools, system=SUBAGENT_KINDS.get(kind, SUBAGENT_SYSTEM),
+                                         fast=kind in (None, "explore"))
             sub.turn(args["prompt"], sub_run, SubUI())
             report = sub.last_text() or "(the sub-agent returned no report)"
             self.emit("tool_result", id=call_id, output=f"{SubUI.steps} steps\n\n{report}", error=False)
@@ -646,16 +729,115 @@ class Chat:
         self.cancel.clear()
         if not self.title:
             self.title = text.strip().splitlines()[0][:70] if text.strip() else "Attachment"
+        first = not any(e["kind"] == "user" for e in self.transcript)
+        mark = {"m": len(self.provider.serialize()), "turn": self.turn + 1, "c": getattr(self.provider, "compactions", 0)}
         self.emit("user", text=text, files=[a.get("name") for a in attachments or []], plan=self.app.config["plan"],
-                  command=bool(expanded))
-        threading.Thread(target=self._turn, args=(parts,), daemon=True).start()
+                  command=bool(expanded), idx=len(self.transcript), mark=mark)
+        threading.Thread(target=self._turn, args=(parts, first, text), daemon=True).start()
 
-    def _turn(self, parts) -> None:
+    def _prompt_hooks(self, parts, first: bool, text: str):
+        hooks = self.app.hooks_for(self.rules_dir)
+        extra = []
+        for key, label, on in (("session_start", "session start", first), ("on_prompt", "on prompt", True)):
+            hook = (hooks.get(key) or "").strip()
+            if not hook or not on:
+                continue
+            code, out = extras.run_hook(hook, self.cwd, {"HERNESS_PROMPT": text[:100_000]})
+            self.emit("hook", name=label, command=hook, ok=code == 0, output=out[-1500:])
+            if code != 0 and key == "on_prompt":
+                raise Stop(f"The on-prompt check `{hook}` blocked this message:\n{out[-1500:]}")
+            if out.strip():
+                extra.append(f"[Context from the {label} hook `{hook}`]\n{out.strip()[-8000:]}")
+        if extra:
+            parts[-1] = {**parts[-1], "text": parts[-1]["text"] + "\n\n" + "\n\n".join(extra)}
+
+    # ---------------------------------------------------------------- edit, fork, compact
+    def _user_event(self, idx: int) -> dict:
+        if self.busy:
+            raise RuntimeError("Stop this chat first.")
+        if not (0 <= idx < len(self.transcript)) or self.transcript[idx]["kind"] != "user" or "mark" not in self.transcript[idx]:
+            raise ValueError("That message can't be edited (it was sent by an older version).")
+        ev = self.transcript[idx]
+        msgs = self.provider.serialize()
+        if ev["mark"].get("c", 0) != getattr(self.provider, "compactions", 0) or ev["mark"]["m"] > len(msgs):
+            raise ValueError("The conversation was summarized after that message, so it can't be rewound. Fork is still possible from later messages.")
+        return ev
+
+    def rewind(self, idx: int, text: str, undo_files: bool = True) -> str:
+        ev = self._user_event(idx)
+        restored = []
+        if undo_files:
+            for t in sorted((k for k in self.checkpoints if int(k[1:]) >= ev["mark"]["turn"]), key=lambda k: -int(k[1:])):
+                restored.append(self.undo(t))
+        self.provider.restore(json.loads(json.dumps(self.provider.serialize()[: ev["mark"]["m"]], default=str)))
+        self.transcript = self.transcript[:idx]
+        self.save()
+        self.app.events.put(self.replay_event())
+        if text.strip():
+            self.send(text)
+        return ", ".join(r for r in restored if r)
+
+    def fork(self, idx: int) -> "Chat":
+        if self.busy:
+            raise RuntimeError("Stop this chat first.")
+        # keep this message and its reply: cut just before the next message
+        nxt = next((i for i in range(max(idx, 0) + 1, len(self.transcript)) if self.transcript[i]["kind"] == "user"), None)
+        ev = self._user_event(nxt) if nxt is not None else None
+        m = ev["mark"]["m"] if ev else len(self.provider.serialize())
+        idx = nxt if nxt is not None else len(self.transcript)
+        chat = self.app._new_chat_obj(self.cwd, worktree=self.worktree, title=f"Fork: {self.title or 'chat'}"[:70])
+        chat.provider.restore(json.loads(json.dumps(self.provider.serialize()[:m], default=str)))
+        chat.transcript = json.loads(json.dumps(self.transcript[:idx], default=str))
+        for e in chat.transcript:
+            e["chat"] = chat.id
+        chat.turn, chat.cost, chat.tokens = self.turn, 0.0, 0
+        chat.notice(f"Forked from “{self.title or 'chat'}”. Changes here don't affect the original chat.")
+        chat.save()
+        return chat
+
+    def compact(self, focus: str = "") -> None:
+        if self.busy:
+            raise RuntimeError("Stop this chat first.")
+        msgs = self.provider.serialize()
+        if len([m for m in msgs if m["role"] != "system"]) < 2:
+            raise ValueError("There's nothing to summarize yet.")
+        self.busy = True
+        self.emit("status", busy=True)
+        threading.Thread(target=self._compact, args=(msgs, focus), daemon=True).start()
+
+    def _compact(self, msgs, focus):
+        try:
+            self.cancel.clear()
+            self.notice("Summarizing the conversation to free up context…")
+            convo = json.dumps(msgs, default=str)[-400_000:]
+            helper = self.app.make_provider({**self.app.config, "cwd": self.cwd, "web": False}, tools=[], system=(
+                "Summarize this agent conversation so the work can continue: the user's goals, decisions, files changed, "
+                "current state and next steps. Be specific and complete." + (f" Focus on: {focus}" if focus else "")))
+            helper.turn("Conversation to summarize:\n" + convo, lambda n, a: ("No tools here.", True), QuietUI(self))
+            summary = helper.last_text().strip()
+            if not summary:
+                raise ValueError("The model returned an empty summary.")
+            self.provider.reset_with_summary(summary)
+            self.context = 0
+            self.emit("compacted", summary=summary[:4000], compactions=self.provider.compactions)
+            self.notice("Conversation summarized. Earlier details were condensed; the work continues from the summary.")
+        except Stop as e:
+            self.notice(str(e))
+        except Exception as e:
+            self.notice("Could not summarize: " + explain_error(e, {**self.app.config, "cwd": self.cwd}))
+        finally:
+            self.busy = False
+            self.emit("usage", cost=round(self.cost, 4), tokens=self.tokens, priced=True, **self.context_info())
+            self.emit("status", busy=False)
+            self.save()
+
+    def _turn(self, parts, first: bool = False, text: str = "") -> None:
         self.turn += 1
         turn_id = f"t{self.turn}"
         self.turn_changes, self.turn_cost = {}, 0.0
         self.emit("status", busy=True)
         try:
+            self._prompt_hooks(parts, first, text)
             self.provider.turn(parts, self.run_tool, self)
             self._finish_hook()
         except Stop as e:
@@ -702,7 +884,7 @@ class Chat:
                     "provider": self._provider_kind, "model": self.app.config["model"], "cwd": self.cwd,
                     "worktree": self.worktree, "messages": self.provider.serialize(), "transcript": self.transcript,
                     "checkpoints": self.checkpoints, "cost": self.cost, "tokens": self.tokens, "todos": self.todos,
-                    "turn": self.turn}
+                    "turn": self.turn, "context": self.context, "compactions": getattr(self.provider, "compactions", 0)}
             path = CHATS / f"{self.id}.json"
             path.write_text(json.dumps(data, default=str))
             os.chmod(path, 0o600)
@@ -712,7 +894,8 @@ class Chat:
     def replay_event(self) -> dict:
         return {"kind": "replay", "chat": {"id": self.id, "title": self.title, "worktree": self.worktree,
                                            "cwd": self.cwd},
-                "events": self.transcript, "cost": round(self.cost, 4), "tokens": self.tokens, "todos": self.todos,
+                "events": list(self.transcript), "cost": round(self.cost, 4), "tokens": self.tokens, "todos": self.todos,
+                **self.context_info(), "compactions": getattr(self.provider, "compactions", 0),
                 "undoable": list(self.checkpoints), "busy": self.busy, "pending": list(self.pending_info.values())}
 
 
@@ -741,6 +924,7 @@ class Session:
         self.current: Chat | None = None
         self.phone_server = None
         self.phone_url = ""
+        self.tunnel, self.remote_url = None, ""
         self._handler_factory = None
         self._sched_stop = threading.Event()
 
@@ -818,7 +1002,8 @@ class Session:
             cfg = {**cfg, "model": self.fast_model(cfg)}
         if system is None:
             text, _ = project_instructions(cfg["cwd"])
-            system = system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")), cfg.get("language", ""))
+            system = system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")), cfg.get("language", ""),
+                                   extras.skills(cfg["cwd"]))
         common = dict(tools=tools, compaction=cfg["compaction"])
         if cfg["provider"] == "claude":
             return ClaudeProvider(cfg["model"], system, effort=cfg["effort"], api_key=cfg["api_key"] or None,
@@ -901,6 +1086,8 @@ class Session:
         c["instructions"] = chat.instruction_files if chat else []
         c["chat_cwd"] = chat.cwd if chat else c["cwd"]
         c["build"], c["version"], c["phone_url"] = BUILD, __version__, self.phone_url
+        c["remote_url"] = self.remote_url
+        c["context_window"] = self.config.get("context_window") or 0
         c["commands"] = self.command_list()
         c["mcp_local"] = [{**m, "env": {k: "" for k in (m.get("env") or {})}} for m in self.config["mcp_local"]]
         c["mcp"] = [{"name": m.get("name"), "url": m.get("url"), "token": "", "has_token": bool(m.get("token")),
@@ -959,6 +1146,8 @@ class Session:
         chat.provider.restore(d["messages"])
         chat.transcript, chat.checkpoints = d.get("transcript", []), d.get("checkpoints", {})
         chat.cost, chat.tokens, chat.todos, chat.turn = d.get("cost", 0), d.get("tokens", 0), d.get("todos", []), d.get("turn", 0)
+        chat.context = d.get("context", 0)
+        chat.provider.compactions = d.get("compactions", 0)
         self.chats[chat.id] = chat
         self.select(chat, client)
 
@@ -1244,8 +1433,27 @@ class Session:
             threading.Thread(target=srv.serve_forever, daemon=True).start()
             self.phone_server, self.phone_url = srv, f"http://{lan_ip()}:{srv.server_port}/?token={token}"
         elif not on and self.phone_server:
+            self.set_remote(False)
             self.phone_server.shutdown()
             self.phone_server, self.phone_url = None, ""
+
+    def set_remote(self, on: bool) -> str:
+        """Access from anywhere: a free Cloudflare quick tunnel to the phone page. The Mac must stay on."""
+        if not on:
+            px.stop_tunnel(self.tunnel)
+            self.tunnel, self.remote_url = None, ""
+            return ""
+        if self.remote_url:
+            return self.remote_url
+        if not self.phone_server:
+            self.config["phone"] = True
+            self.set_phone(True)
+            self.save()
+        if not self.phone_server:
+            raise RuntimeError("Phone access could not start.")
+        self.tunnel, base = px.start_tunnel(self.phone_server.server_port)
+        self.remote_url = base + "/?" + self.phone_url.split("?", 1)[1]
+        return self.remote_url
 
     def shutdown(self):
         self._sched_stop.set()
@@ -1338,7 +1546,8 @@ def make_handler(session: Session, token: str):
                 elif path == "/api/approve":
                     item = session.pending.get(data.get("id"))
                     if item:
-                        item[1].update(decision=data.get("decision"), feedback=data.get("feedback", ""))
+                        item[1].update(decision=data.get("decision"), feedback=data.get("feedback", ""),
+                                       hunks=[int(i) for i in data.get("hunks") or []])
                         item[0].set()
                 elif path == "/api/stop":
                     target = session.chats.get(data.get("chat")) or chat
@@ -1360,6 +1569,19 @@ def make_handler(session: Session, token: str):
                     result = {"message": session.finish_worktree(bool(data.get("merge")))}
                 elif path == "/api/undo":
                     result = {"restored": chat.undo(str(data.get("turn")))}
+                elif path == "/api/rewind":
+                    result = {"restored": chat.rewind(int(data.get("idx", -1)), str(data.get("text", "")),
+                                                      bool(data.get("undo_files", True)))}
+                elif path == "/api/fork":
+                    new = chat.fork(int(data.get("idx", 10**9)))
+                    session.select(new, client)
+                    if str(data.get("text", "")).strip():
+                        new.send(str(data["text"]))
+                elif path == "/api/compact":
+                    chat.compact(str(data.get("focus", "")))
+                elif path == "/api/remote":
+                    result = {"url": session.set_remote(bool(data.get("on")))}
+                    session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/config":
                     if set(data) <= {"auto", "plan"}:
                         session.config.update({k: bool(v) for k, v in data.items()})
@@ -1374,7 +1596,7 @@ def make_handler(session: Session, token: str):
                                 "deny": [x.strip() for x in r.get("deny", []) if x.strip()]}
                         if "hooks" in data:
                             h = data.pop("hooks")
-                            session.config["hooks"][folder] = {k: str(h.get(k, "")).strip() for k in ("after_edit", "before_finish")}
+                            session.config["hooks"][folder] = {k: str(h.get(k, "")).strip() for k in HOOK_KINDS}
                         if "mcp" in data:  # remote connectors: blank token keeps the saved one; keep sign-ins
                             old = {m["name"]: m for m in session.config["mcp"]}
                             for m in data["mcp"]:

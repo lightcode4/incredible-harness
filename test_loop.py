@@ -3,6 +3,7 @@ No real API calls, no tokens used.   Run: python test_loop.py
 """
 import base64
 import json
+import shlex
 import os
 import sys
 import tempfile
@@ -100,6 +101,8 @@ class Driver:
                 item = self.s.pending.get(ev["id"])
                 if item:
                     item[1].update(decision=self.policy, feedback="use python instead" if self.policy == "deny" else "")
+                    if self.policy == "partial":
+                        item[1].update(hunks=[0])
                     item[0].set()
 
     def run(self, text, attachments=None, script=()):
@@ -674,6 +677,216 @@ def main():
     assert guess_service("openai", "https://api.haimaker.ai/v1") == "haimaker" and guess_service("claude", "") == "claude"
     s.apply_config({"service": "claude"})
     print("39 built-in providers OK")
+    # 40. web search for every model (search page parsed into results)
+    from myagent.tools import Workspace
+    ws = Workspace(str(work))
+    page = ('<a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fdocs&rut=x">Example <b>Docs</b></a>'
+            '<a class="result__snippet" href="#">The <b>official</b> docs.</a>'
+            '<a rel="nofollow" class="result__a" href="https://second.org/">Second</a><a class="result__snippet">Two</a>')
+    ws._download = lambda url: (page.encode(), "text/html")
+    out = ws.run("web_search", {"query": "example docs"})
+    assert "1. Example Docs\n   https://example.com/docs\n   The official docs." in out and "2. Second" in out, out
+    s.apply_config({"service": "openai", "api_key": "k", "base_url": os.environ["ANTHROPIC_BASE_URL"] + "/v1"})
+    assert "web_search" in {t["name"] for t in s.tools_for(s.config)}
+    s.apply_config({"service": "claude"})
+    print("40 web search OK")
+
+    # 41. code navigation: definitions (Python exact, JS by pattern) and references
+    (work / "nav.py").write_text("LIMIT = 3\n\nclass Shop:\n    def total(self):\n        return LIMIT\n\ndef helper():\n    return Shop().total()\n")
+    (work / "web.ts").write_text("export async function total(a: number) {\n  return a\n}\nconst x = total(2)\n")
+    out = ws.run("code_symbols", {"path": "nav.py"})
+    assert "nav.py:1  var LIMIT" in out and "nav.py:3  class Shop" in out and "nav.py:4  def total" in out, out
+    out = ws.run("code_symbols", {"name": "total"})
+    assert "nav.py:4  def total" in out and "web.ts:1  function total" in out, out
+    out = ws.run("find_references", {"name": "total"})
+    assert "web.ts:1: [definition]" in out and "web.ts:4:" in out and "nav.py:8:" in out and "subtotal" not in out, out
+    print("41 code navigation OK")
+
+    # 42. run notebook cells: outputs saved, stops at the first error, undo restores
+    cw = Path(s.current.cwd)
+    nb = {"cells": [{"cell_type": "code", "source": ["x = 6\n", "print(x * 7)"], "metadata": {}, "outputs": []},
+                    {"cell_type": "markdown", "source": ["# note"], "metadata": {}},
+                    {"cell_type": "code", "source": ["1/0"], "metadata": {}, "outputs": []},
+                    {"cell_type": "code", "source": ["print('never')"], "metadata": {}, "outputs": []}],
+          "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
+    (cw / "n.ipynb").write_text(json.dumps(nb))
+    evs = d.run("run nb", script=[("tool", "notebook_run", {"path": "n.ipynb"}), ("text", "ran")])
+    res = d.kinds(evs, "tool_result")[0]["output"]
+    assert "[cell 0] 42" in res and "ZeroDivisionError" in res and "never" not in res and "stopped at an error" in res, res
+    saved = json.loads((cw / "n.ipynb").read_text())
+    assert saved["cells"][0]["outputs"][0]["text"] == ["42\n"] and saved["cells"][2]["outputs"][0]["output_type"] == "error"
+    s.undo(d.kinds(evs, "turn_end")[0]["turn"])
+    assert json.loads((cw / "n.ipynb").read_text())["cells"][0]["outputs"] == []
+    print("42 notebook run OK")
+
+    # 43. skills: listed in the instructions, loaded on demand (project overrides personal)
+    from myagent import extras
+    sk = cw / ".herness" / "skills" / "release-notes"
+    sk.mkdir(parents=True)
+    (sk / "SKILL.md").write_text("---\nname: release-notes\ndescription: Write release notes from git history\n---\n"
+                                 "Run scripts/log.sh and group changes by type.\n")
+    (sk / "scripts").mkdir()
+    (sk / "scripts" / "log.sh").write_text("git log --oneline\n")
+    assert extras.skills(str(cw))["release-notes"][0] == "Write release notes from git history"
+    s.new_chat()
+    evs = d.run("notes", script=[("tool", "use_skill", {"name": "release-notes"}), ("text", "ok")])
+    sysmsg = REQUESTS[-2][2]["system"]
+    assert "release-notes: Write release notes from git history" in json.dumps(sysmsg)
+    body = json.dumps(REQUESTS[-1][2]["messages"][-1])
+    assert "group changes by type" in body and "scripts/log.sh" in body, body[:500]
+    d.run("bad", script=[("tool", "use_skill", {"name": "nope"}), ("text", "ok")])
+    assert "Available skills: release-notes" in json.dumps(REQUESTS[-1][2]["messages"][-1])
+    print("43 skills OK")
+
+    # 44. specialized sub-agents and parallel runs
+    n0 = len(REQUESTS)
+    d.run("explore", script=[("tool", "task", {"description": "find", "prompt": "Find X", "kind": "explore"}),
+                             ("text", "R1"), ("text", "ok")])
+    sub = REQUESTS[n0 + 1][2]
+    names = {t.get("name") for t in sub["tools"]}
+    assert sub["model"] == "claude-haiku-5-5" and "code_symbols" in names and "web_search" not in names and "write_file" not in names
+    assert "explore sub-agent" in json.dumps(sub["system"])
+    n0 = len(REQUESTS)
+    d.run("research", script=[("tool", "task", {"description": "look up", "prompt": "Research Y", "kind": "research"}),
+                              ("text", "R2"), ("text", "ok")])
+    sub = REQUESTS[n0 + 1][2]
+    assert sub["model"] == "claude-opus-5-5" and "web_search" in {t.get("name") or t.get("type") for t in sub["tools"]}
+    from myagent.providers import run_calls
+    def slow(name, a):
+        time.sleep(0.5)
+        return f"{name}:{a['n']}", False
+    t0 = time.time()
+    out = run_calls(slow, [("task", {"n": 1}), ("read_file", {"n": 2}), ("task", {"n": 3}), ("task", {"n": 4})])
+    took = time.time() - t0
+    assert out == [("task:1", False), ("read_file:2", False), ("task:3", False), ("task:4", False)] and took < 1.3, (out, took)
+    n0 = len(REQUESTS)
+    evs = d.run("two", script=[("tools", [("task", {"description": "a", "prompt": "A", "kind": "plan"}),
+                                          ("task", {"description": "b", "prompt": "B", "kind": "plan"})]),
+                               ("text", "SUB"), ("text", "SUB"), ("text", "merged")])
+    res = REQUESTS[-1][2]["messages"][-1]["content"]
+    assert len(res) == 2 and all(r["type"] == "tool_result" and "SUB" in json.dumps(r) for r in res), res
+    print("44 sub-agent kinds + parallel OK")
+    # 45. edit & resend an earlier message: history and later file changes rewound
+    s.new_chat()
+    chat = s.current
+    cw = Path(chat.cwd)
+    d.run("first", script=[("text", "one")])
+    evs = d.run("second", script=[("tool", "write_file", {"path": "rw.txt", "content": "v2"}), ("text", "two")])
+    assert (cw / "rw.txt").exists()
+    users = [e for e in chat.transcript if e["kind"] == "user"]
+    idx = users[1]["idx"]
+    n_before = len(chat.provider.serialize())
+    SCRIPT[:] = [("text", "edited reply")]
+    start = len(d.events)
+    chat.rewind(idx, "second, but different")
+    t0 = time.time()
+    while chat.busy or time.time() - t0 < 0.2:
+        time.sleep(0.05)
+    assert not (cw / "rw.txt").exists(), "later file change should be undone"
+    texts = [e.get("text") for e in chat.transcript if e["kind"] == "user"]
+    assert texts == ["first", "second, but different"], texts
+    msgs = REQUESTS[-1][2]["messages"]
+    assert "second, but different" in json.dumps(msgs) and '"second"' not in json.dumps(msgs) and len(msgs) == 3, msgs
+    assert any(e["kind"] == "replay" for e in d.events[start:])
+    print("45 edit & rewind OK")
+
+    # 46. fork: a new chat with the history up to that message; the original is unchanged
+    orig_len = len(chat.transcript)
+    users = [e for e in chat.transcript if e["kind"] == "user"]
+    new = chat.fork(users[0]["idx"])
+    assert new.id != chat.id and len(chat.transcript) == orig_len
+    assert [e.get("text") for e in new.transcript if e["kind"] == "user"] == ["first"]
+    assert any(e["kind"] == "text" and e["text"] == "one" for e in new.transcript)
+    assert len(new.provider.serialize()) == users[1]["mark"]["m"] and new.title.startswith("Fork:")
+    s.select(new)
+    d.run("forked question", script=[("text", "fork reply")])
+    assert "one" in json.dumps(REQUESTS[-1][2]["messages"]) and "different" not in json.dumps(REQUESTS[-1][2]["messages"])
+    print("46 fork OK")
+
+    # 47. review changes one by one: only the chosen change is applied, the model is told what was skipped
+    (cw / "h.txt").write_text("a\nb\nc\nd\ne\nf\ng\nh\n")
+    d.policy = "partial"
+    evs = d.run("two edits", script=[("tool", "multi_edit", {"path": "h.txt", "edits": [
+        {"old_text": "a\n", "new_text": "A\n"}, {"old_text": "h\n", "new_text": "H\n"}]}), ("text", "ok")])
+    d.policy = "allow"
+    ap = d.kinds(evs, "approve")[0]
+    assert len(ap["hunks"]) == 2 and ap["hunks"][0]["text"] == "-a\n+A\n", ap.get("hunks")
+    assert (cw / "h.txt").read_text() == "A\nb\nc\nd\ne\nf\ng\nh\n"
+    told = json.dumps(REQUESTS[-1][2]["messages"][-1])
+    assert "only 1 of your 2 changes" in told and "+H" in told, told[:400]
+    s.undo(d.kinds(evs, "turn_end")[0]["turn"])
+    assert (cw / "h.txt").read_text().startswith("a\n")
+    print("47 per-change review OK")
+
+    # 48. context meter and /compact
+    evs = d.run("ctx", script=[("text", "ok")])
+    u = d.kinds(evs, "usage")[-1]
+    assert u["context"] > 0 and u["window"] == 1_000_000, u
+    from myagent.gui import context_window
+    assert context_window("claude-haiku-5-5") == 200_000 and context_window("deepseek-chat") == 128_000 and context_window("x", 5000) == 5000
+    SCRIPT[:] = [("text", "SUMMARY: user is testing herness")]
+    cur = s.current
+    cur.compact()
+    t0 = time.time()
+    while cur.busy and time.time() - t0 < 10:
+        time.sleep(0.05)
+    msgs = cur.provider.serialize()
+    assert len(msgs) == 2 and "SUMMARY: user is testing herness" in json.dumps(msgs[0]), msgs
+    assert REQUESTS[-1][2].get("tools") in (None, []) or all("input_schema" not in t for t in REQUESTS[-1][2]["tools"])
+    d.run("after compact", script=[("text", "fine")])
+    assert "SUMMARY: user is testing" in json.dumps(REQUESTS[-1][2]["messages"])
+    try:
+        cur.rewind([e for e in cur.transcript if e["kind"] == "user"][0]["idx"], "x")
+        raise AssertionError("rewind past a summary should be refused")
+    except ValueError:
+        pass
+    print("48 context meter + compact OK")
+
+    # 49. more hooks: session start adds context, on-prompt can block, before-tool can block
+    py = shlex.quote(sys.executable)
+    s.config["hooks"][s.current.rules_dir] = {
+        "session_start": f"{py} -c \"print('branch is main')\"",
+        "on_prompt": f"{py} -c \"import os,sys; p=os.environ['HERNESS_PROMPT']; print('blocked word') if 'secret' in p else None; sys.exit(2 if 'secret' in p else 0)\"",
+        "before_tool": f"{py} -c \"import os,sys; sys.exit(3 if 'rm ' in os.environ['HERNESS_INPUT'] else 0)\""}
+    s.new_chat()
+    d.run("hello", script=[("text", "hi")])
+    assert "branch is main" in json.dumps(REQUESTS[-1][2]["messages"][0])
+    d.run("again", script=[("text", "hi")])
+    assert "branch is main" not in json.dumps(REQUESTS[-1][2]["messages"][-1])
+    n0 = len(REQUESTS)
+    evs = d.run("tell me the secret", script=[("text", "nope")])
+    assert len(REQUESTS) == n0 and any("blocked this message" in (e.get("text") or "") for e in d.kinds(evs, "notice"))
+    evs = d.run("clean", script=[("tools", [("bash", {"command": "rm -rf build"}), ("bash", {"command": "echo fine"})]), ("text", "ok")])
+    blocked = [e for e in d.kinds(evs, "tool") if e.get("blocked") == "Blocked by a hook"]
+    assert blocked and "fine" in json.dumps(REQUESTS[-1][2]["messages"][-1]), [e for e in d.kinds(evs, "tool")]
+    s.config["hooks"][s.current.rules_dir] = {}
+    print("49 more hooks OK")
+
+    # 50. access from anywhere: tunnel address parsed from cloudflared's output
+    from myagent import platform_extras as pxx
+    fake = Path(tempfile.mkdtemp()) / "cloudflared"
+    fake.write_text("#!/bin/sh\necho 'INF Requesting new quick Tunnel'\necho 'INF |  https://brave-tiger-12.trycloudflare.com  |'\nsleep 30\n")
+    fake.chmod(0o755)
+    old_find = pxx.find_cloudflared
+    pxx.find_cloudflared = lambda: str(fake)
+    try:
+        s._handler_factory = s._handler_factory or (lambda sess, tok: BaseHTTPRequestHandler)
+        url = s.set_remote(True)
+        assert url.startswith("https://brave-tiger-12.trycloudflare.com/?token="), url
+        assert s.public_config()["remote_url"] == url
+        s.set_remote(False)
+        assert not s.remote_url and s.tunnel is None
+        s.set_phone(False)
+        pxx.find_cloudflared = lambda: None
+        try:
+            s.set_remote(True)
+            raise AssertionError("should explain how to install cloudflared")
+        except RuntimeError as e:
+            assert "brew install cloudflared" in str(e)
+        s.set_phone(False)
+    finally:
+        pxx.find_cloudflared = old_find
+    print("50 access from anywhere OK")
     print("ALL TESTS PASSED")
 
 

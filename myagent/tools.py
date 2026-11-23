@@ -77,6 +77,25 @@ TOOLS = [
      "schema": _schema({"source": {"type": "string", "description": "File path or URL of the PDF."},
                         "pages": {"type": "string", "description": "Optional page selection, e.g. '1-10' or '3,5,8-9'."}},
                        ["source"])},
+    {"name": "web_search", "kind": "readonly", "client_web": True,
+     "description": "Search the web and get the top results (title, link, snippet). Then use fetch_url to read a page.",
+     "schema": _schema({"query": _S}, ["query"])},
+    {"name": "code_symbols", "kind": "readonly",
+     "description": "Code navigation: list the definitions (functions, classes, methods, types, constants) in a file, or find "
+                    "where a name is defined across the project (go to definition). Python is exact; other languages use patterns.",
+     "schema": _schema({"name": {"type": "string", "description": "Name to find the definition of (optional)."},
+                        "path": {"type": "string", "description": "File or folder (default: whole project)."}}, [])},
+    {"name": "find_references", "kind": "readonly",
+     "description": "Code navigation: find every place a name is used (whole-word matches, definitions marked).",
+     "schema": _schema({"name": _S, "path": {"type": "string", "description": "Folder or file (default: whole project)."}}, ["name"])},
+    {"name": "notebook_run", "kind": "mutating",
+     "description": "Run a Jupyter notebook's code cells in order (fresh Python), save their outputs into the notebook and "
+                    "report results. Stops at the first error. Use 'upto' to run only the first N cells.",
+     "schema": _schema({"path": _S, "upto": {"type": "integer", "description": "Run cells 0..upto (optional)."}}, ["path"])},
+    {"name": "use_skill", "kind": "session",
+     "description": "Load a skill's full instructions (and the list of its files/scripts) when the task matches one of the "
+                    "skills listed in your instructions.",
+     "schema": _schema({"name": _S}, ["name"])},
     {"name": "fetch_url", "kind": "readonly", "client_web": True,
      "description": "Fetch a web page (or a local dev server URL) and return its text content.",
      "schema": _schema({"url": _S}, ["url"])},
@@ -93,7 +112,11 @@ TOOLS = [
                     "Use it to explore a large codebase or look things up without filling this conversation. "
                     "It returns only its final report, so say exactly what to find and what to report.",
      "schema": _schema({"description": {"type": "string", "description": "3-6 word label."},
-                        "prompt": {"type": "string", "description": "Full instructions for the sub-agent."}},
+                        "prompt": {"type": "string", "description": "Full instructions for the sub-agent."},
+                        "kind": {"type": "string", "enum": ["explore", "plan", "research"],
+                                 "description": "explore: fast search of the codebase (cheaper model); plan: design an "
+                                                "implementation plan; research: careful investigation incl. the web. "
+                                                "Several task calls in one message run in parallel."}},
                        ["description", "prompt"])},
     {"name": "open_preview", "kind": "session",
      "description": "Open a web page, local dev server URL or HTML file in a preview window so the user can see it.",
@@ -144,7 +167,7 @@ TOOLS_BY_NAME = {t["name"]: t for t in TOOLS}
 WORKSPACE_TOOLS = [t for t in TOOLS if t["kind"] not in ("session", "browser", "desktop")]
 READONLY_TOOLS = [t for t in TOOLS if t["kind"] == "readonly"]
 MUTATING = {t["name"] for t in TOOLS if t["kind"] == "mutating"}
-FILE_CHANGING = {"write_file", "edit_file", "multi_edit", "notebook_edit"}
+FILE_CHANGING = {"write_file", "edit_file", "multi_edit", "notebook_edit", "notebook_run"}
 
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".mypy_cache", "dist", "build"}
 _TYPES = {"string": str, "integer": int, "boolean": bool, "array": list, "object": dict}
@@ -201,6 +224,16 @@ def describe(name: str, args: dict) -> str:
         return f"notebook {args.get('mode', 'replace')} cell {args.get('cell')} in {args.get('path')}"
     if name == "remember":
         return f"remember: {args.get('note', '')[:60]}"
+    if name == "web_search":
+        return f"search the web: {args.get('query')}"
+    if name == "code_symbols":
+        return f"symbols {args.get('name') or ''} {args.get('path') or ''}".strip()
+    if name == "find_references":
+        return f"references to {args.get('name')}"
+    if name == "notebook_run":
+        return f"run notebook {args.get('path')}"
+    if name == "use_skill":
+        return f"use skill {args.get('name')}"
     if name == "read_pdf":
         return f"read pdf {args.get('source')}" + (f" (pages {args['pages']})" if args.get("pages") else "")
     if name == "fetch_url":
@@ -312,24 +345,29 @@ class Workspace:
         return _truncate(out) if isinstance(out, str) else out  # lists are text+document parts
 
     # ---- diff preview (computed before approval; nothing is written) ----
-    def preview_diff(self, name: str, args: dict) -> str | None:
-        if name not in FILE_CHANGING:
-            return None
+    def proposed(self, name: str, args: dict) -> tuple[Path, str, str]:
+        """(path, current text, text after this edit). Nothing is written."""
         p = self.path(args["path"])
         old = p.read_text(errors="replace") if p.is_file() else ""
+        if name == "write_file":
+            new = args["content"]
+        elif name == "edit_file":
+            new = _apply_edits(old, [args])
+        elif name == "notebook_edit":
+            from .extras import edit_notebook
+            try:
+                new = edit_notebook(old, args["cell"], args.get("source"), args.get("cell_type"), args.get("mode", "replace"))
+            except (ValueError, KeyError) as e:
+                raise ToolError(str(e))
+        else:
+            new = _apply_edits(old, args["edits"])
+        return p, old, new
+
+    def preview_diff(self, name: str, args: dict) -> str | None:
+        if name not in FILE_CHANGING or name == "notebook_run":
+            return None
         try:
-            if name == "write_file":
-                new = args["content"]
-            elif name == "edit_file":
-                new = _apply_edits(old, [args])
-            elif name == "notebook_edit":
-                from .extras import edit_notebook
-                try:
-                    new = edit_notebook(old, args["cell"], args.get("source"), args.get("cell_type"), args.get("mode", "replace"))
-                except (ValueError, KeyError) as e:
-                    raise ToolError(str(e))
-            else:
-                new = _apply_edits(old, args["edits"])
+            p, old, new = self.proposed(name, args)
         except ToolError as e:
             return f"(cannot apply: {e})"
         try:
@@ -527,7 +565,124 @@ class Workspace:
             return _truncate(text + "\n\n(Too large to send as pages; text only. Select fewer pages to see them.)")
         return [{"type": "pdf", "name": name, "data": base64.b64encode(subset).decode(), "text": _truncate(text)}]
 
+    # ---- code navigation ----
+    _DEF = re.compile(r"^\s*(?:export\s+)?(?:default\s+)?(?:public\s+|private\s+|protected\s+|static\s+|async\s+|pub(?:\([^)]*\))?\s+)*"
+                      r"(function\*?|class|interface|type|enum|const|let|var|def|fn|func|struct|trait|impl|module|object)\s+"
+                      r"(?:\([^)]*\)\s*)?([A-Za-z_$][\w$]*)")
+    _CODE_EXT = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".go", ".rs", ".java", ".kt", ".swift", ".rb", ".php",
+                 ".c", ".h", ".cc", ".cpp", ".hpp", ".cs", ".scala", ".lua", ".dart", ".vue", ".svelte"}
+
+    def _code_files(self, path: str | None):
+        root = self.path(path or ".")
+        for f in self._walk(root):
+            if f.suffix.lower() in self._CODE_EXT:
+                yield f
+
+    def _defs_in(self, f: Path):
+        try:
+            text = f.read_text(errors="replace")
+        except OSError:
+            return []
+        if f.suffix == ".py":
+            import ast
+            try:
+                tree = ast.parse(text)
+            except SyntaxError:
+                tree = None
+            if tree is not None:
+                out = []
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        out.append((node.lineno, "class" if isinstance(node, ast.ClassDef) else "def", node.name))
+                    elif isinstance(node, ast.Assign) and node.col_offset == 0:
+                        out += [(node.lineno, "var", t.id) for t in node.targets if isinstance(t, ast.Name)]
+                return sorted(out)
+        return [(i, m.group(1), m.group(2)) for i, line in enumerate(text.splitlines(), 1) if (m := self._DEF.match(line))]
+
+    def _rel(self, f: Path) -> str:
+        try:
+            return f.relative_to(self.cwd).as_posix()
+        except ValueError:
+            return str(f)
+
+    def _code_symbols(self, name: str | None = None, path: str | None = None) -> str:
+        out = []
+        files = [self.path(path)] if path and self.path(path).is_file() else self._code_files(path)
+        for f in files:
+            for line, kind, sym in self._defs_in(f):
+                if not name or sym == name:
+                    out.append(f"{self._rel(f)}:{line}  {kind} {sym}")
+            if len(out) >= 400:
+                break
+        if not out:
+            return f"No definition of {name} found." if name else "No definitions found."
+        return "\n".join(out)
+
+    def _find_references(self, name: str, path: str | None = None) -> str:
+        rx = re.compile(rf"(?<![\w$]){re.escape(name)}(?![\w$])")
+        out = []
+        for f in self._code_files(path):
+            defs = {line for line, _, sym in self._defs_in(f) if sym == name}
+            try:
+                lines = f.read_text(errors="replace").splitlines()
+            except OSError:
+                continue
+            for i, line in enumerate(lines, 1):
+                if rx.search(line):
+                    out.append(f"{self._rel(f)}:{i}:{' [definition]' if i in defs else ''} {line.strip()[:200]}")
+            if len(out) >= 300:
+                break
+        return "\n".join(out) or f"No uses of {name} found."
+
+    # ---- notebooks ----
+    def _notebook_run(self, path: str, upto: int | None = None) -> str:
+        import json as _json
+        import sys as _sys
+        p = self.path(path)
+        if not p.is_file():
+            raise ToolError(f"No such notebook: {p}")
+        py = shutil.which("python3") or shutil.which("python") or (None if getattr(_sys, "frozen", False) else _sys.executable)
+        if not py:
+            raise ToolError("Python is not installed on this computer, so notebooks can't run.")
+        runner = Path(tempfile.gettempdir()) / "herness_nbrun.py"
+        runner.write_text(_NB_RUNNER, encoding="utf-8")
+        before = p.read_text(encoding="utf-8")
+        argv = [py, str(runner), str(p), str(-1 if upto is None else upto)]
+        wrapped = self._sandboxed(" ".join(f"'{a}'" for a in argv)) if self.sandbox != "off" else None
+        try:
+            proc = subprocess.run(wrapped or argv, cwd=p.parent, capture_output=True, text=True, timeout=900,
+                                  encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL)
+        except subprocess.TimeoutExpired:
+            raise ToolError("The notebook took longer than 15 minutes and was stopped.")
+        try:
+            result = _json.loads(proc.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            raise ToolError(f"The notebook runner failed: {proc.stderr[-2000:]}")
+        if self.on_file_change:
+            self.on_file_change(p, before)
+        p.write_text(result.pop("notebook"), encoding="utf-8")
+        lines = [f"[cell {c['cell']}] " + ("ERROR " + c["error"] if c.get("error") else (c.get("output") or "(no output)"))[:1500]
+                 for c in result["cells"]]
+        return f"Ran {len(result['cells'])} code cell(s){' — stopped at an error' if result.get('failed') else ''}:\n" + "\n".join(lines)
+
     # ---- web ----
+    def _web_search(self, query: str) -> str:
+        import urllib.parse as up
+        url = "https://html.duckduckgo.com/html/?" + up.urlencode({"q": query})
+        raw, _ = self._download(url)
+        page = raw.decode(errors="replace")
+        results = []
+        for m in re.finditer(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>(.*?)(?=<a[^>]+class="result__a"|$)', page, re.S):
+            href, title, rest = m.groups()
+            q = up.parse_qs(up.urlparse(html.unescape(href)).query)
+            link = q.get("uddg", [html.unescape(href)])[0]
+            sm = re.search(r'class="result__snippet"[^>]*>(.*?)</a>', rest, re.S)
+            clean = lambda t: html.unescape(re.sub(r"<[^>]+>", "", t)).strip()
+            results.append(f"{len(results) + 1}. {clean(title)}\n   {link}\n   {clean(sm.group(1)) if sm else ''}")
+            if len(results) >= 8:
+                break
+        return "\n".join(results) or "No results (the search service may be busy). Try different words, or fetch a known page."
+
     def _download(self, url: str) -> tuple[bytes, str]:
         req = urllib.request.Request(url, headers={"User-Agent": "IncredibleHerness/1.0"})
         try:
@@ -550,6 +705,63 @@ class Workspace:
             text = re.sub(r"[ \t]+", " ", text)
             text = re.sub(r"\n\s*\n+", "\n\n", text).strip()
         return text
+
+
+def hunks(old: str, new: str) -> list[dict]:
+    """The separate changes between two texts, for reviewing them one by one."""
+    a, b = old.splitlines(keepends=True), new.splitlines(keepends=True)
+    out = []
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if tag == "equal":
+            continue
+        body = "".join("-" + x if x.endswith("\n") else "-" + x + "\n" for x in a[i1:i2]) + \
+               "".join("+" + x if x.endswith("\n") else "+" + x + "\n" for x in b[j1:j2])
+        out.append({"i": len(out), "line": i1 + 1, "text": body[:4000]})
+    return out
+
+
+def apply_hunks(old: str, new: str, keep: set) -> str:
+    """old with only the chosen changes (by index from hunks()) applied."""
+    a, b = old.splitlines(keepends=True), new.splitlines(keepends=True)
+    out, n = [], 0
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if tag == "equal":
+            out += a[i1:i2]
+            continue
+        out += b[j1:j2] if n in keep else a[i1:i2]
+        n += 1
+    return "".join(out)
+
+
+_NB_RUNNER = r'''
+import contextlib, io, json, sys, traceback
+path, upto = sys.argv[1], int(sys.argv[2])
+nb = json.load(open(path, encoding="utf-8"))
+g = {"__name__": "__main__"}
+cells, failed = [], False
+for i, c in enumerate(nb.get("cells", [])):
+    if upto >= 0 and i > upto:
+        break
+    if c.get("cell_type") != "code":
+        continue
+    src = "".join(c.get("source", []))
+    out, err = io.StringIO(), None
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            code = compile(src, f"<cell {i}>", "exec")
+            exec(code, g)
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"
+    text = out.getvalue()
+    c["outputs"] = ([{"output_type": "stream", "name": "stdout", "text": text.splitlines(True)}] if text else []) + (
+        [{"output_type": "error", "ename": err.split(":")[0], "evalue": err, "traceback": []}] if err else [])
+    c["execution_count"] = len(cells) + 1
+    cells.append({"cell": i, "output": text[-2000:], "error": err})
+    if err:
+        failed = True
+        break
+print(json.dumps({"cells": cells, "failed": failed, "notebook": json.dumps(nb, indent=1, ensure_ascii=False) + "\n"}))
+'''
 
 
 def project_instructions(cwd: str) -> tuple[str, list[str]]:
