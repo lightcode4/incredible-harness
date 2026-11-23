@@ -29,7 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, extras, gitops, lsp, projects
+from . import __version__, extras, gallery, gitops, lsp, projects
 from .catalog import BY_ID as PROVIDER_BY_ID, PROVIDERS, guess_service
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
@@ -70,6 +70,9 @@ def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: 
         "- Run servers and long jobs with run_in_background, then check them with bash_output.\n"
         "- Use git for version control when the folder is a repository, but only commit or push when asked.\n"
         "- Use the task tool to research large codebases without filling this conversation.\n"
+        "- For a quick web page, chart, visual or small interactive demo that doesn't need to be saved in the project, "
+        "reply with ONE self-contained ```html code block (inline CSS/JS; CDN libraries are fine): the app shows it live "
+        "as an artifact. Use ```mermaid blocks for diagrams and $$...$$ or \\(...\\) for math; they are drawn for the user.\n"
         "- Ask the user when a decision is genuinely theirs. Keep replies short and concrete; say plainly what you "
         "changed, what you verified, and what you could not verify."
     )
@@ -337,6 +340,7 @@ class Chat:
             self.turn_cost += c
         if count_context:
             self.context = u.get("input", 0) + u.get("cache_read", 0) + u.get("cache_write", 0)
+        extras.log_usage(model, u, c, self.id)
         self.emit("usage", cost=round(self.cost, 4), tokens=self.tokens, priced=c is not None, **self.context_info())
 
     def context_info(self) -> dict:
@@ -926,7 +930,8 @@ class Session:
                        "computer": False, "schedules": [], "phone": False, "voice_key": "", "auto": False, "plan": False,
                        "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
-                       "projects": []}
+                       "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>"}
+        self.quick_toggle = self.quick_hide = self.focus_main = self.on_hotkey = None  # set by the desktop app
         self.side_chats: dict[str, Chat] = {}  # main chat id -> its side chat
         self.mcp = McpManager()
         self._oauth_fresh: dict[str, dict] = {}  # newest tokens per connector (survive settings being re-applied)
@@ -1210,6 +1215,21 @@ class Session:
         side = self.side_chats.pop(main.id, None) if main else None
         if side:
             side.cancel.set()
+
+    # ---------------------------------------------------------------- quick chat
+    def quick_send(self, text: str, client: str = ""):
+        """Start a new chat from the quick-chat box and bring the main window forward."""
+        if not text.strip():
+            raise ValueError("Type a message first.")
+        cwd = self.current.rules_dir if self.current else self.config["cwd"]
+        chat = self._new_chat_obj(cwd)
+        self.select(chat, client)
+        chat.send(text)
+        if self.quick_hide:
+            self.quick_hide()
+        if self.focus_main:
+            self.focus_main()
+        return chat.id
 
     # ---------------------------------------------------------------- search
     def search_chats(self, q: str, limit: int = 40) -> list[dict]:
@@ -1605,9 +1625,11 @@ def make_handler(session: Session, token: str):
         def do_GET(self):
             path = urlparse(self.path).path
             if path.startswith("/vendor/"):
-                f = Path(__file__).parent / "static" / "vendor" / Path(path).name
+                vend = Path(__file__).parent / "static" / "vendor"
+                f = vend / "fonts" / Path(path).name if path.startswith("/vendor/fonts/") else vend / Path(path).name
                 if f.is_file():
-                    return self._send(f.read_bytes(), "text/css" if f.suffix == ".css" else "application/javascript")
+                    ctype = {".css": "text/css", ".woff2": "font/woff2", ".json": "application/json"}.get(f.suffix, "application/javascript")
+                    return self._send(f.read_bytes(), ctype)
                 return self.send_error(404)
             if not self._authed():
                 return
@@ -1716,6 +1738,51 @@ def make_handler(session: Session, token: str):
                     result = {"files": projects.list_files(str(data.get("id")))}
                 elif path == "/api/project/chat":
                     session.new_project_chat(str(data.get("id")), client)
+                elif path == "/api/quick/send":
+                    result = {"chat": session.quick_send(str(data.get("text", "")))}
+                elif path == "/api/quick/hide":
+                    if session.quick_hide:
+                        session.quick_hide()
+                elif path == "/api/quick/toggle":
+                    if not session.quick_toggle:
+                        raise RuntimeError("Quick chat works in the LightCode⁴ desktop app.")
+                    session.quick_toggle()
+                elif path == "/api/gallery":
+                    result = {"skills": gallery.catalog(), "skills_custom": [n for n in extras.skills(session.config["cwd"]) if n not in gallery.BY_ID],
+                              "connectors": [m["name"] for m in session.config.get("mcp") or []] + [m["name"] for m in session.config.get("mcp_local") or []]}
+                elif path == "/api/gallery/skill":
+                    (gallery.remove if data.get("remove") else gallery.install)(str(data.get("id")))
+                    result = {"skills": gallery.catalog()}
+                elif path == "/api/lsp":
+                    result = {"langs": lsp.status()}
+                elif path == "/api/lsp/install":
+                    lang = str(data.get("lang"))
+                    def _inst(lang=lang):
+                        try:
+                            lsp.install(lang)
+                            session.events.put({"kind": "lsp_install", "lang": lang, "ok": True, "langs": lsp.status()})
+                        except Exception as e:
+                            session.events.put({"kind": "lsp_install", "lang": lang, "ok": False, "error": str(e), "langs": lsp.status()})
+                    threading.Thread(target=_inst, daemon=True).start()
+                elif path == "/api/usage":
+                    result = extras.usage_summary(int(data.get("days", 30)))
+                elif path == "/api/artifact":
+                    name = re.sub(r"[^\w .-]+", "", str(data.get("name") or "artifact")).strip()[:60] or "artifact"
+                    content = str(data.get("content", ""))
+                    if data.get("action") == "open":
+                        import tempfile as _tf
+                        f = Path(_tf.gettempdir()) / f"lightcode4-{secrets.token_hex(4)}.html"
+                        f.write_text(content, encoding="utf-8")
+                        session.preview_opener(f.as_uri())
+                        result = {"path": str(f)}
+                    else:
+                        f = extras.downloads_dir() / f"{name}.{'svg' if data.get('lang') == 'svg' and content.lstrip().startswith('<svg') else 'html'}"
+                        n = 1
+                        while f.exists():
+                            n += 1
+                            f = f.with_name(f"{name} ({n}){f.suffix}")
+                        f.write_text(content, encoding="utf-8")
+                        result = {"path": str(f)}
                 elif path == "/api/rewind":
                     result = {"restored": chat.rewind(int(data.get("idx", -1)), str(data.get("text", "")),
                                                       bool(data.get("undo_files", True)))}
@@ -1758,7 +1825,10 @@ def make_handler(session: Session, token: str):
                             for m in data["mcp_local"]:
                                 prev = (old.get(m.get("name")) or {}).get("env") or {}
                                 m["env"] = {k: (v or prev.get(k, "")) for k, v in (m.get("env") or {}).items()}
+                        hotkey_changed = "quick_hotkey" in data and data["quick_hotkey"] != session.config.get("quick_hotkey")
                         session.apply_config(data, keep_history=True)
+                        if hotkey_changed and session.on_hotkey:
+                            session.on_hotkey(session.config.get("quick_hotkey", ""))
                     session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/instructions":
                     cwd = chat.cwd if chat else session.config["cwd"]

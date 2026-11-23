@@ -13,7 +13,8 @@ SCRIPT[:] = [("tool", "todo_write", {"todos": [{"content": "Read app.py", "statu
              ("tool", "edit_file", {"path": "app.py", "old_text": "    return sum(xs)", "new_text": "    return sum(xs or [])"}), ("text", "Done."),
              ("tool", "multi_edit", {"path": "app.py", "edits": [{"old_text": "def total(xs):", "new_text": "def total(xs=()):"},
                                                                 {"old_text": "/ len(xs)", "new_text": "/ max(len(xs), 1)"}]}),
-             ("text", "Reviewed."), ("text", "Edited answer."), ("text", "SUMMARY: total and avg were tidied."), ("text", "Side answer: it sums the list.")]
+             ("text", "Reviewed."), ("text", "Edited answer."), ("text", "SUMMARY: total and avg were tidied."), ("text", "Side answer: it sums the list."),
+             ("text", "Here is a live demo:\n\n```html\n<!doctype html><title>Sunrise counter</title><button id=b>Clicks: 0</button><script>let n=0;b.onclick=()=>b.textContent='Clicks: '+(++n)</script>\n```\n\nThe flow:\n\n```mermaid\nflowchart LR\n  A[Cart] --> B{Empty?}\n  B -- yes --> C[0]\n  B -- no --> D[sum]\n```\n\nAnd the formula: $$\\bar{x} = \\frac{1}{n}\\sum_{i=1}^{n} x_i$$ while a price like $5 stays text.")]
 import os
 server, url, session = start_server(str(work))
 lang = os.environ.get("HERNESS_UI_LANG", "")

@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 HOME = Path.home() / ".incredible-herness"
@@ -293,3 +294,67 @@ def notify(title: str, message: str) -> None:
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         pass
+
+
+# ---------------------------------------------------------------- usage history
+USAGE_FILE = HOME / "usage.jsonl"
+
+
+def log_usage(model: str, u: dict, cost, chat_id: str) -> None:
+    """One line per model request: time, model, tokens and cost (no message content)."""
+    try:
+        HOME.mkdir(parents=True, exist_ok=True)
+        with open(USAGE_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"t": round(time.time(), 1), "model": model, "chat": chat_id, "cost": cost,
+                                "in": u.get("input", 0), "out": u.get("output", 0),
+                                "cr": u.get("cache_read", 0), "cw": u.get("cache_write", 0)}) + "\n")
+    except OSError:
+        pass
+
+
+def usage_summary(days: int = 30, now: float | None = None) -> dict:
+    """Cost and tokens per day (local time) for the last `days` days, per model, and headline totals."""
+    import datetime as dt
+    days = max(1, min(int(days), 366))
+    now = now or time.time()
+    today = dt.date.fromtimestamp(now)
+    start = today - dt.timedelta(days=days - 1)
+    per_day = {start + dt.timedelta(days=i): {"cost": 0.0, "tokens": 0, "requests": 0} for i in range(days)}
+    models: dict[str, dict] = {}
+    tot = {"today": 0.0, "week": 0.0, "month": 0.0, "all": 0.0, "tokens": 0, "requests": 0, "unpriced": 0}
+    try:
+        lines = USAGE_FILE.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        lines = []
+    for line in lines:
+        try:
+            r = json.loads(line)
+        except ValueError:
+            continue
+        d = dt.date.fromtimestamp(r["t"])
+        cost = r.get("cost") or 0.0
+        toks = r.get("in", 0) + r.get("out", 0) + r.get("cr", 0) + r.get("cw", 0)
+        age = (today - d).days
+        tot["all"] += cost
+        if age == 0:
+            tot["today"] += cost
+        if age < 7:
+            tot["week"] += cost
+        if age < 30:
+            tot["month"] += cost
+        if d in per_day:
+            per_day[d]["cost"] += cost
+            per_day[d]["tokens"] += toks
+            per_day[d]["requests"] += 1
+            m = models.setdefault(r.get("model") or "?", {"model": r.get("model") or "?", "cost": 0.0, "tokens": 0, "requests": 0, "priced": True})
+            m["cost"] += cost
+            m["tokens"] += toks
+            m["requests"] += 1
+            if r.get("cost") is None:
+                m["priced"] = False
+                tot["unpriced"] += 1
+            tot["tokens"] += toks
+            tot["requests"] += 1
+    return {"days": [{"date": d.isoformat(), **v, "cost": round(v["cost"], 4)} for d, v in per_day.items()],
+            "models": sorted(({**m, "cost": round(m["cost"], 4)} for m in models.values()), key=lambda m: (-m["cost"], -m["tokens"])),
+            "totals": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in tot.items()}, "range": days}

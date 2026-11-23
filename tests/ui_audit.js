@@ -70,7 +70,8 @@ async function overlaps(pg, label) {
         check(`Sidebar “${tab}” opens Settings on the right tab`, await pg.isVisible(`.pane[data-p="${pane}"]`));
         await pg.click('#cancelSettings');
       }
-      await navTo(pg, '#navUsage'); check('Usage & cost shows the cost', (await pg.innerText('#log')).includes('cost'));
+      await navTo(pg, '#navUsage'); await pg.waitForTimeout(400); check('Usage & cost opens the usage page', await pg.isVisible('#usageView') && await pg.isVisible('#usToday'));
+      await overlaps(pg, 'usage page'); await pg.click('#usBack');
       await navTo(pg, '#navHelp'); check('A little help opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
       await pg.click('#railFab'); await pg.waitForTimeout(250); await pg.click('#railWsBtn'); await pg.waitForTimeout(300);
       check('Workspace row opens the folder chooser', await pg.isVisible('#folderPicker[open]'));
@@ -236,6 +237,44 @@ async function overlaps(pg, label) {
       await pg.click('#navProjects'); await pg.waitForTimeout(400);
       check('The project card is listed', (await pg.innerText('#pjGrid')).includes('Website'));
       await pg.click('#pjBack'); await pg.waitForTimeout(200);
+      // artifacts, diagrams and math in replies
+      await pg.click('#navPlay'); await pg.waitForTimeout(200);
+      await pg.fill('#input', 'Show me a demo'); await pg.keyboard.press('Enter');
+      await pg.waitForSelector('#artifact:not([hidden])', { timeout: 15000 });
+      check('An HTML reply opens as a live artifact', (await pg.innerText('#artTitle')) === 'Sunrise counter');
+      const fr = pg.frameLocator('#artFrame'); await fr.locator('button').click(); await fr.locator('button').click();
+      check('The artifact runs (its button counts clicks)', (await fr.locator('button').innerText()) === 'Clicks: 2');
+      check('The artifact cannot reach the app', await pg.evaluate(() => { try { return !document.getElementById('artFrame').contentWindow.document; } catch (e) { return true; } }));
+      await overlaps(pg, 'artifact open');
+      await pg.click('#artShowCode'); check('Code view shows the source', (await pg.innerText('#artCode')).includes('Clicks: 0'));
+      await pg.click('#artClose'); check('Close hides the artifact', !(await pg.isVisible('#artifact')));
+      await pg.waitForSelector('.mmd .mmdout svg', { timeout: 15000 });
+      check('Mermaid diagrams are drawn', (await pg.locator('.mmd .mmdout svg').count()) >= 1 && (await pg.innerText('.mmd .mmdout')).includes('Empty?'));
+      check('Math is typeset', (await pg.locator('#log .katex-display').count()) >= 1 && (await pg.innerText('#log')).includes('a price like $5 stays text'));
+      check('Math fonts load', await pg.evaluate(async () => (await fetch('/vendor/fonts/KaTeX_Main-Regular.woff2')).ok));
+      await pg.locator('.artopen').last().click(); check('Open preview reopens it', await pg.isVisible('#artifact')); await pg.keyboard.press('Escape');
+      // usage page with real data
+      await navTo(pg, '#navUsage'); await pg.waitForSelector('#usChart svg', { timeout: 8000 });
+      check('Usage chart shows the days with requests', (await pg.locator('#usChart .bar[d^="M"]').count()) >= 1 && (await pg.innerText('#usModels')).includes('claude-opus-5-5'));
+      await pg.locator('#usChart .hit').last().hover(); await pg.waitForTimeout(150);
+      check('Hovering a day shows its numbers', await pg.isVisible('#usTip') && (await pg.innerText('#usTip')).includes('request'));
+      await pg.click('#usTableBtn'); check('Usage can be shown as a table', await pg.isVisible('#usDayTable table'));
+      await pg.click('#usTableBtn'); await pg.click('#usBack');
+      // skills & connectors gallery
+      await navTo(pg, '#navGallery'); await pg.waitForSelector('#gaSkills .gacard', { timeout: 8000 });
+      check('Gallery lists ready-made skills and connectors', (await pg.locator('#gaSkills .gacard').count()) >= 8 && (await pg.innerText('#gaConn')).includes('Linear'));
+      await overlaps(pg, 'gallery');
+      await pg.locator('#gaSkills .gacard', { hasText: 'Code review' }).getByRole('button', { name: 'Add' }).click(); await pg.waitForTimeout(400);
+      check('Add installs a skill', (await pg.locator('#gaSkills .gacard', { hasText: 'Code review' }).innerText()).includes('Added'));
+      await pg.locator('#gaSkills .gacard', { hasText: 'Code review' }).getByRole('button', { name: 'Remove' }).click(); await pg.waitForTimeout(300);
+      await pg.locator('#gaConn .gacard', { hasText: 'Notion' }).getByRole('button', { name: 'Set up' }).click(); await pg.waitForTimeout(500);
+      check('Set up opens Connectors with the connector filled in', await pg.isVisible('.pane[data-p="mcp"]') && (await pg.evaluate(() => [...document.querySelectorAll('#mcpRows input')].some(i => i.value.includes('mcp.notion.com')))));
+      await pg.click('#cancelSettings'); await pg.click('#gaBack');
+      // settings: code intelligence + quick chat shortcut
+      await pg.click('#openSettings'); await pg.click('#tabs button[data-p="tools"]'); await pg.waitForSelector('.lsprow', { timeout: 8000 });
+      check('Settings lists language servers with their status', (await pg.locator('.lsprow').count()) === 6 && (await pg.innerText('#lspList')).includes('Python'));
+      check('Quick chat shortcut is shown in plain words', (await pg.inputValue('#quickKey')) === 'ctrl+alt+space');
+      await overlaps(pg, 'settings tools'); await pg.click('#cancelSettings');
       check('Header has no Checkpoints / View code / New session', !(await pg.isVisible('#checkpointsBtn')) && !(await pg.isVisible('#viewCodeBtn')) && !(await pg.isVisible('#newSessionBtn')));
       await overlaps(pg, 'after a turn');
       await pg.screenshot({ path: 'audit-1440.png' });
@@ -245,6 +284,9 @@ async function overlaps(pg, label) {
     errors.forEach(e => problems.push(`[${L}] page error: ${e}`));
     await pg.close();
   }
+  { const q = await b.newPage({ viewport: { width: 640, height: 168 } }); await q.goto(url + (url.includes('?') ? '&' : '?') + 'quick=1'); await q.waitForTimeout(800);
+    check('Quick chat window shows just the input box', await q.isVisible('#quickInput') && !(await q.isVisible('#side')) && !(await q.isVisible('.topbar')));
+    check('Quick chat box is focused, ready to type', await q.evaluate(() => document.activeElement?.id === 'quickInput')); await q.close(); }
   await b.close();
   console.log(JSON.stringify({ passed: passed.length, problems }, null, 1));
 })().catch(async e => { console.error('AUDIT CRASHED', String(e).slice(0, 400)); try { console.error('LOG:', (await globalThis.__pg.innerText('#log')).slice(-1500)); } catch (_) {} process.exit(1); });

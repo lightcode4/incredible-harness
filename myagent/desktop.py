@@ -24,6 +24,77 @@ class Bridge:
         return result[0] if result else None
 
 
+DEFAULT_HOTKEY = "<ctrl>+<alt>+<space>"
+
+
+def hotkey_for_pynput(text: str) -> str:
+    """'ctrl+alt+space' / '⌃⌥Space' / '<ctrl>+<alt>+<space>' -> pynput's '<ctrl>+<alt>+<space>'."""
+    t = (text or "").strip().lower()
+    for a, b in (("⌃", "ctrl+"), ("⌥", "alt+"), ("⌘", "cmd+"), ("⇧", "shift+"), ("option", "alt"), ("control", "ctrl"),
+                 ("command", "cmd"), ("<", ""), (">", ""), (" ", "")):
+        t = t.replace(a, b)
+    keys = [k for k in t.split("+") if k]
+    named = {"ctrl", "alt", "cmd", "shift", "space", "enter", "tab", "esc"} | {f"f{i}" for i in range(1, 13)}
+    return "+".join(f"<{k}>" if k in named else k for k in keys)
+
+
+class QuickChat:
+    """A small always-on-top box, shown and hidden with a global keyboard shortcut (works while other apps are in front).
+    macOS asks once for Input Monitoring permission (System Settings > Privacy & Security)."""
+
+    def __init__(self, url: str, main_win):
+        self.main_win, self.listener, self.shown = main_win, None, False
+        sep = "&" if "?" in url else "?"
+        self.win = webview.create_window(f"{APP_NAME} quick chat", url + sep + "quick=1", js_api=Bridge(), width=640, height=168,
+                                         frameless=True, on_top=True, hidden=True, resizable=False, easy_drag=True)
+
+    def toggle(self):
+        self.hide() if self.shown else self.show()
+
+    def show(self):
+        self.shown = True
+        try:
+            self.win.show()
+            self.win.evaluate_js("window.quickFocus && quickFocus()")
+        except Exception:
+            pass
+
+    def hide(self):
+        self.shown = False
+        try:
+            self.win.hide()
+        except Exception:
+            pass
+
+    def focus_main(self):
+        try:
+            self.main_win.show()
+            self.main_win.restore()
+        except Exception:
+            pass
+
+    def listen(self, hotkey: str):
+        self.stop()
+        if not hotkey:
+            return
+        try:
+            from pynput import keyboard
+            self.listener = keyboard.GlobalHotKeys({hotkey_for_pynput(hotkey): self.toggle})
+            self.listener.daemon = True
+            self.listener.start()
+        except Exception as e:  # no permission or no keyboard access: the rest of the app keeps working
+            import logging
+            logging.getLogger("lightcode4").warning("Quick chat shortcut unavailable: %s", e)
+
+    def stop(self):
+        if self.listener:
+            try:
+                self.listener.stop()
+            except Exception:
+                pass
+            self.listener = None
+
+
 def main():
     if "--self-test" in sys.argv:  # test every part of the installed app, print results, exit
         from .selfcheck import main as selfcheck_main
@@ -51,8 +122,12 @@ def main():
                 pass
     session.new_window, session.quit_app = new_window, quit_app
     session.preview_opener = lambda target: webview.create_window(f"Preview — {target}", target, width=1100, height=760)
-    webview.create_window(APP_NAME, url, js_api=Bridge(), width=1180, height=820, min_size=(720, 520))
-    webview.start()
+    main_win = webview.create_window(APP_NAME, url, js_api=Bridge(), width=1180, height=820, min_size=(720, 520))
+    quick = QuickChat(url, main_win)
+    session.quick_toggle, session.quick_hide, session.focus_main = quick.toggle, quick.hide, quick.focus_main
+    session.on_hotkey = quick.listen
+    webview.start(lambda: quick.listen(session.config.get("quick_hotkey", DEFAULT_HOTKEY)))
+    quick.stop()
     session.shutdown()
     server.shutdown()
 

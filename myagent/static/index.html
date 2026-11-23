@@ -11,6 +11,8 @@
 <script src="/vendor/xterm.js"></script>
 <script src="/vendor/addon-fit.js"></script>
 <script src="/vendor/qrcode.js"></script>
+<link rel="stylesheet" href="/vendor/katex.min.css">
+<script src="/vendor/katex.min.js"></script>
 <style>
 :root {
   --bg: #faf9f5; --side: #f3f1ea; --panel: #ffffff; --text: #29261b; --muted: #77736a; --faint: #a8a49a;
@@ -453,6 +455,9 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
 #railFab .fdot.busy { background: var(--sun); animation: fpulse 1.2s ease-in-out infinite; } #railFab .fdot.done { background: var(--ok); }
 .tbwrap { position: relative; display: inline-flex; }
 #jobCount { background: var(--sun) !important; color: #2b2418 !important; }
+.lsprow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: 10px; margin-bottom: 6px; font-size: 13px; }
+.lsprow > span { flex: 1; min-width: 0; } .lsprow small { display: block; font-size: 11.5px; color: var(--muted); white-space: normal; }
+.lsprow .ok { color: var(--ok); font-size: 12px; font-weight: 600; flex: none; }
 #fEdit { flex: 1; margin: 0; border: 0; outline: none; resize: none; padding: 10px 12px; font: 12.5px/1.55 var(--monoF); background: var(--panel); color: var(--text); white-space: pre; tab-size: 4; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--sun) 55%, transparent); }
 #fShow .err:empty { display: none; } #fShow .err { padding: 6px 12px; font-size: 12px; }
 .sesssearch { display: flex; align-items: center; gap: 6px; margin: 2px 6px 4px 14px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
@@ -460,6 +465,28 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
 .chathit { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px 6px 14px; border-radius: 8px; cursor: pointer; color: var(--text); }
 .chathit:hover { background: var(--hover); } .chathit b { display: block; font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chathit small { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .chathit mark { background: color-mix(in srgb, var(--sun) 45%, transparent); color: inherit; border-radius: 3px; }
+body.gallery-open .page > .pagehead, body.gallery-open .page > .modelbar, body.gallery-open .page > .grid { display: none; }
+body.gallery-open #galleryView { display: block !important; }
+.gagrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 8px; }
+.gacard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.gacard b { font-size: 14.5px; } .gacard p { margin: 0; font-size: 12.5px; color: var(--body); line-height: 1.45; flex: 1; }
+.gacard .gafoot { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; } .gacard .added { font-size: 12px; color: var(--ok); font-weight: 600; }
+body.usage-open .page > .pagehead, body.usage-open .page > .modelbar, body.usage-open .page > .grid { display: none; }
+body.usage-open #usageView { display: block !important; }
+:root { --chart: #a87420; } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --chart: #dfbd69; } } :root[data-theme="dark"] { --chart: #dfbd69; }
+.ustiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 18px; }
+.ustile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.ustile small { display: block; font-size: 11.5px; color: var(--muted); } .ustile b { display: block; font-family: var(--monoF); font-weight: 500; font-size: 24px; color: var(--text); margin-top: 4px; }
+.uscard { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; margin-top: 14px; position: relative; }
+.ushead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; } .ushead b { font-size: 14px; } .ushead small { font-size: 11.5px; color: var(--muted); }
+#usChart svg { display: block; width: 100%; height: 220px; } #usChart text { font: 10.5px var(--monoF); fill: var(--muted); }
+#usChart .grid line { stroke: var(--line-soft); stroke-width: 1; } #usChart .base { stroke: var(--line); stroke-width: 1; }
+#usChart .bar { fill: var(--chart); pointer-events: none; } #usChart .hit { fill: transparent; cursor: default; } #usChart .hit:hover + .bar, #usChart .bar.on { opacity: .75; }
+#usTip { position: absolute; pointer-events: none; background: var(--text); color: var(--bg); font-size: 12px; padding: 6px 9px; border-radius: 8px; white-space: nowrap; transform: translate(-50%, -100%); z-index: 2; }
+#usTip b { font-family: var(--monoF); }
+.ustable { width: 100%; border-collapse: collapse; font-size: 12.5px; } .ustable th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11.5px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.ustable td { padding: 7px 8px; border-bottom: 1px solid var(--line-soft); } .ustable td.n, .ustable th.n { text-align: right; font-family: var(--monoF); }
+.usempty { padding: 26px 8px; text-align: center; color: var(--muted); font-size: 13px; }
 body.projects-open .page > .pagehead, body.projects-open .page > .modelbar, body.projects-open .page > .grid { display: none; }
 body.projects-open #projectsView { display: block !important; }
 #pjGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; padding-bottom: 20px; }
@@ -474,6 +501,29 @@ body.projects-open #projectsView { display: block !important; }
 .pjfile { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: 8px; margin-bottom: 6px; font-size: 12.5px; }
 .pjfile span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--monoF); } .pjfile small { color: var(--faint); }
 @media (max-width: 900px) { #pjDetail { grid-template-columns: 1fr; } }
+body.quick > *:not(#quickBox):not(script):not(svg):not(dialog) { display: none !important; }
+body.quick { background: transparent; overflow: hidden; }
+#quickBox { position: fixed; inset: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+#quickBox[hidden] { display: none; }
+.qhead { display: flex; align-items: center; gap: 8px; -webkit-app-region: drag; } .qhead .bmark { width: 22px; height: 22px; color: var(--brand-ink); } .qhead b { font-size: 13.5px; } .qhead small { font-size: 11px; color: var(--faint); }
+#quickInput { flex: 1; resize: none; border: 0; outline: none; background: none; font: inherit; font-size: 16px; color: var(--text); }
+#artifact { position: fixed; z-index: 81; top: 64px; right: 16px; bottom: 16px; width: min(760px, calc(100vw - 32px), 58vw); background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: 0 6px 14px rgba(0,0,0,.07), 0 24px 60px rgba(91,65,21,.18); display: flex; flex-direction: column; overflow: hidden; }
+#artifact[hidden] { display: none; }
+@media (max-width: 1000px) { #artifact { width: calc(100vw - 32px); } }
+.arthead { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 16px; border-bottom: 1px solid var(--line-soft); }
+.arthead b { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.artkind { font-family: var(--monoF); font-size: 10.5px; color: var(--accent); background: var(--soft); border-radius: 6px; padding: 2px 6px; flex: none; }
+.artseg { display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 2px; flex: none; }
+.artseg button { border: 0; background: none; padding: 4px 10px; border-radius: 7px; font-size: 12.5px; color: var(--muted); cursor: pointer; } .artseg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+#artFrame { flex: 1; border: 0; width: 100%; background: #fff; }
+#artCode { flex: 1; margin: 0; overflow: auto; padding: 12px 16px; font: 12.5px/1.55 var(--monoF); background: var(--codeblock); color: var(--codetext); white-space: pre; }
+.codeblock header > span:last-child { display: flex; gap: 10px; }
+.artopen { color: var(--sun) !important; font-weight: 600; }
+.mmd .mmdout { background: var(--panel); padding: 14px; display: flex; justify-content: center; overflow-x: auto; min-height: 60px; }
+.mmd .mmdout svg { max-width: 100%; height: auto; } .mmdwait { color: var(--muted); font-size: 12.5px; align-self: center; }
+.mmderr { color: var(--bad); font-size: 12.5px; align-self: center; } .mmd pre:not([hidden]) { border-top: 1px solid rgba(255,255,255,.06); }
+.assistant .katex-display { margin: 10px 0 14px; overflow-x: auto; overflow-y: hidden; padding: 2px 0; } .katex { font-size: 1.08em; }
 #sideChat { position: fixed; z-index: 80; top: 64px; right: 16px; bottom: 16px; width: min(400px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
   box-shadow: 0 6px 14px rgba(0,0,0,.07), 0 24px 60px rgba(91,65,21,.18); display: flex; flex-direction: column; overflow: hidden; }
 #sideChat[hidden] { display: none; }
@@ -670,6 +720,7 @@ body.models-open #modelsView { display: block !important; }
       <button class="navbtn" data-set="mcp"><svg><use href="#i-plug"/></svg>Connectors</button>
       <button class="navbtn" data-set="sched"><svg><use href="#i-map"/></svg>Automations</button>
       <button class="navbtn" id="navUsage"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Usage &amp; cost</button>
+      <button class="navbtn" id="navGallery"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><path d="M17 13.5v7M13.5 17h7"/></svg>Skills &amp; connectors</button>
       <button class="navbtn" id="navActivity"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Activity</button>
       <button class="navbtn" id="navHelp"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg>A little help<em>?</em></button>
     </div></div>
@@ -718,6 +769,25 @@ body.models-open #modelsView { display: block !important; }
       <span class="spacer"></span>
       <button class="ghost" id="planBtn" title="Plan mode: research and propose a plan before changing anything"><svg><use href="#i-map"/></svg>Plan mode</button>
     </div>
+    <section id="galleryView" hidden>
+      <div class="pagehead"><div><div class="eyebrow">Add abilities in one click</div><h1 class="serif">Skills &amp; connectors</h1>
+        <p class="sub">Skills teach the agent a way of working. Connectors give it access to your other apps.</p></div>
+        <span class="spacer"></span><button class="btn" id="gaBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+      <div class="rsec" style="border:0;margin-top:14px">Skills</div><div class="gagrid" id="gaSkills"></div>
+      <div class="rsec" style="border:0;margin-top:22px">Connectors</div><div class="gagrid" id="gaConn"></div>
+      <p class="sub" style="margin-top:16px">Your own skills: add a folder with a SKILL.md file to <code>~/.incredible-herness/skills/</code> (or <code>.herness/skills/</code> inside a project). <span id="gaCustom"></span></p>
+    </section>
+    <section id="usageView" hidden>
+      <div class="pagehead"><div><div class="eyebrow">Across all your chats</div><h1 class="serif">Usage &amp; cost</h1>
+        <p class="sub">What every model request cost, day by day. Prices are public list prices; your provider's bill is the final word.</p></div>
+        <span class="spacer"></span><div class="artseg" id="usRange" role="tablist" aria-label="Time range"><button data-d="7">7 days</button><button data-d="30" class="on">30 days</button><button data-d="90">90 days</button></div>
+        <button class="btn" id="usBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+      <div class="ustiles"><div class="ustile"><small>Today</small><b id="usToday">$0.00</b></div><div class="ustile"><small>Last 7 days</small><b id="usWeek">$0.00</b></div>
+        <div class="ustile"><small>Last 30 days</small><b id="usMonth">$0.00</b></div><div class="ustile"><small id="usTokLabel">Tokens · 30 days</small><b id="usTok">0</b></div></div>
+      <div class="uscard"><div class="ushead"><b id="usChartTitle">Cost per day</b><button class="linkbtn" id="usTableBtn">Show as table</button></div>
+        <div id="usChart"></div><div id="usTip" role="tooltip" hidden></div><div id="usDayTable" hidden></div></div>
+      <div class="uscard"><div class="ushead"><b>By model</b><small id="usUnpriced"></small></div><div id="usModels"></div></div>
+    </section>
     <section id="projectsView" hidden>
       <div class="pagehead"><div><div class="eyebrow">Your work, together</div><h1 class="serif">Projects</h1>
         <p class="sub">Group chats around one folder, with shared instructions and reference files every chat can use.</p></div>
@@ -874,6 +944,18 @@ body.models-open #modelsView { display: block !important; }
 <dialog id="modelPicker" aria-label="Choose a model"><input id="mpSearch" placeholder="Search models…" aria-label="Search models">
   <div id="mpInfo"></div><div id="mpList"></div>
   <div class="mpfoot"><button class="linkbtn" id="mpSettings">Provider, key &amp; more settings</button><button class="linkbtn" id="mpRefresh">Refresh list</button></div></dialog>
+<div id="quickBox" hidden><div class="qhead"><svg class="bmark" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M17 35a15 15 0 0 1 30 0M8 43h48M15 52h34M23 60h18M32 5v9M9 15l7 7M55 15l-7 7"/></g><path d="M17 35a15 15 0 0 1 30 0Z" fill="var(--sun)"/></svg><b>Quick chat</b><span class="spacer"></span><small>Enter to send · Esc to close</small></div>
+  <textarea id="quickInput" rows="2" placeholder="Ask LightCode⁴ anything…" aria-label="Quick message"></textarea><div class="err" id="quickErr"></div></div>
+<aside id="artifact" aria-label="Artifact preview" hidden>
+  <div class="arthead"><span class="artkind" id="artKind">HTML</span><b id="artTitle">Web page</b><span class="spacer"></span>
+    <div class="artseg" role="tablist"><button id="artPrev" class="on">Preview</button><button id="artShowCode">Code</button></div>
+    <button class="iconbtn" id="artCopy" title="Copy code" aria-label="Copy code"><svg><use href="#i-copy"/></svg></button>
+    <button class="iconbtn" id="artSave" title="Save to Downloads" aria-label="Save to Downloads"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button>
+    <button class="iconbtn" id="artOpen" title="Open in your web browser" aria-label="Open in web browser"><svg><use href="#i-globe"/></svg></button>
+    <button class="iconbtn" id="artClose" title="Close (Esc)" aria-label="Close preview"><svg><use href="#i-x"/></svg></button></div>
+  <iframe id="artFrame" title="Artifact preview" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"></iframe>
+  <pre id="artCode" hidden></pre>
+</aside>
 <aside id="sideChat" aria-label="Side chat" hidden>
   <div class="schead"><div><b>Side chat</b><small>Quick questions about this session. Your main chat doesn't change.</small></div><span class="spacer"></span>
     <button class="iconbtn" id="scNew" title="Start over" aria-label="Start a new side chat"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
@@ -923,6 +1005,10 @@ body.models-open #modelsView { display: block !important; }
       <div class="field"><label>Working folder</label><div style="display:flex;gap:8px"><input id="cwd" spellcheck="false"><button class="btn" id="pick" hidden>Browse…</button></div></div>
     </div>
     <div class="pane" data-p="tools">
+      <div class="field"><label for="quickKey">Quick chat shortcut <small>(opens a small LightCode⁴ box over any app; leave empty to turn off)</small></label>
+        <div class="fprow" style="margin:0"><input id="quickKey" spellcheck="false" placeholder="ctrl+alt+space"><button class="btn" id="quickTry">Try it</button></div>
+        <small style="color:var(--muted);font-size:11.5px">Mac: the first time, allow LightCode4 under System Settings › Privacy &amp; Security › Input Monitoring.</small></div>
+      <div class="field"><label>Code intelligence <small>(language servers give the agent exact definitions, references, types and errors)</small></label><div id="lspList"><div class="aempty">Checking…</div></div></div>
       <label class="toggle"><span>Web search &amp; fetch<small>Claude searches and reads the web itself. Other providers get a page-fetch tool.</small></span><span class="switch"><input type="checkbox" id="web"><span></span></span></label>
       <label class="toggle"><span>Automatic context compaction<small>Summarizes older parts of long chats so they keep working and cost less.</small></span><span class="switch"><input type="checkbox" id="compaction"><span></span></span></label>
       <label class="toggle"><span>Check code after every edit<small>Runs quick syntax/type checks (Python, JavaScript, TypeScript, JSON) and tells the agent about problems.</small></span><span class="switch"><input type="checkbox" id="diagnostics"><span></span></span></label>
@@ -1026,14 +1112,28 @@ function inline(s) {
     .replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<i>$2</i>")
     .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 }
+const ARTIFACT_LANGS = new Set(["html", "svg", "xml-svg"]);
+function renderMath(tex, display) {
+  try { return window.katex ? katex.renderToString(tex, { displayMode: display, throwOnError: false, output: "html" }) : esc(tex); } catch (e) { return esc(tex); }
+}
 function markdown(md) {
-  const out = [];
+  const out = [], maths = [];
   md.split(/^```/m).forEach((part, i) => {
     if (i % 2) {
-      const nl = part.indexOf("\n"), lang = nl < 0 ? "" : part.slice(0, nl).trim(), code = nl < 0 ? "" : part.slice(nl + 1).replace(/\n$/, "");
-      out.push(`<div class="codeblock"><header><span>${esc(lang || "code")}</span><button class="copy">${icon("copy")}Copy</button></header><pre><code>${esc(code)}</code></pre></div>`);
+      const nl = part.indexOf("\n"), lang = nl < 0 ? "" : part.slice(0, nl).trim().toLowerCase(), code = nl < 0 ? "" : part.slice(nl + 1).replace(/\n$/, "");
+      const closed = nl >= 0 && i < md.split(/^```/m).length - 1;
+      const isSvg = lang === "svg" || (lang === "xml" && /^\s*<svg/i.test(code));
+      if (lang === "mermaid") {
+        out.push(`<div class="codeblock mmd" data-src="${esc(code)}"><header><span>diagram</span><span><button class="mmdcode">${icon("file")}Code</button><button class="copy">${icon("copy")}Copy</button></span></header><div class="mmdout"><span class="mmdwait">Drawing diagram…</span></div><pre hidden><code>${esc(code)}</code></pre></div>`);
+        return;
+      }
+      const art = closed && (ARTIFACT_LANGS.has(lang) || isSvg) ? `<button class="artopen" data-lang="${isSvg ? "svg" : "html"}">${icon("eye")}Open preview</button>` : "";
+      out.push(`<div class="codeblock${art ? " art" : ""}"><header><span>${esc(lang || "code")}</span><span>${art}<button class="copy">${icon("copy")}Copy</button></span></header><pre><code>${esc(code)}</code></pre></div>`);
       return;
     }
+    // math: $$…$$, \[…\] (display) and \(…\) (inline) — single $ is left alone so prices stay prices
+    part = part.replace(/\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)/g, (m, a, b, c) => {
+      maths.push(renderMath((a ?? b ?? c).trim(), c === undefined)); return `\u0000M${maths.length - 1}\u0000`; });
     let list = null, para = [], table = null;
     const flushP = () => { if (para.length) { out.push(`<p>${para.map(inline).join("<br>")}</p>`); para = []; } };
     const flushL = () => { if (list) { out.push(`<${list.t}>${list.items.map(x => `<li>${inline(x)}</li>`).join("")}</${list.t}>`); list = null; } };
@@ -1050,9 +1150,50 @@ function markdown(md) {
     }
     flushP(); flushL(); flushT();
   });
-  return out.join("");
+  return out.join("").replace(/\u0000M(\d+)\u0000/g, (m, n) => maths[+n]).replace(/<p>(<span class="katex-display">[\s\S]*?<\/span>)<\/p>/g, "$1");
 }
+// ---------- Diagrams (Mermaid, loaded on first use) ----------
+let mermaidReady = null, mmdN = 0;
+const mmdCache = new Map();
+function loadMermaid() {
+  if (!mermaidReady) mermaidReady = new Promise((ok, bad) => { const sc = document.createElement("script"); sc.src = "/vendor/mermaid.min.js"; sc.onload = ok; sc.onerror = () => bad(new Error("Diagram engine failed to load")); document.head.appendChild(sc); })
+    .then(() => { const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim();
+      mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base", fontFamily: "DM Sans, sans-serif",
+        themeVariables: { primaryColor: v("--soft"), primaryTextColor: v("--text"), primaryBorderColor: v("--accent"), lineColor: v("--muted"), secondaryColor: v("--panel"), tertiaryColor: v("--bg"), background: v("--panel"), noteBkgColor: v("--soft"), noteTextColor: v("--text") } }); });
+  return mermaidReady;
+}
+async function enhance(root) {
+  const blocks = [...(root || document).querySelectorAll(".mmd:not([data-done])")];
+  if (!blocks.length) return;
+  try { await loadMermaid(); } catch (e) { blocks.forEach(b => { b.querySelector(".mmdout").textContent = e.message; }); return; }
+  for (const b of blocks) {
+    if (!b.isConnected || b.closest(".caret")) continue;
+    const src = b.dataset.src, out = b.querySelector(".mmdout"); b.dataset.done = "1";
+    try { let svg = mmdCache.get(src); if (!svg) { svg = (await mermaid.render("mmd" + (++mmdN), src)).svg; mmdCache.set(src, svg); } out.innerHTML = svg; }
+    catch (e) { out.innerHTML = ""; const er = el("div", "mmderr"); er.textContent = "This diagram has a mistake: " + String(e.message || e).split("\n")[0]; out.appendChild(er); b.querySelector("pre").hidden = false; }
+    document.querySelectorAll('[id^="dmmd"]').forEach(x => x.remove());  // mermaid's scratch elements
+  }
+}
+// ---------- Artifacts ----------
+let artCur = null;
+function artifactDoc(code, lang) {
+  if (lang === "svg") return `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;height:100%;display:grid;place-items:center;background:#fff}svg{max-width:100%;max-height:100vh}</style>${code}`;
+  return /<html|<!doctype/i.test(code) ? code : `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>${code}</body></html>`;
+}
+function artTitle(code, lang) { const m = code.match(/<title>([^<]{1,80})<\/title>/i); return m ? m[1].trim() : lang === "svg" ? "Image" : "Web page"; }
+function openArtifact(code, lang) {
+  artCur = { code, lang }; $("artTitle").textContent = artTitle(code, lang); $("artKind").textContent = lang === "svg" ? "SVG" : "HTML";
+  $("artFrame").srcdoc = artifactDoc(code, lang); $("artCode").textContent = code; artView("preview");
+  $("artifact").hidden = false; document.body.classList.add("art-open");
+}
+function closeArtifact() { $("artifact").hidden = true; document.body.classList.remove("art-open"); $("artFrame").srcdoc = ""; }
+function artView(v) { $("artFrame").hidden = v !== "preview"; $("artCode").hidden = v !== "code";
+  $("artPrev").classList.toggle("on", v === "preview"); $("artShowCode").classList.toggle("on", v === "code"); }
 log.addEventListener("click", e => {
+  const a = e.target.closest(".artopen");
+  if (a) { openArtifact(a.closest(".codeblock").querySelector("code").textContent, a.dataset.lang); return; }
+  const mc = e.target.closest(".mmdcode");
+  if (mc) { const pre = mc.closest(".mmd").querySelector("pre"); pre.hidden = !pre.hidden; mc.lastChild.textContent = pre.hidden ? "Code" : "Diagram"; return; }
   const b = e.target.closest(".copy"); if (!b) return;
   navigator.clipboard.writeText(b.closest(".codeblock").querySelector("code").textContent);
   b.innerHTML = icon("copy") + "Copied"; setTimeout(() => b.innerHTML = icon("copy") + "Copy", 1500);
@@ -1079,6 +1220,7 @@ function stream(kind, text) {
   scroll();
 }
 function endBlock() {
+  if (cur && curKind === "text") { const done = cur; setTimeout(() => enhance(done), 0); }
   if (cur) { cur.classList.remove("caret"); if (curKind === "thinking") cur.querySelector("summary span").textContent = "Thought process"; }
   cur = null; curKind = null;
 }
@@ -1217,9 +1359,10 @@ function handle(ev) {
     case "approve": toolCard(ev, true); break;
     case "tool_result": toolResult(ev); break;
     case "todos": endBlock(); setTodos(ev.todos); break;
-    case "turn_end": endBlock(); turnEnd(ev); onFsChanged(); jobsRefresh(); break;
+    case "turn_end": endBlock(); turnEnd(ev); onFsChanged(); jobsRefresh(); if (!replaying) setTimeout(autoOpenArtifact, 50); break;
     case "fs_changed": if (!replaying) onFsChanged(); break;
     case "jobs_changed": if (!replaying) jobsRefresh(); break;
+    case "lsp_install": lspBusy.delete(ev.lang); renderLsp(ev.langs); if (!ev.ok) notice("Language server install: " + ev.error); break;
     case "preview": endBlock(); { const s = add(el("div", "srv", icon("eye"))); s.appendChild(document.createTextNode("Opened preview: " + ev.target)); } break;
     case "plan_ready": planReady(); break;
     case "usage": setCost(ev.cost, ev.tokens, ev.priced); setCtx(ev.context, ev.window); break;
@@ -1250,11 +1393,11 @@ let compactions = 0;
 function replay(ev) {
   if ((ev.chat?.id || null) !== currentChat) { $("scLog").innerHTML = ""; scAdd(el("div", "aempty", "Ask anything about this session. Side chat can read and search, but never edits files or runs commands.")); sideCur = null; }
   currentChat = ev.chat?.id || null; compactions = ev.compactions || 0;
-  document.body.classList.remove("projects-open");
+  document.body.classList.remove("projects-open", "usage-open", "gallery-open");
   log.innerHTML = ""; endBlock(); Object.keys(tools).forEach(k => delete tools[k]);
   const wt = ev.chat?.worktree; $("wtPill").hidden = !wt; if (wt) $("wtName").textContent = wt.branch;
   undoable = new Set(ev.undoable || []);
-  replaying = true; (ev.events || []).forEach(handle); endBlock(); replaying = false;
+  replaying = true; (ev.events || []).forEach(handle); endBlock(); replaying = false; closeArtifact(); setTimeout(() => enhance(log), 0);
   document.body.classList.toggle("chatting", !!(ev.events || []).length);
   if ((ev.events || []).length) dockComposer(); else undockComposer();
   setTodos(ev.todos); setCost(ev.cost, ev.tokens); setCtx(ev.context, ev.window); loadChats();
@@ -1329,6 +1472,7 @@ function mcpRow(m = {}) {
 function showTab(p) { document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.p === p)); document.querySelectorAll(".pane").forEach(x => x.classList.toggle("on", x.dataset.p === p)); }
 let instrLoaded = "";
 async function openSettings(tab) {
+  loadLsp(); $("quickKey").value = (config.quick_hotkey ?? "<ctrl>+<alt>+<space>").replace(/[<>]/g, "");
   setProvider(config.provider || "claude"); $("model").value = config.model || ""; $("effort").value = config.effort || "high";
   $("baseurl").value = config.base_url || ""; $("cwd").value = config.cwd || ""; $("auto").checked = !!config.auto;
   $("web").checked = config.web !== false; $("compaction").checked = config.compaction !== false; $("budget").value = config.budget || "";
@@ -1365,7 +1509,7 @@ $("saveSettings").onclick = async () => {
     mcp_local: [...document.querySelectorAll(".lmcp")].map(r => ({ name: r.querySelector(".ln").value.trim(), command: r.querySelector(".lc").value.trim(),
       args: r.querySelector(".la").value.trim(), env: Object.fromEntries(r.querySelector(".le").value.split("\n").map(l => l.trim()).filter(l => l.includes("="))
         .map(l => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()])) })).filter(m => m.name && m.command),
-    phone: $("phone").checked, hooks: { after_edit: $("hookEdit").value.trim(), before_finish: $("hookFinish").value.trim(),
+    phone: $("phone").checked, quick_hotkey: $("quickKey").value.trim().toLowerCase().split("+").filter(Boolean).map(k => ["ctrl", "alt", "cmd", "shift", "space", "enter", "tab", "esc"].includes(k) || /^f\d+$/.test(k) ? `<${k}>` : k).join("+"), hooks: { after_edit: $("hookEdit").value.trim(), before_finish: $("hookFinish").value.trim(),
       session_start: $("hookStart").value.trim(), on_prompt: $("hookPrompt").value.trim(), before_tool: $("hookTool").value.trim() } };
   if ($("voiceKey").value) body.voice_key = $("voiceKey").value;
   if ($("key").value) body.api_key = $("key").value;
@@ -1500,6 +1644,45 @@ document.addEventListener("keydown", e => {
   if (t) { e.preventDefault(); e.stopImmediatePropagation(); if (typeof closeModelsView === "function") { closeModelsView(); closeProjects(); } panelTab === t ? closePanel() : openPanel(t); return; }
   if (!e.shiftKey && (e.key === ";" || e.code === "Semicolon")) { e.preventDefault(); e.stopImmediatePropagation(); toggleSide(); }
 }, true);
+// ---------- Language servers (Settings > Tools) ----------
+const lspBusy = new Set();
+function renderLsp(langs) {
+  const box = $("lspList"); box.innerHTML = "";
+  langs.forEach(l => {
+    const r = el("div", "lsprow", "<span><b></b><small></small></span>"); r.querySelector("b").textContent = l.label;
+    const sub = r.querySelector("small");
+    if (l.server) { sub.textContent = "Ready · " + l.server; r.appendChild(el("span", "ok", "✓ On")); }
+    else if (lspBusy.has(l.id)) { sub.textContent = "Installing… this can take a minute."; }
+    else if (l.can_install) { sub.textContent = "Not installed"; const b = el("button", "btn small primary"); b.textContent = "Install"; b.onclick = async () => { lspBusy.add(l.id); renderLsp(langs); await api("/api/lsp/install", { lang: l.id }).catch(e => notice(e.message)); }; r.appendChild(b); }
+    else sub.textContent = l.manual || `Not installed. Installing it needs ${l.needs === "npm" ? "Node.js" : l.needs === "go" ? "Go" : "Rust"} on this computer.`;
+    box.appendChild(r);
+  });
+}
+async function loadLsp() { try { renderLsp((await api("/api/lsp")).langs); } catch (e) { $("lspList").textContent = e.message; } }
+// ---------- Quick chat (its own small window, ?quick=1) ----------
+if (new URLSearchParams(location.search).get("quick")) {
+  document.body.classList.add("quick"); $("quickBox").hidden = false;
+  window.quickFocus = () => { $("quickErr").textContent = ""; $("quickInput").focus(); $("quickInput").select(); };
+  $("quickInput").addEventListener("keydown", async e => {
+    if (e.key === "Escape") { e.preventDefault(); api("/api/quick/hide").catch(() => {}); }
+    else if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); const text = $("quickInput").value.trim(); if (!text) return;
+      try { await api("/api/quick/send", { text }); $("quickInput").value = ""; } catch (err) { $("quickErr").textContent = err.message; } }
+  });
+  setTimeout(quickFocus, 50);
+}
+$("quickTry").onclick = () => api("/api/quick/toggle").catch(e => notice(e.message));
+// ---------- Artifact panel ----------
+$("artClose").onclick = closeArtifact;
+$("artPrev").onclick = () => artView("preview"); $("artShowCode").onclick = () => artView("code");
+$("artCopy").onclick = () => { navigator.clipboard.writeText(artCur?.code || ""); notice("Copied the artifact's code."); };
+$("artSave").onclick = async () => { try { const r = await api("/api/artifact", { action: "save", name: $("artTitle").textContent, lang: artCur.lang, content: artifactDoc(artCur.code, artCur.lang) }); notice("Saved to " + r.path); } catch (e) { notice(e.message); } };
+$("artOpen").onclick = async () => { try { await api("/api/artifact", { action: "open", name: $("artTitle").textContent, lang: artCur.lang, content: artifactDoc(artCur.code, artCur.lang) }); } catch (e) { notice(e.message); } };
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("artifact").hidden && !e.target.closest?.("dialog")) closeArtifact(); });
+function autoOpenArtifact() {
+  const users = log.querySelectorAll(".user"); const last = users[users.length - 1];
+  const arts = [...log.querySelectorAll(".codeblock.art")].filter(a => !last || (last.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING));
+  const a = arts[arts.length - 1]; if (a) openArtifact(a.querySelector("code").textContent, a.querySelector(".artopen").dataset.lang);
+}
 // ---------- Side chat ----------
 let sideCur = null, sideBusy = false;
 const sideId = () => currentChat ? "side-" + currentChat : null;
@@ -1550,7 +1733,7 @@ async function runSearch() {
 let pjData = { projects: [], chats: [] }, pjCur = null;
 const pjIcon = '<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 10.5h17"/></svg>';
 async function openProjects(pid) {
-  if (typeof closeModelsView === "function") document.body.classList.remove("models-open");
+  document.body.classList.remove("models-open", "usage-open", "gallery-open");
   closePanel(); document.body.classList.add("projects-open"); $("crumbHere").textContent = "Projects";
   navSet("navProjects"); await loadProjects(); pid ? showProject(pid) : showProjectGrid();
 }
@@ -1991,7 +2174,82 @@ $("navFiles").onclick = () => { navSet("navFiles"); openPanel("term"); };
 $("navGit").onclick = () => { navSet("navGit"); openPanel("git"); };
 $("navTasks").onclick = $("taskBoardBtn").onclick = () => { navSet("navTasks"); closePanel(); openRail(true); if (!(lastTodos || []).length) { startChatting(); notice("No plan yet. For bigger jobs the agent writes one here, or turn on Plan mode."); } };
 document.querySelectorAll("[data-set]").forEach(b => b.onclick = () => openSettings(b.dataset.set === "instr" ? "instr" : b.dataset.set));
-$("navUsage").onclick = () => uiCommand("cost");
+$("navUsage").onclick = () => openUsage();
+// ---------- Skills & connectors gallery ----------
+const CONN_BLURB = { Linear: "Issues and projects. Sign in with one click.", Notion: "Pages and databases. Sign in with one click.", Sentry: "Errors and performance issues. Sign in with one click.",
+  GitHub: "Repositories, issues and pull requests (needs a token).", "Files (another folder)": "Let the agent read and write a folder outside the project.",
+  "SQLite database": "Query a local SQLite database.", Postgres: "Query a PostgreSQL database.", Slack: "Read and post Slack messages (needs a bot token)." };
+async function openGallery() {
+  document.body.classList.remove("models-open", "projects-open", "usage-open"); closePanel(); document.body.classList.add("gallery-open");
+  $("crumbHere").textContent = "Skills & connectors"; navSet("navGallery"); await loadGallery();
+}
+function closeGallery() { document.body.classList.remove("gallery-open"); }
+async function loadGallery() {
+  let g; try { g = await api("/api/gallery"); } catch (e) { notice(e.message); return; }
+  const sk = $("gaSkills"); sk.innerHTML = "";
+  g.skills.forEach(x => { const c = el("div", "gacard", "<b></b><p></p><div class=\"gafoot\"></div>"); c.querySelector("b").textContent = x.name; c.querySelector("p").textContent = x.blurb;
+    const f = c.querySelector(".gafoot");
+    if (x.installed) { f.appendChild(el("span", "added", "✓ Added")); const r = el("button", "btn small"); r.textContent = "Remove"; r.onclick = async () => { await api("/api/gallery/skill", { id: x.id, remove: true }).catch(e => notice(e.message)); loadGallery(); }; f.appendChild(r); }
+    else { f.appendChild(el("span")); const a = el("button", "btn small primary"); a.textContent = "Add"; a.onclick = async () => { await api("/api/gallery/skill", { id: x.id }).catch(e => notice(e.message)); loadGallery(); }; f.appendChild(a); }
+    sk.appendChild(c); });
+  $("gaCustom").textContent = g.skills_custom.length ? "You also have: " + g.skills_custom.join(", ") + "." : "";
+  const cn = $("gaConn"); cn.innerHTML = "";
+  PRESETS.filter(p => p.label !== "Custom").forEach(p => { const name = (p.remote || p.local).name, added = g.connectors.includes(name);
+    const c = el("div", "gacard", "<b></b><p></p><div class=\"gafoot\"></div>"); c.querySelector("b").textContent = p.label; c.querySelector("p").textContent = CONN_BLURB[p.label] || "";
+    const f = c.querySelector(".gafoot");
+    if (added) { f.appendChild(el("span", "added", "✓ Added")); const m = el("button", "btn small"); m.textContent = "Manage"; m.onclick = () => openSettings("mcp"); f.appendChild(m); }
+    else { f.appendChild(el("span")); const a = el("button", "btn small primary"); a.textContent = "Set up"; a.onclick = async () => { await openSettings("mcp"); [...$("presets").querySelectorAll("button")].find(b => b.textContent === p.label)?.click(); }; f.appendChild(a); }
+    cn.appendChild(c); });
+}
+$("navGallery").onclick = e => { e.stopPropagation(); openGallery(); };
+$("gaBack").onclick = () => { closeGallery(); navSet("navPlay"); setTab("chat"); };
+let usDays = 30, usData = null, usTable = false;
+async function openUsage() {
+  document.body.classList.remove("models-open", "projects-open", "gallery-open"); closePanel(); document.body.classList.add("usage-open");
+  $("crumbHere").textContent = "Usage & cost"; navSet("navUsage"); await loadUsage();
+}
+function closeUsage() { document.body.classList.remove("usage-open"); }
+async function loadUsage() { try { usData = await api("/api/usage", { days: usDays }); renderUsage(); } catch (e) { notice(e.message); } }
+function renderUsage() {
+  const d = usData, t = d.totals; $("usToday").textContent = money(t.today); $("usWeek").textContent = money(t.week); $("usMonth").textContent = money(t.month);
+  $("usTok").textContent = fmtTok(t.tokens); $("usTokLabel").textContent = `Tokens · ${d.range} days`;
+  const byCost = d.days.some(x => x.cost > 0), key = byCost ? "cost" : "tokens";
+  $("usChartTitle").textContent = byCost ? "Cost per day" : "Tokens per day";
+  $("usUnpriced").textContent = t.unpriced ? `${t.unpriced} request${t.unpriced === 1 ? "" : "s"} without a published price` : "";
+  const fmt = v => key === "cost" ? money(v) : fmtTok(v), dateLabel = iso => new Date(iso + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  // chart
+  const box = $("usChart"); box.innerHTML = "";
+  if (!d.days.some(x => x[key] > 0)) { box.appendChild(el("div", "usempty", "No usage yet in this period. Costs appear here as soon as you chat.")); }
+  else {
+    const W = Math.max(320, box.clientWidth || 700), H = 220, L = 52, R = 8, T = 10, B = 24, n = d.days.length;
+    const max = Math.max(...d.days.map(x => x[key])), nice = v => { const p = Math.pow(10, Math.floor(Math.log10(v))); return Math.ceil(v / p / (v / p > 5 ? 2 : 1)) * p * (v / p > 5 ? 2 : 1); };
+    const top = nice(max || 1), slot = (W - L - R) / n, bw = Math.min(24, Math.max(2, slot - 2)), y = v => T + (H - T - B) * (1 - v / top);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${$("usChartTitle").textContent}, last ${n} days"><g class="grid">`;
+    [0.5, 1].forEach(f => { svg += `<line x1="${L}" x2="${W - R}" y1="${y(top * f)}" y2="${y(top * f)}"/><text x="${L - 6}" y="${y(top * f) + 3.5}" text-anchor="end">${esc(fmt(top * f))}</text>`; });
+    svg += `</g><line class="base" x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}"/><text x="${L - 6}" y="${y(0) + 3.5}" text-anchor="end">0</text>`;
+    const every = Math.ceil(n / Math.floor((W - L - R) / 62));
+    d.days.forEach((x, i) => {
+      const cx = L + slot * i + slot / 2, v = x[key], h = Math.max(v > 0 ? 2 : 0, y(0) - y(v)), x0 = cx - bw / 2, y0 = y(0) - h, r = Math.min(4, bw / 2, h);
+      svg += `<rect class="hit" data-i="${i}" x="${L + slot * i}" y="${T}" width="${slot}" height="${H - T - B}"/>`;
+      svg += h ? `<path class="bar" d="M${x0},${y(0)} V${y0 + r} Q${x0},${y0} ${x0 + r},${y0} H${x0 + bw - r} Q${x0 + bw},${y0} ${x0 + bw},${y0 + r} V${y(0)} Z"/>` : `<path class="bar"/>`;
+      if (i % every === (n - 1) % every) svg += `<text x="${cx}" y="${H - 6}" text-anchor="middle">${esc(dateLabel(x.date))}</text>`;
+    });
+    box.innerHTML = svg + "</svg>";
+    box.querySelectorAll(".hit").forEach(h => {
+      h.onmouseenter = () => { const x = d.days[+h.dataset.i], r = h.getBoundingClientRect(), c = $("usChart").closest(".uscard").getBoundingClientRect(), bar = h.nextElementSibling;
+        bar.classList.add("on"); const tip = $("usTip"); tip.innerHTML = `${esc(dateLabel(x.date))} · <b>${esc(money(x.cost))}</b> · ${esc(fmtTok(x.tokens))} tokens · ${x.requests} request${x.requests === 1 ? "" : "s"}`;
+        tip.hidden = false; tip.style.left = (r.left - c.left + r.width / 2) + "px"; tip.style.top = (y(x[key]) + (box.getBoundingClientRect().top - c.top) - 8) + "px"; };
+      h.onmouseleave = () => { h.nextElementSibling.classList.remove("on"); $("usTip").hidden = true; };
+    });
+  }
+  $("usDayTable").innerHTML = `<table class="ustable"><tr><th>Day</th><th class="n">Cost</th><th class="n">Tokens</th><th class="n">Requests</th></tr>${[...d.days].reverse().filter(x => x.requests).map(x => `<tr><td>${esc(dateLabel(x.date))}</td><td class="n">${esc(money(x.cost))}</td><td class="n">${esc(fmtTok(x.tokens))}</td><td class="n">${x.requests}</td></tr>`).join("") || '<tr><td colspan="4" class="usempty">No usage yet.</td></tr>'}</table>`;
+  $("usChart").hidden = usTable; $("usDayTable").hidden = !usTable; $("usTableBtn").textContent = usTable ? "Show as chart" : "Show as table";
+  $("usModels").innerHTML = d.models.length ? `<table class="ustable"><tr><th>Model</th><th class="n">Cost</th><th class="n">Tokens</th><th class="n">Requests</th></tr>${d.models.map(m => `<tr><td>${esc(m.model)}</td><td class="n">${m.priced ? esc(money(m.cost)) : "—"}</td><td class="n">${esc(fmtTok(m.tokens))}</td><td class="n">${m.requests}</td></tr>`).join("")}</table>` : '<div class="usempty">No models used in this period.</div>';
+}
+$("usBack").onclick = () => { closeUsage(); navSet("navPlay"); setTab("chat"); };
+$("usTableBtn").onclick = () => { usTable = !usTable; renderUsage(); };
+document.querySelectorAll("#usRange button").forEach(b => b.onclick = () => { usDays = +b.dataset.d; document.querySelectorAll("#usRange button").forEach(x => x.classList.toggle("on", x === b)); loadUsage(); });
+addEventListener("resize", () => { if (document.body.classList.contains("usage-open") && usData) renderUsage(); });
 $("navActivity").onclick = e => { e.stopPropagation(); toggleActivity(true); };
 $("navHelp").onclick = () => $("keys").showModal();
 $("wsBox").onclick = $("railWsBtn").onclick = () => openSettings("model");
@@ -2167,7 +2425,7 @@ $("fpClose").onclick = () => $("folderPicker").close();
 $("wsBox").onclick = $("railWsBtn").onclick = $("folderPill").onclick = openFolderPicker;
 
 // ---------- Interface language ----------
-const I18N = {"es": {"Agent playground": "Área del agente", "Sessions": "Sesiones", "New session": "Nueva sesión", "Parallel session (worktree)": "Sesión paralela (worktree)", "Workspace": "Espacio de trabajo", "Tasks & plans": "Tareas y planes", "Source control": "Control de versiones", "Make it yours": "Hazlo tuyo", "Context & rules": "Contexto y reglas", "Models": "Modelos", "Tools": "Herramientas", "Connectors": "Conectores", "Automations": "Automatizaciones", "Usage & cost": "Uso y costo", "Activity": "Actividad", "More": "Más", "Changes": "Cambios", "Browser": "Navegador", "Tasks": "Tareas", "Background tasks": "Tareas en segundo plano", "Settings": "Ajustes", "A little help": "Ayuda", "Jump to anything…": "Ir a cualquier cosa…", "Your personal agent": "Tu agente personal", "Begin, a little brighter.": "Empieza, un poco más brillante.", "A little light. A lot of possibility.": "Un poco de luz. Muchas posibilidades.", "Checkpoints": "Puntos de control", "View code": "Ver código", "Plan mode": "Modo plan", "Browser preview": "Vista del navegador", "Terminal": "Terminal", "Conversation": "Conversación", "Files": "Archivos", "Run logs": "Registros", "Preview": "Vista previa", "Run overview": "Resumen", "No plan yet": "Aún sin plan", "Open task board": "Abrir tareas", "Model": "Modelo", "Tokens used": "Tokens usados", "Cost": "Costo", "Your next edit, safely saved.": "Tu próxima edición, guardada.", "View": "Ver", "Ready": "Listo", "Working": "Trabajando", "Completed": "Completado", "Idle": "Inactivo", "Your API key. Your machine. Your rules.": "Tu clave. Tu equipo. Tus reglas.", "What would you like to build?": "¿Qué quieres construir?", "Explain what this folder contains": "Explica qué contiene esta carpeta", "Find and fix a bug": "Encuentra y corrige un error", "Write tests for my code": "Escribe pruebas para mi código", "Build a small web page and preview it": "Crea una página web y muéstrala", "Allow": "Permitir", "Deny": "Denegar", "Done": "Hecho", "Running": "Ejecutando", "Failed": "Falló", "Needs approval": "Requiere aprobación", "Undo": "Deshacer", "Cancel": "Cancelar", "Save": "Guardar", "Tools & limits": "Herramientas y límites", "Permissions": "Permisos", "Project instructions": "Instrucciones del proyecto", "Memory": "Memoria", "Schedules": "Programación", "Phone": "Teléfono", "Updates": "Actualizaciones", "Project folder": "Carpeta del proyecto", "Open": "Abrir", "Choose folder…": "Elegir carpeta…", "Keyboard shortcuts": "Atajos de teclado", "Load models": "Cargar modelos", "Test connection": "Probar conexión", "Ask LightCode⁴ to build, fix or explain something… (type / for commands)": "Pide a LightCode⁴ que construya, arregle o explique algo… (escribe / para comandos)", "Approval on": "Aprobación activada", "Auto-approve": "Aprobación automática", "sandboxed": "en sandbox", "unsandboxed": "sin sandbox", "Search models…": "Buscar modelos…"}, "fr": {"Agent playground": "Espace agent", "Sessions": "Sessions", "New session": "Nouvelle session", "Parallel session (worktree)": "Session parallèle (worktree)", "Workspace": "Espace de travail", "Tasks & plans": "Tâches et plans", "Source control": "Contrôle de source", "Make it yours": "Personnaliser", "Context & rules": "Contexte et règles", "Models": "Modèles", "Tools": "Outils", "Connectors": "Connecteurs", "Automations": "Automatisations", "Usage & cost": "Usage et coût", "Activity": "Activité", "More": "Plus", "Changes": "Modifications", "Browser": "Navigateur", "Tasks": "Tâches", "Background tasks": "Tâches en arrière-plan", "Settings": "Réglages", "A little help": "Aide", "Jump to anything…": "Aller à…", "Your personal agent": "Votre agent personnel", "Begin, a little brighter.": "Commencez, un peu plus lumineux.", "A little light. A lot of possibility.": "Un peu de lumière. Beaucoup de possibilités.", "Checkpoints": "Points de contrôle", "View code": "Voir le code", "Plan mode": "Mode plan", "Browser preview": "Aperçu navigateur", "Terminal": "Terminal", "Conversation": "Conversation", "Files": "Fichiers", "Run logs": "Journaux", "Preview": "Aperçu", "Run overview": "Aperçu de l'exécution", "No plan yet": "Pas encore de plan", "Open task board": "Ouvrir les tâches", "Model": "Modèle", "Tokens used": "Jetons utilisés", "Cost": "Coût", "Your next edit, safely saved.": "Votre prochaine modification, sauvegardée.", "View": "Voir", "Ready": "Prêt", "Working": "En cours", "Completed": "Terminé", "Idle": "Inactif", "Your API key. Your machine. Your rules.": "Votre clé. Votre machine. Vos règles.", "What would you like to build?": "Que voulez-vous créer ?", "Explain what this folder contains": "Explique le contenu de ce dossier", "Find and fix a bug": "Trouver et corriger un bug", "Write tests for my code": "Écrire des tests pour mon code", "Build a small web page and preview it": "Créer une petite page web et l'afficher", "Allow": "Autoriser", "Deny": "Refuser", "Done": "Fait", "Running": "En cours", "Failed": "Échec", "Needs approval": "À approuver", "Undo": "Annuler", "Cancel": "Annuler", "Save": "Enregistrer", "Tools & limits": "Outils et limites", "Permissions": "Autorisations", "Project instructions": "Instructions du projet", "Memory": "Mémoire", "Schedules": "Planification", "Phone": "Téléphone", "Updates": "Mises à jour", "Project folder": "Dossier du projet", "Open": "Ouvrir", "Choose folder…": "Choisir un dossier…", "Keyboard shortcuts": "Raccourcis clavier", "Load models": "Charger les modèles", "Test connection": "Tester la connexion", "Ask LightCode⁴ to build, fix or explain something… (type / for commands)": "Demandez à LightCode⁴ de créer, corriger ou expliquer… (tapez / pour les commandes)", "Approval on": "Approbation activée", "Auto-approve": "Approbation auto", "sandboxed": "isolé", "unsandboxed": "non isolé", "Search models…": "Rechercher des modèles…"}, "pt": {"Agent playground": "Área do agente", "Sessions": "Sessões", "New session": "Nova sessão", "Parallel session (worktree)": "Sessão paralela (worktree)", "Workspace": "Espaço de trabalho", "Tasks & plans": "Tarefas e planos", "Source control": "Controle de versão", "Make it yours": "Personalize", "Context & rules": "Contexto e regras", "Models": "Modelos", "Tools": "Ferramentas", "Connectors": "Conectores", "Automations": "Automações", "Usage & cost": "Uso e custo", "Activity": "Atividade", "More": "Mais", "Changes": "Alterações", "Browser": "Navegador", "Tasks": "Tarefas", "Background tasks": "Tarefas em segundo plano", "Settings": "Configurações", "A little help": "Ajuda", "Jump to anything…": "Ir para…", "Your personal agent": "Seu agente pessoal", "Begin, a little brighter.": "Comece, um pouco mais brilhante.", "A little light. A lot of possibility.": "Um pouco de luz. Muitas possibilidades.", "Checkpoints": "Pontos de controle", "View code": "Ver código", "Plan mode": "Modo plano", "Browser preview": "Prévia do navegador", "Terminal": "Terminal", "Conversation": "Conversa", "Files": "Arquivos", "Run logs": "Registros", "Preview": "Prévia", "Run overview": "Resumo", "No plan yet": "Sem plano ainda", "Open task board": "Abrir tarefas", "Model": "Modelo", "Tokens used": "Tokens usados", "Cost": "Custo", "Your next edit, safely saved.": "Sua próxima edição, salva.", "View": "Ver", "Ready": "Pronto", "Working": "Trabalhando", "Completed": "Concluído", "Idle": "Ocioso", "Your API key. Your machine. Your rules.": "Sua chave. Sua máquina. Suas regras.", "What would you like to build?": "O que você quer construir?", "Explain what this folder contains": "Explique o que esta pasta contém", "Find and fix a bug": "Encontre e corrija um bug", "Write tests for my code": "Escreva testes para meu código", "Build a small web page and preview it": "Crie uma página web e visualize", "Allow": "Permitir", "Deny": "Negar", "Done": "Feito", "Running": "Executando", "Failed": "Falhou", "Needs approval": "Precisa de aprovação", "Undo": "Desfazer", "Cancel": "Cancelar", "Save": "Salvar", "Tools & limits": "Ferramentas e limites", "Permissions": "Permissões", "Project instructions": "Instruções do projeto", "Memory": "Memória", "Schedules": "Agendamentos", "Phone": "Telefone", "Updates": "Atualizações", "Project folder": "Pasta do projeto", "Open": "Abrir", "Choose folder…": "Escolher pasta…", "Keyboard shortcuts": "Atalhos de teclado", "Load models": "Carregar modelos", "Test connection": "Testar conexão", "Ask LightCode⁴ to build, fix or explain something… (type / for commands)": "Peça ao LightCode⁴ para construir, corrigir ou explicar… (digite / para comandos)", "Approval on": "Aprovação ativada", "Auto-approve": "Aprovação automática", "sandboxed": "isolado", "unsandboxed": "sem isolamento", "Search models…": "Buscar modelos…"}, "de": {"Agent playground": "Agenten-Bereich", "Sessions": "Sitzungen", "New session": "Neue Sitzung", "Parallel session (worktree)": "Parallele Sitzung (Worktree)", "Workspace": "Arbeitsbereich", "Tasks & plans": "Aufgaben & Pläne", "Source control": "Versionskontrolle", "Make it yours": "Anpassen", "Context & rules": "Kontext & Regeln", "Models": "Modelle", "Tools": "Werkzeuge", "Connectors": "Konnektoren", "Automations": "Automationen", "Usage & cost": "Nutzung & Kosten", "Activity": "Aktivität", "More": "Mehr", "Changes": "Änderungen", "Browser": "Browser", "Tasks": "Aufgaben", "Background tasks": "Hintergrundaufgaben", "Settings": "Einstellungen", "A little help": "Hilfe", "Jump to anything…": "Springe zu…", "Your personal agent": "Dein persönlicher Agent", "Begin, a little brighter.": "Beginne, ein wenig heller.", "A little light. A lot of possibility.": "Ein wenig Licht. Viele Möglichkeiten.", "Checkpoints": "Prüfpunkte", "View code": "Code ansehen", "Plan mode": "Planmodus", "Browser preview": "Browser-Vorschau", "Terminal": "Terminal", "Conversation": "Unterhaltung", "Files": "Dateien", "Run logs": "Protokolle", "Preview": "Vorschau", "Run overview": "Übersicht", "No plan yet": "Noch kein Plan", "Open task board": "Aufgaben öffnen", "Model": "Modell", "Tokens used": "Tokens genutzt", "Cost": "Kosten", "Your next edit, safely saved.": "Deine nächste Änderung, gesichert.", "View": "Ansehen", "Ready": "Bereit", "Working": "Arbeitet", "Completed": "Fertig", "Idle": "Bereit", "Your API key. Your machine. Your rules.": "Dein Schlüssel. Dein Rechner. Deine Regeln.", "What would you like to build?": "Was möchtest du bauen?", "Explain what this folder contains": "Erkläre, was dieser Ordner enthält", "Find and fix a bug": "Finde und behebe einen Fehler", "Write tests for my code": "Schreibe Tests für meinen Code", "Build a small web page and preview it": "Baue eine kleine Webseite mit Vorschau", "Allow": "Erlauben", "Deny": "Ablehnen", "Done": "Erledigt", "Running": "Läuft", "Failed": "Fehlgeschlagen", "Needs approval": "Genehmigung nötig", "Undo": "Rückgängig", "Cancel": "Abbrechen", "Save": "Speichern", "Tools & limits": "Werkzeuge & Limits", "Permissions": "Berechtigungen", "Project instructions": "Projektanweisungen", "Memory": "Gedächtnis", "Schedules": "Zeitpläne", "Phone": "Telefon", "Updates": "Updates", "Project folder": "Projektordner", "Open": "Öffnen", "Choose folder…": "Ordner wählen…", "Keyboard shortcuts": "Tastenkürzel", "Load models": "Modelle laden", "Test connection": "Verbindung testen", "Ask LightCode⁴ to build, fix or explain something… (type / for commands)": "Bitte LightCode⁴, etwas zu bauen, zu reparieren oder zu erklären… (/ für Befehle)", "Approval on": "Genehmigung an", "Auto-approve": "Automatisch erlauben", "sandboxed": "abgeschirmt", "unsandboxed": "ohne Sandbox", "Search models…": "Modelle suchen…"}};
+const I18N = {"es": {"Agent playground": "Área del agente", "Sessions": "Sesiones", "New session": "Nueva sesión", "Parallel session (worktree)": "Sesión paralela (worktree)", "Workspace": "Espacio de trabajo", "Tasks & plans": "Tareas y planes", "Source control": "Control de versiones", "Make it yours": "Hazlo tuyo", "Context & rules": "Contexto y reglas", "Models": "Modelos", "Tools": "Herramientas", "Connectors": "Conectores", "Automations": "Automatizaciones", "Usage & cost": "Uso y costo", "Activity": "Actividad", "More": "Más", "Changes": "Cambios", "Browser": "Navegador", "Tasks": "Tareas", "Background tasks": "Tareas en segundo plano", "Projects": "Proyectos", "Skills & connectors": "Habilidades y conectores", "Settings": "Ajustes", "A little help": "Ayuda", "Jump to anything…": "Ir a cualquier cosa…", "Your personal agent": "Tu agente personal", "Begin, a little brighter.": "Empieza, un poco más brillante.", "A little light. A lot of possibility.": "Un poco de luz. Muchas posibilidades.", "Checkpoints": "Puntos de control", "View code": "Ver código", "Plan mode": "Modo plan", "Browser preview": "Vista del navegador", "Terminal": "Terminal", "Conversation": "Conversación", "Files": "Archivos", "Run logs": "Registros", "Preview": "Vista previa", "Run overview": "Resumen", "No plan yet": "Aún sin plan", "Open task board": "Abrir tareas", "Model": "Modelo", "Tokens used": "Tokens usados", "Cost": "Costo", "Your next edit, safely saved.": "Tu próxima edición, guardada.", "View": "Ver", "Ready": "Listo", "Working": "Trabajando", "Completed": "Completado", "Idle": "Inactivo", "Your API key. Your machine. Your rules.": "Tu clave. Tu equipo. Tus reglas.", "What would you like to build?": "¿Qué quieres construir?", "Explain what this folder contains": "Explica qué contiene esta carpeta", "Find and fix a bug": "Encuentra y corrige un error", "Write tests for my code": "Escribe pruebas para mi código", "Build a small web page and preview it": "Crea una página web y muéstrala", "Allow": "Permitir", "Deny": "Denegar", "Done": "Hecho", "Running": "Ejecutando", "Failed": "Falló", "Needs approval": "Requiere aprobación", "Undo": "Deshacer", "Cancel": "Cancelar", "Save": "Guardar", "Tools & limits": "Herramientas y límites", "Permissions": "Permisos", "Project instructions": "Instrucciones del proyecto", "Memory": "Memoria", "Schedules": "Programación", "Phone": "Teléfono", "Updates": "Actualizaciones", "Project folder": "Carpeta del proyecto", "Open": "Abrir", "Choose folder…": "Elegir carpeta…", "Keyboard shortcuts": "Atajos de teclado", "Load models": "Cargar modelos", "Test connection": "Probar conexión", "Ask LightCode⁴ to build, fix or explain something… (type / for commands)": "Pide a LightCode⁴ que construya, arregle o explique algo… (escribe / para comandos)", "Approval on": "Aprobación activada", "Auto-approve": "Aprobación automática", "sandboxed": "en sandbox", "unsandboxed": "sin sandbox", "Search models…": "Buscar modelos…"}, "fr": {"Agent playground": "Espace agent", "Sessions": "Sessions", "New session": "Nouvelle session", "Parallel session (worktree)": "Session parallèle (worktree)", "Workspace": "Espace de travail", "Tasks & plans": "Tâches et plans", "Source control": "Contrôle de source", "Make it yours": "Personnaliser", "Context & rules": "Contexte et règles", "Models": "Modèles", "Tools": "Outils", "Connectors": "Connecteurs", "Automations": "Automatisations", "Usage & cost": "Usage et coût", "Activity": "Activité", "More": "Plus", "Changes": "Modifications", "Browser": "Navigateur", "Tasks": "Tâches", "Background tasks": "Tâches en arrière-plan", "Projects": "Projets", "Skills & connectors": "Compétences et connecteurs", "Settings": "Réglages", "A little help": "Aide", "Jump to anything…": "Aller à…", "Your personal agent": "Votre agent personnel", "Begin, a little brighter.": "Commencez, un peu plus lumineux.", "A little light. A lot of possibility.": "Un peu de lumière. Beaucoup de possibilités.", "Checkpoints": "Points de contrôle", "View code": "Voir le code", "Plan mode": "Mode plan", "Browser preview": "Aperçu navigateur", "Terminal": "Terminal", "Conversation": "Conversation", "Files": "Fichiers", "Run logs": "Journaux", "Preview": "Aperçu", "Run overview": "Aperçu de l'exécution", "No plan yet": "Pas encore de plan", "Open task board": "Ouvrir les tâches", "Model": "Modèle", "Tokens used": "Jetons utilisés", "Cost": "Coût", "Your next edit, safely saved.": "Votre prochaine modification, sauvegardée.", "View": "Voir", "Ready": "Prêt", "Working": "En cours", "Completed": "Terminé", "Idle": "Inactif", "Your API key. Your machine. Your rules.": "Votre clé. Votre machine. Vos règles.", "What would you like to build?": "Que voulez-vous créer ?", "Explain what this folder contains": "Explique le contenu de ce dossier", "Find and fix a bug": "Trouver et corriger un bug", "Write tests for my code": "Écrire des tests pour mon code", "Build a small web page and preview it": "Créer une petite page web et l'afficher", "Allow": "Autoriser", "Deny": "Refuser", "Done": "Fait", "Running": "En cours", "Failed": "Échec", "Needs approval": "À approuver", "Undo": "Annuler", "Cancel": "Annuler", "Save": "Enregistrer", "Tools & limits": "Outils et limites", "Permissions": "Autorisations", "Project instructions": "Instructions du projet", "Memory": "Mémoire", "Schedules": "Planification", "Phone": "Téléphone", "Updates": "Mises à jour", "Project folder": "Dossier du projet", "Open": "Ouvrir", "Choose folder…": "Choisir un dossier…", "Keyboard shortcuts": "Raccourcis clavier", "Load models": "Charger les modèles", "Test connection": "Tester la connexion", "Ask LightCode⁴ to build, fix or explain something… (type / for commands)": "Demandez à LightCode⁴ de créer, corriger ou expliquer… (tapez / pour les commandes)", "Approval on": "Approbation activée", "Auto-approve": "Approbation auto", "sandboxed": "isolé", "unsandboxed": "non isolé", "Search models…": "Rechercher des modèles…"}, "pt": {"Agent playground": "Área do agente", "Sessions": "Sessões", "New session": "Nova sessão", "Parallel session (worktree)": "Sessão paralela (worktree)", "Workspace": "Espaço de trabalho", "Tasks & plans": "Tarefas e planos", "Source control": "Controle de versão", "Make it yours": "Personalize", "Context & rules": "Contexto e regras", "Models": "Modelos", "Tools": "Ferramentas", "Connectors": "Conectores", "Automations": "Automações", "Usage & cost": "Uso e custo", "Activity": "Atividade", "More": "Mais", "Changes": "Alterações", "Browser": "Navegador", "Tasks": "Tarefas", "Background tasks": "Tarefas em segundo plano", "Projects": "Projetos", "Skills & connectors": "Habilidades e conectores", "Settings": "Configurações", "A little help": "Ajuda", "Jump to anything…": "Ir para…", "Your personal agent": "Seu agente pessoal", "Begin, a little brighter.": "Comece, um pouco mais brilhante.", "A little light. A lot of possibility.": "Um pouco de luz. Muitas possibilidades.", "Checkpoints": "Pontos de controle", "View code": "Ver código", "Plan mode": "Modo plano", "Browser preview": "Prévia do navegador", "Terminal": "Terminal", "Conversation": "Conversa", "Files": "Arquivos", "Run logs": "Registros", "Preview": "Prévia", "Run overview": "Resumo", "No plan yet": "Sem plano ainda", "Open task board": "Abrir tarefas", "Model": "Modelo", "Tokens used": "Tokens usados", "Cost": "Custo", "Your next edit, safely saved.": "Sua próxima edição, salva.", "View": "Ver", "Ready": "Pronto", "Working": "Trabalhando", "Completed": "Concluído", "Idle": "Ocioso", "Your API key. Your machine. Your rules.": "Sua chave. Sua máquina. Suas regras.", "What would you like to build?": "O que você quer construir?", "Explain what this folder contains": "Explique o que esta pasta contém", "Find and fix a bug": "Encontre e corrija um bug", "Write tests for my code": "Escreva testes para meu código", "Build a small web page and preview it": "Crie uma página web e visualize", "Allow": "Permitir", "Deny": "Negar", "Done": "Feito", "Running": "Executando", "Failed": "Falhou", "Needs approval": "Precisa de aprovação", "Undo": "Desfazer", "Cancel": "Cancelar", "Save": "Salvar", "Tools & limits": "Ferramentas e limites", "Permissions": "Permissões", "Project instructions": "Instruções do projeto", "Memory": "Memória", "Schedules": "Agendamentos", "Phone": "Telefone", "Updates": "Atualizações", "Project folder": "Pasta do projeto", "Open": "Abrir", "Choose folder…": "Escolher pasta…", "Keyboard shortcuts": "Atalhos de teclado", "Load models": "Carregar modelos", "Test connection": "Testar conexão", "Ask LightCode⁴ to build, fix or explain something… (type / for commands)": "Peça ao LightCode⁴ para construir, corrigir ou explicar… (digite / para comandos)", "Approval on": "Aprovação ativada", "Auto-approve": "Aprovação automática", "sandboxed": "isolado", "unsandboxed": "sem isolamento", "Search models…": "Buscar modelos…"}, "de": {"Agent playground": "Agenten-Bereich", "Sessions": "Sitzungen", "New session": "Neue Sitzung", "Parallel session (worktree)": "Parallele Sitzung (Worktree)", "Workspace": "Arbeitsbereich", "Tasks & plans": "Aufgaben & Pläne", "Source control": "Versionskontrolle", "Make it yours": "Anpassen", "Context & rules": "Kontext & Regeln", "Models": "Modelle", "Tools": "Werkzeuge", "Connectors": "Konnektoren", "Automations": "Automationen", "Usage & cost": "Nutzung & Kosten", "Activity": "Aktivität", "More": "Mehr", "Changes": "Änderungen", "Browser": "Browser", "Tasks": "Aufgaben", "Background tasks": "Hintergrundaufgaben", "Projects": "Projekte", "Skills & connectors": "Skills & Konnektoren", "Settings": "Einstellungen", "A little help": "Hilfe", "Jump to anything…": "Springe zu…", "Your personal agent": "Dein persönlicher Agent", "Begin, a little brighter.": "Beginne, ein wenig heller.", "A little light. A lot of possibility.": "Ein wenig Licht. Viele Möglichkeiten.", "Checkpoints": "Prüfpunkte", "View code": "Code ansehen", "Plan mode": "Planmodus", "Browser preview": "Browser-Vorschau", "Terminal": "Terminal", "Conversation": "Unterhaltung", "Files": "Dateien", "Run logs": "Protokolle", "Preview": "Vorschau", "Run overview": "Übersicht", "No plan yet": "Noch kein Plan", "Open task board": "Aufgaben öffnen", "Model": "Modell", "Tokens used": "Tokens genutzt", "Cost": "Kosten", "Your next edit, safely saved.": "Deine nächste Änderung, gesichert.", "View": "Ansehen", "Ready": "Bereit", "Working": "Arbeitet", "Completed": "Fertig", "Idle": "Bereit", "Your API key. Your machine. Your rules.": "Dein Schlüssel. Dein Rechner. Deine Regeln.", "What would you like to build?": "Was möchtest du bauen?", "Explain what this folder contains": "Erkläre, was dieser Ordner enthält", "Find and fix a bug": "Finde und behebe einen Fehler", "Write tests for my code": "Schreibe Tests für meinen Code", "Build a small web page and preview it": "Baue eine kleine Webseite mit Vorschau", "Allow": "Erlauben", "Deny": "Ablehnen", "Done": "Erledigt", "Running": "Läuft", "Failed": "Fehlgeschlagen", "Needs approval": "Genehmigung nötig", "Undo": "Rückgängig", "Cancel": "Abbrechen", "Save": "Speichern", "Tools & limits": "Werkzeuge & Limits", "Permissions": "Berechtigungen", "Project instructions": "Projektanweisungen", "Memory": "Gedächtnis", "Schedules": "Zeitpläne", "Phone": "Telefon", "Updates": "Updates", "Project folder": "Projektordner", "Open": "Öffnen", "Choose folder…": "Ordner wählen…", "Keyboard shortcuts": "Tastenkürzel", "Load models": "Modelle laden", "Test connection": "Verbindung testen", "Ask LightCode⁴ to build, fix or explain something… (type / for commands)": "Bitte LightCode⁴, etwas zu bauen, zu reparieren oder zu erklären… (/ für Befehle)", "Approval on": "Genehmigung an", "Auto-approve": "Automatisch erlauben", "sandboxed": "abgeschirmt", "unsandboxed": "ohne Sandbox", "Search models…": "Modelle suchen…"}};
 const I18N_ATTR = ["placeholder", "title", "aria-label"];
 let uiLang = "en";
 function tr(text) { return (I18N[uiLang] || {})[text.trim()] || null; }
@@ -2268,11 +2526,11 @@ $("modelPill").onclick = e => { e.stopPropagation(); $("provMenu").hidden = !$("
 new MutationObserver(() => $("modelPill").classList.toggle("open", !$("provMenu").hidden)).observe($("provMenu"), { attributes: true, attributeFilter: ["hidden"] });
 document.addEventListener("click", e => { if (!$("provMenu").hidden && !e.target.closest("#provMenu, #modelPill")) $("provMenu").hidden = true; });
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("provMenu").hidden = true; });
-function openModelsView() { $("provMenu").hidden = true; closePanel(); closeProjects(); document.body.classList.add("models-open"); $("crumbHere").textContent = "Models"; loadProviders(); }
+function openModelsView() { $("provMenu").hidden = true; closePanel(); closeProjects(); closeUsage(); closeGallery(); document.body.classList.add("models-open"); $("crumbHere").textContent = "Models"; loadProviders(); }
 function closeModelsView() { document.body.classList.remove("models-open"); setTab("chat"); }
 $("provAll").onclick = openModelsView; $("mvBack").onclick = closeModelsView;
 document.querySelector('aside [data-set="model"]').onclick = () => { navSet(""); document.querySelector('aside [data-set="model"]').classList.add("on"); openModelsView(); };
-const _navPlayClick = $("navPlay").onclick; $("navPlay").onclick = () => { closeModelsView(); closeProjects(); _navPlayClick(); };
+const _navPlayClick = $("navPlay").onclick; $("navPlay").onclick = () => { closeModelsView(); closeProjects(); closeUsage(); closeGallery(); _navPlayClick(); };
 const _showConfigP = showConfig; showConfig = function (c) { _showConfigP(c); if (c.service !== provCurrent) { provCurrent = c.service; loadProviders(); } else renderProviders(); };
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderProviders);
 loadProviders();

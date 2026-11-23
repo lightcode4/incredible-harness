@@ -3,6 +3,7 @@ No real API calls, no tokens used.   Run: python test_loop.py
 """
 import base64
 import json
+import shutil
 import os
 import sys
 import tempfile
@@ -1013,6 +1014,88 @@ def main():
         assert "No language server" in str(e), e
     lsp.MANAGER.close_all()
     print("56 code intelligence (LSP) OK")
+    # 57. usage over time: every request logged (no message text), summarized per day and per model
+    from myagent import extras as ex
+    ex.USAGE_FILE.unlink(missing_ok=True)
+    s.new_chat()
+    d.run("count me", script=[("text", "ok")])
+    d.run("again", script=[("text", "ok")])
+    now = time.time()
+    with open(ex.USAGE_FILE, "a") as f:  # an older day
+        f.write(json.dumps({"t": now - 3 * 86400, "model": "gpt-5", "chat": "x", "cost": 0.5, "in": 1000, "out": 200, "cr": 0, "cw": 0}) + "\n")
+        f.write(json.dumps({"t": now - 40 * 86400, "model": "gpt-5", "chat": "x", "cost": 9.0, "in": 1, "out": 1, "cr": 0, "cw": 0}) + "\n")
+    lines = ex.USAGE_FILE.read_text().splitlines()
+    assert "count me" not in ex.USAGE_FILE.read_text() and len(lines) == 4
+    sm = ex.usage_summary(30, now)
+    assert len(sm["days"]) == 30 and sm["days"][-1]["requests"] == 2 and sm["days"][-4]["cost"] == 0.5, sm["days"][-5:]
+    assert sm["totals"]["month"] < 9 and sm["totals"]["all"] > 9 and sm["totals"]["week"] >= 0.5 and sm["totals"]["today"] > 0
+    assert {m["model"] for m in sm["models"]} == {"claude-opus-5-5", "gpt-5"} and sm["models"][0]["cost"] >= sm["models"][-1]["cost"]
+    print("57 usage over time OK")
+
+    # 58. skills gallery: one click adds a ready-made skill the agent can use; remove takes it away
+    from myagent import gallery
+    gallery.SKILLS_DIR = ex.HOME / "skills"
+    assert len(gallery.catalog()) >= 8 and not any(x["installed"] for x in gallery.catalog() if x["id"] == "code-review")
+    gallery.install("code-review")
+    assert next(x for x in gallery.catalog() if x["id"] == "code-review")["installed"]
+    s.new_chat()
+    d.run("review", script=[("text", "ok")])
+    assert "code-review: Review changes for bugs" in json.dumps(REQUESTS[-1][2]["system"])
+    assert "severity" in ex.load_skill(s.current.cwd, "code-review")
+    gallery.remove("code-review")
+    assert "code-review" not in ex.skills(s.current.cwd)
+    print("58 skills gallery OK")
+
+    # 59. one-click language server setup (a stand-in npm installs a server into LightCode's own folder)
+    lsp.LSP_HOME = Path(tempfile.mkdtemp()) / "lsp"
+    fakebin = Path(tempfile.mkdtemp())
+    npm = fakebin / ("npm.bat" if os.name == "nt" else "npm")
+    target = lsp.LSP_HOME / "node_modules" / ".bin" / "pyright-langserver"
+    npm.write_text(f'#!/bin/sh\nmkdir -p "{target.parent}" && printf "#!/bin/sh\\nexit 0\\n" > "{target}" && chmod +x "{target}" && echo added 1 package\n')
+    npm.chmod(0o755)
+    os.environ["PATH"] = str(fakebin) + os.pathsep + os.environ["PATH"].replace(str(bind) + os.pathsep, "")
+    real_search = lsp.search_path
+    lsp.search_path = lambda: os.pathsep.join([str(lsp.LSP_HOME / "node_modules" / ".bin"), str(fakebin), "/usr/bin", "/bin"])
+    st = {x["id"]: x for x in lsp.status()}
+    if os.name != "nt":
+        assert not st["python"]["server"] and st["python"]["can_install"], st["python"]
+        out = lsp.install("python")
+        assert "added 1 package" in out and {x["id"]: x for x in lsp.status()}["python"]["server"] == "pyright-langserver"
+    try:
+        lsp.install("swift")
+        raise AssertionError("Swift's server can't be installed from here")
+    except lsp.LspError as e:
+        assert "Xcode" in str(e)
+    lsp.search_path = real_search
+    lsp.LSP_HOME = Path.home() / ".incredible-herness" / "lsp"
+    lsp.MANAGER.close_all()
+    real = shutil.which("pyright-langserver", path=lsp.search_path())
+    if real and "fake" not in Path(real).read_text(errors="replace")[:400]:  # a real Pyright on this machine: check it end to end
+        rp = Path(tempfile.mkdtemp())
+        (rp / "shop.py").write_text("def total(xs: list[int]) -> int:\n    return sum(xs)\n\nprint(total([1, 2]))\nundefined_thing()\n")
+        wsr = Workspace(str(rp))
+        assert wsr.run("code_intel", {"action": "definition", "path": "shop.py", "line": 4, "column": 7}).startswith("shop.py:1:5")
+        assert "int" in wsr.run("code_intel", {"action": "hover", "path": "shop.py", "symbol": "total"})
+        assert "undefined_thing" in wsr.run("code_intel", {"action": "diagnostics", "path": "shop.py"})
+        lsp.MANAGER.close_all()
+        print("59 language server setup OK (and real Pyright works end to end)")
+    else:
+        print("59 language server setup OK")
+
+    # 60. quick chat: a message from the quick box starts a new chat and brings the main window forward
+    calls = []
+    s.quick_hide, s.focus_main = lambda: calls.append("hide"), lambda: calls.append("focus")
+    SCRIPT[:] = [("text", "quick reply")]
+    cid = s.quick_send("what time zone am I in?")
+    assert s.current.id == cid and calls == ["hide", "focus"]
+    t0 = time.time()
+    while s.current.busy and time.time() - t0 < 10:
+        time.sleep(0.05)
+    assert s.current.title.startswith("what time zone")
+    from myagent.desktop import hotkey_for_pynput
+    assert hotkey_for_pynput("ctrl+alt+space") == "<ctrl>+<alt>+<space>" == hotkey_for_pynput("⌃⌥Space") == hotkey_for_pynput("<ctrl>+<alt>+<space>")
+    assert hotkey_for_pynput("cmd+shift+k") == "<cmd>+<shift>+k"
+    print("60 quick chat OK")
     print("ALL TESTS PASSED")
 
 

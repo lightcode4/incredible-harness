@@ -35,8 +35,11 @@ INSTALL_HINT = ("No language server is installed for this kind of file. For exac
                 "and find_references.")
 
 
+LSP_HOME = Path.home() / ".incredible-herness" / "lsp"  # servers installed from Settings live here (no admin rights needed)
+
+
 def search_path() -> str:
-    parts = os.environ.get("PATH", "").split(os.pathsep)
+    parts = [str(LSP_HOME / "node_modules" / ".bin")] + os.environ.get("PATH", "").split(os.pathsep)
     nvm = Path.home() / ".nvm/versions/node"
     if nvm.is_dir():
         parts += [str(p / "bin") for p in sorted(nvm.iterdir(), reverse=True)]
@@ -288,3 +291,53 @@ def _fmt_diags(root: Path, path: Path, diags: list) -> str:
     sev = {1: "error", 2: "warning", 3: "info", 4: "hint"}
     return "\n".join(f"{_rel(root, path)}:{d['range']['start']['line'] + 1}:{d['range']['start']['character'] + 1}: "
                      f"{sev.get(d.get('severity', 1), 'error')}: {d.get('message', '').strip()}" for d in diags[:100])
+
+
+# ---------------------------------------------------------------- one-click setup (Settings > Tools)
+LANGS = [  # id, label, server names to look for, how to install: (needs tool, command)
+    ("python", "Python", ["pyright-langserver", "basedpyright-langserver", "pylsp"], ("npm", ["install", "--prefix", "{home}", "pyright"])),
+    ("typescript", "JavaScript & TypeScript", ["typescript-language-server"], ("npm", ["install", "--prefix", "{home}", "typescript-language-server", "typescript"])),
+    ("go", "Go", ["gopls"], ("go", ["install", "golang.org/x/tools/gopls@latest"])),
+    ("rust", "Rust", ["rust-analyzer"], ("rustup", ["component", "add", "rust-analyzer"])),
+    ("cpp", "C, C++ & Objective-C", ["clangd"], None),
+    ("swift", "Swift", ["sourcekit-lsp"], None),
+]
+MANUAL = {"cpp": "Comes with Xcode Command Line Tools on Mac (xcode-select --install) or LLVM (brew install llvm).",
+          "swift": "Comes with Xcode Command Line Tools on Mac (xcode-select --install)."}
+
+
+def status() -> list[dict]:
+    out = []
+    for lid, label, names, how in LANGS:
+        found = next((n for n in names if shutil.which(n, path=search_path())), None)
+        tool = how[0] if how else None
+        out.append({"id": lid, "label": label, "server": found, "can_install": bool(how and shutil.which(tool, path=search_path())),
+                    "needs": tool, "manual": MANUAL.get(lid, "")})
+    return out
+
+
+def install(lang: str, timeout: int = 900) -> str:
+    """Install the language server for `lang`. Returns its output; raises LspError with the reason on failure."""
+    entry = next((e for e in LANGS if e[0] == lang), None)
+    if not entry or not entry[3]:
+        raise LspError(MANUAL.get(lang, "This language server can't be installed from here."))
+    tool, args = entry[3]
+    exe = shutil.which(tool, path=search_path())
+    if not exe:
+        need = {"npm": "Node.js (https://nodejs.org or brew install node)", "go": "Go (https://go.dev/dl or brew install go)",
+                "rustup": "Rust (https://rustup.rs)"}[tool]
+        raise LspError(f"Installing this needs {need} first.")
+    LSP_HOME.mkdir(parents=True, exist_ok=True)
+    cmd = [exe] + [a.replace("{home}", str(LSP_HOME)) for a in args]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env={**os.environ, "PATH": search_path()},
+                           stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        raise LspError("The install took too long and was stopped.")
+    out = (r.stdout + r.stderr)[-3000:]
+    if r.returncode != 0:
+        raise LspError(f"The install failed:\n{out}")
+    if not any(shutil.which(n, path=search_path()) for n in entry[2]):
+        raise LspError(f"The install finished but the server wasn't found.\n{out}")
+    MANAGER.close_all()
+    return out
