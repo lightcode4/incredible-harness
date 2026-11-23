@@ -1384,6 +1384,9 @@ def make_handler(session: Session, token: str):
                             result = {"ok": True, "reply": session.test_connection(cfg)}
                     except Exception as e:
                         result = {"ok": False, "error": explain_error(e, cfg)}
+                elif path == "/api/selfcheck":
+                    from .selfcheck import run as selfcheck_run
+                    result = {"results": selfcheck_run(session, model_test=bool(data.get("model")))}
                 elif path == "/api/update":
                     result = session.check_update()
                 elif path == "/api/update/install":

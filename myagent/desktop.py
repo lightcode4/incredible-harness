@@ -25,6 +25,9 @@ class Bridge:
 
 
 def main():
+    if "--self-test" in sys.argv:  # test every part of the installed app, print results, exit
+        from .selfcheck import main as selfcheck_main
+        raise SystemExit(selfcheck_main())
     # A packaged windowed app has no console; give print() somewhere harmless to go.
     import os
     for name in ("stdout", "stderr"):

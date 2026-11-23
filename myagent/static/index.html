@@ -729,6 +729,9 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
         <button class="btn small" id="exportSettings">Export settings</button><button class="btn small" id="exportSettingsKeys">Export with API keys</button>
         <button class="btn small" id="importSettings">Import settings…</button><input type="file" id="importFile" accept=".json" hidden></div>
         <small>Exports go to a file you can copy to your other computer. Files with keys must be kept private.</small></div>
+      <div class="field"><label>Self-check</label><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="selfCheck">Run self-check</button><button class="btn small" id="selfCheckModel">Self-check + model test</button></div>
+        <small>Tests the browser, terminal, files, PDFs, code checks, sandbox, git, connectors and your model provider on this computer. The model test sends one tiny message.</small>
+        <div id="selfCheckOut" style="font-size:12.5px;margin-top:6px"></div></div>
       <div class="field"><label>Problems</label><div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn small" id="reportBtn">Report a problem</button><button class="btn small" id="logsBtn">Open log folder</button></div>
         <small>Reports open a GitHub issue with the app version and recent log lines. API keys and tokens are removed first; check the text before you send it.</small></div>
@@ -1601,6 +1604,16 @@ const _showConfigL = showConfig;
 showConfig = function (c) { _showConfigL(c); applyLanguage(c.ui_language || "en"); for (const id of ["chatStatus", "railStatus", "todoSum"]) { const t = tr($(id).textContent); if (t) $(id).textContent = t; } };
 const _openSettingsL = openSettings;
 openSettings = async function (tab) { await _openSettingsL(tab); $("uiLang").value = config.ui_language || "en"; };
+
+// ---------- Self-check ----------
+async function selfCheck(model) {
+  $("selfCheckOut").textContent = "Checking… (up to a minute)";
+  const r = await api("/api/selfcheck", { model }).catch(e => ({ error: e.message }));
+  if (r.error) { $("selfCheckOut").textContent = r.error; return; }
+  $("selfCheckOut").innerHTML = r.results.map(x => `<div style="color:${x.ok ? "var(--ok)" : "var(--bad)"}">${x.ok ? "✓" : "✗"} <b>${esc(x.name)}</b> — ${esc(x.detail)}</div>`).join("")
+    + `<div style="margin-top:4px;color:var(--muted)">${r.results.filter(x => x.ok).length}/${r.results.length} passed</div>`;
+}
+$("selfCheck").onclick = () => selfCheck(false); $("selfCheckModel").onclick = () => selfCheck(true);
 
 loadChats(); $("input").focus();
 setTimeout(() => { if (config.build > 0) api("/api/update").then(r => { if (r.update) showUpdate(r); }).catch(() => {}); }, 4000);
