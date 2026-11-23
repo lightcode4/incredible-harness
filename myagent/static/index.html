@@ -353,7 +353,7 @@ main { overflow: hidden; }
 .ghostbtn { border: 0; background: none; color: var(--body); display: flex; gap: 6px; align-items: center; font-size: 13.5px; padding: 8px; }
 .ghostbtn svg { width: 15px; height: 15px; }
 .modelbar { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; flex-wrap: wrap; }
-.modelchip { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 2px 10px 2px 0; border-right: 1px solid var(--line); }
+.modelchip { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 2px 10px 2px 0; }
 .modelchip b { font-weight: 600; font-size: 14.5px; } .modelchip small { color: var(--muted); font-size: 11.5px; }
 .modelchip svg { width: 13px; height: 13px; transform: rotate(90deg); color: var(--muted); }
 .mlogo { width: 30px; height: 30px; border-radius: 8px; background: #f6e9dd; color: #c47d4f; display: grid; place-items: center; font-size: 18px; flex: none; }
@@ -542,8 +542,8 @@ body.models-open #modelsView { display: block !important; }
     <button class="pill" id="wtPill" hidden title="This session works on its own branch in a separate folder"><svg><use href="#i-map"/></svg><span id="wtName"></span></button>
     <span class="spacer"></span>
     <span class="pill" id="costPill" title="Cost and tokens for this session"><b id="cost">$0.00</b><span id="tokens">0 tokens</span></span>
-    <button class="iconbtn" id="shareBtn" title="Share this session (GitHub gist)" aria-label="Share"><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></button>
-    <button class="iconbtn" id="winBtn" title="New window" aria-label="New window"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v11"/></svg></button>
+    <button class="iconbtn" id="termToggle" title="Terminal (Ctrl+`)" aria-label="Terminal"><svg><use href="#i-term"/></svg></button>
+    <button class="iconbtn" id="browserToggle" title="Built-in browser" aria-label="Browser"><svg><use href="#i-globe"/></svg></button>
     <button class="jump" id="jumpBtn"><svg><use href="#i-search"/></svg><span>Jump to anything…</span><kbd>⌘K</kbd></button>
     <button class="iconbtn" id="keysBtn" title="Help and keyboard shortcuts" aria-label="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg></button>
   </div>
@@ -562,12 +562,10 @@ body.models-open #modelsView { display: block !important; }
         <button class="pmfoot" id="provAll"><svg><use href="#i-list"/></svg>All models &amp; API settings<svg class="arrow"><use href="#i-up"/></svg></button>
       </div>
       <button class="modelchip" id="modelPill"><span class="mlogo serif">✳</span><b id="modelName">model</b><small id="modelBy">by Anthropic</small><svg><use href="#i-chev"/></svg></button>
-      <span class="sdk"><i class="dot"></i><span id="sdkName">Anthropic SDK</span></span>
-      <span id="instrPill" class="sdk" hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
+      <span id="sdkName" hidden></span>
+      <span id="instrPill" class="sdk" hidden data-keep-hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
       <span class="spacer"></span>
       <button class="ghost" id="planBtn" title="Plan mode: research and propose a plan before changing anything"><svg><use href="#i-map"/></svg>Plan mode</button>
-      <button class="tagbtn" id="browserToggle" title="Built-in browser"><i class="dot"></i>Browser preview</button>
-      <button class="ghost" id="termToggle" title="Terminal (Ctrl+`)"><svg><use href="#i-term"/></svg>Terminal</button>
     </div>
     <section id="modelsView" hidden>
       <div class="pagehead"><div><div class="eyebrow">Your model. Your choice</div><h1 class="serif">A mind for every task.</h1>
@@ -580,6 +578,7 @@ body.models-open #modelsView { display: block !important; }
         <div class="cardhead"><span class="chaticon"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
           <span class="ctitle"><b id="chatHead">New session</b><small id="chatSub">Local workspace</small></span>
           <span class="spacer"></span><span class="status" id="chatStatus">Ready</span>
+<button class="iconbtn" id="shareBtn" title="Share this session (GitHub gist)" aria-label="Share"><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></button>
           <button class="iconbtn" id="exportBtn" title="Export conversation" aria-label="Export conversation"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></button></div>
         <nav class="ctabs" role="tablist">
           <button class="ctab on" data-c="chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Conversation</button>
@@ -663,6 +662,7 @@ body.models-open #modelsView { display: block !important; }
       </aside>
     </div>
   </div>
+<button class="iconbtn" id="winBtn" hidden title="New window" aria-label="New window"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v11"/></svg></button>
 </main>
 
 
@@ -1062,7 +1062,7 @@ function showConfig(c) {
   $("who").textContent = { claude: "Claude", openai: "OpenAI", local: "Local" }[c.provider] + " · " + c.model;
   const parts = (c.cwd || "").split(/[\\/]/).filter(Boolean); $("folderName").textContent = (parts.length > 2 ? "…/" : "/") + parts.slice(-2).join("/");
   $("folderPill").title = c.cwd;
-  $("instrPill").hidden = !(c.instructions && c.instructions.length); $("instrName").textContent = (c.instructions || []).join(", ");
+  $("instrPill").hidden = true; $("instrName").textContent = (c.instructions || []).join(", ");
   setPlan(!!c.plan);
 }
 function mcpRow(m = {}) {
@@ -1540,7 +1540,8 @@ function palRender() {
     ["Choose model", () => openModelPicker(), "model gpt claude switch"], ["Settings", () => openSettings(), "preferences options"],
     ["Models & API keys", () => openModelsView(), "provider key base url claude openai openrouter deepseek grok gemini opencode"], ["Connectors", () => openSettings("mcp"), "mcp tools integrations"],
     ["Automations", () => openSettings("sched"), "schedule cron tasks"], ["Context & rules", () => openSettings("instr"), "instructions herness.md permissions"],
-    ["Memory", () => openSettings("memory"), "remember preferences"], ["Keyboard shortcuts", () => $("keys").showModal(), "keys help"]]
+    ["Memory", () => openSettings("memory"), "remember preferences"], ["Keyboard shortcuts", () => $("keys").showModal(), "keys help"],
+    ["New window", () => $("winBtn").click(), "window open another"], ["Share this session", () => $("shareBtn").click(), "gist link publish"]]
     .map(([t, f, w]) => ({ t, k: "Go to", f, w }));
   const cmds = (config.commands || []).map(c => ({ t: "/" + c.name, k: c.description, f: () => { $("input").value = "/" + c.name + " "; autosize(); $("input").focus(); } }));
   const chats = chatCache.map(c => ({ t: c.title, k: "Session", f: () => api("/api/chat/open", { id: c.id }) }));
