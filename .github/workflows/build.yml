@@ -58,7 +58,7 @@ jobs:
             --add-data "myagent/static:myagent/static" run_app.py
           PLIST="dist/LightCode4.app/Contents/Info.plist"
           plutil -insert NSMicrophoneUsageDescription -string "Voice typing in the message box." "$PLIST"
-          plutil -insert CFBundleDisplayName -string "LightCode⁴" "$PLIST"
+          plutil -replace CFBundleDisplayName -string "LightCode⁴" "$PLIST"
           plutil -insert NSAppleEventsUsageDescription -string "Computer use: controlling apps when you allow it." "$PLIST"
           # Optional signing + notarization: runs only when the Apple secrets are added to the repository.
           if [ -n "$MACOS_CERT_P12" ]; then
