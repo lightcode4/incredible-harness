@@ -523,9 +523,9 @@ def main():
     # 33. sandbox: writes outside the project folder are blocked (where the OS supports it)
     s.apply_config({"sandbox": "folder"})
     s.new_chat()
-    import pwd  # the real home folder (tests use a temporary HOME, which lives in the allowed temp area)
-    outside = Path(pwd.getpwuid(os.getuid()).pw_dir) / f"herness-outside-{os.getpid()}.txt"
     if px.sandbox_available():
+        import pwd  # the real home folder (tests use a temporary HOME, which lives in the allowed temp area)
+        outside = Path(pwd.getpwuid(os.getuid()).pw_dir) / f"herness-outside-{os.getpid()}.txt"
         d.run("sb", script=[("tool", "bash", {"command": f"echo in > inside.txt; echo out > {outside}"}), ("text", "ok")])
         assert (Path(s.current.cwd) / "inside.txt").exists(), "sandbox blocked a write inside the project"
         assert not outside.exists(), f"sandbox let a write escape to {outside}"
