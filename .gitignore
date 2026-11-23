@@ -1,0 +1,6 @@
+shot-*.png
+gui.png
+__pycache__/
+dist/
+build/
+*.spec

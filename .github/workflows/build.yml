@@ -1,0 +1,68 @@
+# Builds the Incredible Herness desktop app: a .dmg for macOS (Apple silicon) and a Setup .exe for Windows.
+# Runs the offline tests first (fake API servers, no API tokens used). Download the installers from the
+# run's "Artifacts" section.
+name: Incredible Herness build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "**"
+
+permissions:
+  contents: write   # to publish the installers as a release
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            name: mac
+          - os: windows-latest
+            name: windows
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install anthropic openai pywebview pyinstaller
+
+      - name: Offline tests (no API calls)
+        run: python test_loop.py
+
+      - name: Build app (macOS)
+        if: matrix.name == 'mac'
+        run: |
+          pyinstaller --noconfirm --windowed --name "Incredible Herness" \
+            --osx-bundle-identifier com.incrediblehernes.app \
+            --add-data "myagent/static:myagent/static" run_app.py
+          hdiutil create -volname "Incredible Herness" -srcfolder "dist/Incredible Herness.app" \
+            -ov -format UDZO "dist/Incredible-Herness-mac.dmg"
+
+      - name: Build app (Windows)
+        if: matrix.name == 'windows'
+        run: |
+          pyinstaller --noconfirm --windowed --name "Incredible Herness" \
+            --add-data "myagent/static;myagent/static" run_app.py
+          choco install innosetup -y --no-progress
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" installer.iss
+
+      # Published as a GitHub Release (pre-release): releases don't use the Actions artifact storage quota.
+      - name: Publish to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: build-${{ github.run_number }}
+        run: |
+          FILE=$(ls dist/*.dmg dist/*Setup.exe 2>/dev/null || true)
+          [ -n "$FILE" ] || { echo "No installer was built"; exit 1; }
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --prerelease \
+            --target "$GITHUB_SHA" --title "Incredible Herness (build ${{ github.run_number }})" \
+            --notes "Desktop installers for macOS (Apple silicon) and Windows." || sleep 10
+          gh release upload "$TAG" "$FILE" --clobber
