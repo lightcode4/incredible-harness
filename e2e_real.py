@@ -1,6 +1,7 @@
-"""Real end-to-end check against the Claude API (costs money: hard limit $0.50).
+"""Real end-to-end check against a real model (costs a little: the run stops at $0.50 for Claude).
 
-Uses the API key saved in Incredible Herness settings (~/.incredible-herness/settings.json) or ANTHROPIC_API_KEY.
+Uses the provider, model, base URL and API key saved in Incredible Herness (Settings > Model), stored in
+~/.incredible-herness/settings.json. Works with Claude, OpenAI and OpenAI-compatible services (e.g. OpenCode).
 The key is never printed.   Run:  python e2e_real.py
 """
 import json
@@ -36,17 +37,20 @@ def make_pdf(pages):
 
 def main():
     settings = Path.home() / ".incredible-herness" / "settings.json"
-    key = os.environ.get("ANTHROPIC_API_KEY") or (json.loads(settings.read_text()).get("api_key") if settings.exists() else "")
-    if not key:
-        sys.exit("No API key: enter it in Incredible Herness > Settings > Model (provider Claude), then run this again.")
-    os.environ["ANTHROPIC_API_KEY"] = key
+    saved = json.loads(settings.read_text()) if settings.exists() else {}
+    if not (saved.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")):
+        sys.exit("No API key saved: enter it in Incredible Herness > Settings > Model, press Save, then run this again.")
 
     from myagent.gui import Session
 
     work = Path(tempfile.mkdtemp(prefix="herness-e2e-"))
     s = Session()
-    s.config.update(provider="claude", model="claude-opus-5-5", effort="low", budget=BUDGET, auto=True, api_key="")
+    s.load()  # the saved provider, model, base URL and key
+    claude = s.config["provider"] == "claude"
+    s.config.update(effort="low", budget=BUDGET, auto=True, schedules=[], phone=False, computer=False)
     s.apply_config({"cwd": str(work)})
+    s.save = lambda: None  # never write test settings back to the user's settings file
+    print(f"Testing {s.config['provider']} · {s.config['model']}" + (f" · {s.config['base_url']}" if s.config["base_url"] else ""), flush=True)
     events = []
     threading.Thread(target=lambda: [events.append(s.events.get()) for _ in iter(int, 1)], daemon=True).start()
 
@@ -78,10 +82,15 @@ def main():
     text = "".join(e.get("text", "") for e in evs if e["kind"] == "text")
     results.append(report("memory of the conversation", "sum.py" in text))
 
-    # 3. Web search (server tool)
-    evs = run("Use web search once to find the current stable version of Python, and answer in one short sentence.")
-    searched = any(e["kind"] == "server_tool" for e in evs)
-    results.append(report("web search", searched, "searched" if searched else "no search happened"))
+    # 3. Web: Claude's own web search, or the fetch_url tool for other providers
+    if claude:
+        evs = run("Use web search once to find the current stable version of Python, and answer in one short sentence.")
+        ok = any(e["kind"] == "server_tool" for e in evs)
+    else:
+        evs = run("Use fetch_url on https://example.com and tell me the page's main heading, in a few words.")
+        ok = any(e["kind"] == "tool" and e.get("name") == "fetch_url" for e in evs) and "example" in "".join(
+            e.get("text", "") for e in evs if e["kind"] == "text").lower()
+    results.append(report("web", ok))
 
     # 4. PDF reading (native pages)
     (work / "report.pdf").write_bytes(make_pdf(["Revenue was 42 million", "Profit grew 7 percent"]))
@@ -94,7 +103,7 @@ def main():
     results.append(report("sub-agent", any(e["kind"] == "tool" and e.get("name") == "task" for e in evs)))
 
     chat = s.current
-    print(f"\nTotal cost: ${chat.cost:.4f} for {chat.tokens} tokens (limit ${BUDGET:.2f})")
+    print(f"\nTotal: {chat.tokens} tokens" + (f", ${chat.cost:.4f} (limit ${BUDGET:.2f})" if claude else " (cost depends on your provider's prices)"))
     print(f"{sum(results)}/{len(results)} checks passed")
     s.shutdown()
     sys.exit(0 if all(results) else 1)
