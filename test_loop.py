@@ -359,7 +359,7 @@ def main():
 
     # 19. hooks: after-edit output on failure; before-finish failure is sent back to the agent to fix
     folder = s.current.rules_dir
-    s.config["hooks"][folder] = {"after_edit": "exit 3", "before_finish": "python -c \"import sys; sys.exit(0 if open('ok.txt').read()=='yes' else 1)\""}
+    s.config["hooks"][folder] = {"after_edit": "exit 3", "before_finish": f'"{sys.executable}" -c "import sys; sys.exit(0 if open(\'ok.txt\').read()==\'yes\' else 1)"'}
     evs = d.run("make ok", script=[("tool", "write_file", {"path": "ok.txt", "content": "no"}), ("text", "done"),
                                    ("tool", "write_file", {"path": "ok.txt", "content": "yes"}), ("text", "fixed")])
     hooks = d.kinds(evs, "hook")
