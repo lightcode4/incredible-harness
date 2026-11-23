@@ -30,6 +30,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__, extras, gitops
+from . import platform_extras as px
+from .mcp_local import McpError, McpManager
 from ._build import BUILD, REPO
 from .browser import Browser, NeedsBrowser, install_chromium
 from .computer import Computer, ComputerError
@@ -47,7 +49,7 @@ LOCAL_URL = "http://localhost:11434/v1"
 IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 
-def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: bool = False) -> str:
+def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: bool = False, language: str = "") -> str:
     s = (
         "You are Incredible Herness, a capable software and computer agent working on the user's machine. "
         "You can run shell commands, read, write and edit files (including PDFs and Jupyter notebooks), search, "
@@ -70,6 +72,8 @@ def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: 
     if computer:
         s += ("\n- You can also see and control the user's screen with the desktop_* tools. Take a screenshot first, "
               "act in small steps, and check the result with another screenshot.")
+    if language:
+        s += f"\n- Always write your replies to the user in {language}."
     if memory.strip():
         s += "\n\nWhat you remember about the user (from earlier chats):\n" + memory
     if instructions:
@@ -90,6 +94,8 @@ def _rule_kind(name: str) -> str:
         return "browser"
     if name.startswith("desktop_"):
         return "computer"
+    if name.startswith("mcp_"):
+        return "mcp"
     return {"bash": "bash", "kill_shell": "bash", "write_file": "write", "edit_file": "edit", "multi_edit": "edit",
             "notebook_edit": "edit"}.get(name, name)
 
@@ -99,6 +105,37 @@ def rule_matches(rule: str, name: str, target: str) -> bool:
     if not m or m.group(1) != _rule_kind(name):
         return False
     return m.group(2) is None or fnmatch.fnmatch(target, m.group(2).strip())
+
+
+class EventHub:
+    """Every connected window (and phone) gets every event."""
+
+    def __init__(self):
+        self.subs: list[queue.Queue] = []
+        self.lock = threading.Lock()
+        self._default: queue.Queue | None = None
+
+    def subscribe(self) -> queue.Queue:
+        q: queue.Queue = queue.Queue()
+        with self.lock:
+            self.subs.append(q)
+        return q
+
+    def unsubscribe(self, q):
+        with self.lock:
+            if q in self.subs:
+                self.subs.remove(q)
+
+    def put(self, ev: dict):
+        with self.lock:
+            subs = list(self.subs)
+        for q in subs:
+            q.put(ev)
+
+    def get(self, timeout=None):  # simple single-consumer use (tests, scripts)
+        if self._default is None:
+            self._default = self.subscribe()
+        return self._default.get(timeout=timeout)
 
 
 def lan_ip() -> str:
@@ -154,6 +191,7 @@ class Chat:
         if self.ws:
             self.ws.stop_all_jobs()
         self.ws = Workspace(self.cwd, on_file_change=self._snapshot)
+        self.ws.sandbox = self.app.config.get("sandbox", "off")
         self.instruction_files = project_instructions(self.cwd)[1]
 
     # ---------------------------------------------------------------- events
@@ -244,6 +282,8 @@ class Chat:
             return self.app.browser_url
         if name.startswith("desktop_"):
             return describe(name, args)
+        if name.startswith("mcp_"):
+            return name[4:]
         if name == "bash":
             return args["command"]
         if "path" in args:
@@ -322,6 +362,8 @@ class Chat:
     # ---------------------------------------------------------------- tools
     def run_tool(self, name: str, args: dict):
         self._check()
+        if name in self.app.mcp.names:
+            return self._mcp_tool(name, args)
         problem = validate(name, args)
         if problem:
             self.emit("tool", id=secrets.token_hex(4), summary=f"invalid {name} call", error=True)
@@ -354,6 +396,7 @@ class Chat:
                 return refusal
         else:
             self.emit("tool", **info)
+        self.ws.sandbox = self.app.config.get("sandbox", "off")
         try:
             out, err = self.ws.run(name, args), False
         except ToolError as e:
@@ -409,7 +452,8 @@ class Chat:
                 return str(e), True
 
         try:
-            sub = self.app.make_provider({**self.app.config, "cwd": self.cwd}, tools=READONLY_TOOLS, system=SUBAGENT_SYSTEM)
+            sub = self.app.make_provider({**self.app.config, "cwd": self.cwd}, tools=READONLY_TOOLS, system=SUBAGENT_SYSTEM,
+                                         fast=True)
             sub.turn(args["prompt"], sub_run, SubUI())
             report = sub.last_text() or "(the sub-agent returned no report)"
             self.emit("tool_result", id=call_id, output=f"{SubUI.steps} steps\n\n{report}", error=False)
@@ -469,6 +513,23 @@ class Chat:
         except Exception as e:
             out, err = f"{type(e).__name__}: {e}"[:2000], True
         self.emit("tool_result", id=call_id, output=out[:8000], error=err)
+        return out, err
+
+    def _mcp_tool(self, name: str, args: dict):
+        server, tool = self.app.mcp.names[name]
+        call_id = secrets.token_hex(6)
+        info = {"id": call_id, "name": name, "summary": f"{server} · {tool} {json.dumps(args)[:120]}"}
+        if not isinstance(args, dict):
+            return "Tool input must be a JSON object.", True
+        refusal = self.gate(name, args, info)
+        if refusal:
+            return refusal
+        try:
+            out, err = self.app.mcp.call(name, args)
+        except McpError as e:
+            out, err = [{"type": "text", "text": str(e)}], True
+        shown = "\n".join(p.get("text", "[image]") for p in out)
+        self.emit("tool_result", id=call_id, output=shown[:8000], error=err)
         return out, err
 
     def _desktop_tool(self, name: str, args: dict):
@@ -554,6 +615,7 @@ class Chat:
             self.notice(str(e))
             self.provider.close_interrupted()
         except Exception as e:
+            px.log.exception("Turn failed in chat %s", self.id)
             self.notice(f"{type(e).__name__}: {e}")
             self.provider.close_interrupted()
         finally:
@@ -611,11 +673,15 @@ class Chat:
 
 class Session:
     def __init__(self):
-        self.events: "queue.Queue[dict]" = queue.Queue()
+        self.events = EventHub()
         self.config = {"provider": "claude", "model": DEFAULT_MODELS["claude"], "effort": "high", "base_url": "",
                        "api_key": "", "cwd": str(Path.home()), "web": True, "compaction": True, "budget": 0.0,
                        "mcp": [], "rules": {}, "hooks": {}, "github_token": "", "diagnostics": True,
-                       "computer": False, "schedules": [], "phone": False, "voice_key": "", "auto": False, "plan": False}
+                       "computer": False, "schedules": [], "phone": False, "voice_key": "", "auto": False, "plan": False,
+                       "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": []}
+        self.mcp = McpManager()
+        self.quit_app = None  # set by the desktop app: closes the window
+        self.new_window = None  # set by the desktop app: opens another window
         self.pending: dict[str, tuple[threading.Event, dict]] = {}
         self.preview_opener = webbrowser.open
         self.browser = Browser(HOME / "browser", self._browser_frame, self._browser_state)
@@ -679,13 +745,22 @@ class Session:
             pass
 
     def tools_for(self, cfg: dict) -> list[dict]:
-        return [t for t in TOOLS if t["kind"] != "desktop" or cfg.get("computer")]
+        self.mcp.configure(cfg.get("mcp_local") or [])
+        return [t for t in TOOLS if t["kind"] != "desktop" or cfg.get("computer")] + self.mcp.tool_specs()
 
-    def make_provider(self, cfg: dict, tools=None, system: str | None = None):
+    def fast_model(self, cfg: dict) -> str:
+        """Cheaper model for sub-agents and simple steps (model routing)."""
+        if cfg.get("fast_model"):
+            return cfg["fast_model"]
+        return "claude-haiku-5-5" if cfg["provider"] == "claude" else cfg["model"]
+
+    def make_provider(self, cfg: dict, tools=None, system: str | None = None, fast: bool = False):
         tools = tools if tools is not None else self.tools_for(cfg)
+        if fast:
+            cfg = {**cfg, "model": self.fast_model(cfg)}
         if system is None:
             text, _ = project_instructions(cfg["cwd"])
-            system = system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")))
+            system = system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")), cfg.get("language", ""))
         common = dict(tools=tools, compaction=cfg["compaction"])
         if cfg["provider"] == "claude":
             return ClaudeProvider(cfg["model"], system, effort=cfg["effort"], api_key=cfg["api_key"] or None,
@@ -726,7 +801,7 @@ class Session:
         return chat
 
     def public_config(self) -> dict:
-        hidden = ("api_key", "github_token", "rules", "hooks", "voice_key")
+        hidden = ("api_key", "github_token", "rules", "hooks", "voice_key", "mcp_local")
         c = {k: v for k, v in self.config.items() if k not in hidden}
         c["api_key"] = bool(self.config["api_key"])
         c["github_token"] = bool(self.config["github_token"])
@@ -738,6 +813,10 @@ class Session:
         c["chat_cwd"] = chat.cwd if chat else c["cwd"]
         c["build"], c["version"], c["phone_url"] = BUILD, __version__, self.phone_url
         c["commands"] = self.command_list()
+        c["mcp_local"] = [{**m, "env": {k: "" for k in (m.get("env") or {})}} for m in self.config["mcp_local"]]
+        c["mcp_status"] = self.mcp.status()
+        c["fast_model_default"] = self.fast_model(self.config)
+        c["sandbox_available"] = px.sandbox_available()
         return c
 
     def add_rule(self, folder: str, rule: str, kind: str = "allow"):
@@ -757,12 +836,12 @@ class Session:
         return out
 
     # ---------------------------------------------------------------- chats
-    def select(self, chat: Chat):
+    def select(self, chat: Chat, client: str = ""):
         self.current = chat
-        self.events.put(chat.replay_event())
+        self.events.put({**chat.replay_event(), "client": client})
         self.events.put({"kind": "config", "config": self.public_config()})
 
-    def new_chat(self, worktree: bool = False):
+    def new_chat(self, worktree: bool = False, client: str = ""):
         cwd = self.current.rules_dir if self.current else self.config["cwd"]
         wt = None
         if worktree:
@@ -773,12 +852,12 @@ class Session:
         if wt:
             chat.notice(f"Parallel chat on branch {wt['branch']} in its own folder ({wt['path']}). "
                         "Your main folder is untouched until you merge.")
-        self.select(chat)
+        self.select(chat, client)
 
-    def open_chat(self, chat_id: str):
+    def open_chat(self, chat_id: str, client: str = ""):
         live = self.chats.get(chat_id)
         if live:
-            return self.select(live)
+            return self.select(live, client)
         d = json.loads((CHATS / f"{Path(chat_id).name}.json").read_text())
         cwd = d.get("cwd") if Path(d.get("cwd", "")).is_dir() else self.config["cwd"]
         if d.get("provider") != self.config["provider"] or d.get("model") != self.config["model"]:
@@ -789,7 +868,7 @@ class Session:
         chat.transcript, chat.checkpoints = d.get("transcript", []), d.get("checkpoints", {})
         chat.cost, chat.tokens, chat.todos, chat.turn = d.get("cost", 0), d.get("tokens", 0), d.get("todos", []), d.get("turn", 0)
         self.chats[chat.id] = chat
-        self.select(chat)
+        self.select(chat, client)
 
     def delete_chat(self, chat_id: str):
         live = self.chats.get(chat_id)
@@ -817,9 +896,11 @@ class Session:
                             "running": False, "approval": False, "worktree": bool(d.get("worktree"))})
             except (OSError, ValueError, KeyError):
                 continue
-        live = [c for c in out if c["id"] in self.chats]
-        rest = [c for c in out if c["id"] not in self.chats]
-        return live + rest
+        order = {cid: i for i, cid in enumerate(self.config.get("chat_order") or [])}
+        pinned = sorted([c for c in out if c["id"] in order], key=lambda c: order[c["id"]])
+        live = [c for c in out if c["id"] in self.chats and c["id"] not in order]
+        rest = [c for c in out if c["id"] not in self.chats and c["id"] not in order]
+        return pinned + live + rest
 
     def finish_worktree(self, merge: bool) -> str:
         chat = self.current
@@ -941,6 +1022,34 @@ class Session:
             return {"latest": None, "current": BUILD, "update": False}
         return {"latest": best[0], "current": BUILD, "update": best[0] > BUILD, "url": best[1]}
 
+    def install_update(self):
+        def run():
+            try:
+                url = f"https://api.github.com/repos/{REPO}/releases/latest"
+                info = self.check_update()
+                if info.get("url"):
+                    url = f"https://api.github.com/repos/{REPO}/releases/tags/build-{info['latest']}"
+                path = px.download_update(url, self.config["github_token"],
+                                          lambda pct: self.events.put({"kind": "update_progress", "pct": pct}))
+                px.launch_updater(path)
+                self.events.put({"kind": "update_progress", "pct": 100, "text": "Installing… the app will restart."})
+                time.sleep(1.5)
+                self.shutdown()
+                if self.quit_app:
+                    self.quit_app()
+                os._exit(0)
+            except Exception as e:
+                px.log.exception("Update failed")
+                self.events.put({"kind": "update_progress", "error": str(e)})
+        threading.Thread(target=run, daemon=True).start()
+
+    def share(self, chat: "Chat") -> str:
+        if not chat or not chat.transcript:
+            raise ValueError("Nothing to share yet.")
+        md = extras.export_markdown(chat.title or "Chat", chat.transcript)
+        return px.publish_gist(self.config["github_token"], re.sub(r"[^\w\-]+", "-", chat.title or "chat")[:60] + ".md",
+                               md, f"Incredible Herness: {chat.title}")
+
     # ---------------------------------------------------------------- scheduled tasks
     def start_scheduler(self):
         threading.Thread(target=self._scheduler, daemon=True).start()
@@ -993,6 +1102,7 @@ class Session:
 
     def shutdown(self):
         self._sched_stop.set()
+        self.mcp.stop()
         for t in self.terminals.values():
             t.close()
         self.browser.close()
@@ -1043,6 +1153,7 @@ def make_handler(session: Session, token: str):
                 self.send_header("Content-Type", "text/event-stream")
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
+                sub = session.events.subscribe()
                 try:
                     first = [{"kind": "config", "config": session.public_config()}]
                     if session.current:
@@ -1052,13 +1163,15 @@ def make_handler(session: Session, token: str):
                     self.wfile.flush()
                     while True:
                         try:
-                            ev = session.events.get(timeout=15)
+                            ev = sub.get(timeout=15)
                             self.wfile.write(f"data: {json.dumps(ev, default=str)}\n\n".encode())
                         except queue.Empty:
                             self.wfile.write(b": ping\n\n")
                         self.wfile.flush()
                 except (BrokenPipeError, ConnectionResetError, OSError):
                     return
+                finally:
+                    session.events.unsubscribe(sub)
             else:
                 self.send_error(404)
 
@@ -1069,9 +1182,12 @@ def make_handler(session: Session, token: str):
                 data = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
                 path = urlparse(self.path).path
                 result: dict = {"ok": True}
-                chat = session.current
+                client = str(data.get("client", ""))
+                chat = session.chats.get(data.get("chat")) or session.current
                 if path == "/api/send":
-                    session.send(str(data.get("text", "")), data.get("attachments") or [])
+                    if not chat:
+                        raise RuntimeError("Finish setup in Settings first.")
+                    chat.send(str(data.get("text", "")), data.get("attachments") or [])
                 elif path == "/api/approve":
                     item = session.pending.get(data.get("id"))
                     if item:
@@ -1082,17 +1198,21 @@ def make_handler(session: Session, token: str):
                     if target:
                         target.cancel.set()
                 elif path in ("/api/clear", "/api/chat/new"):
-                    session.new_chat(worktree=bool(data.get("worktree")))
+                    session.new_chat(worktree=bool(data.get("worktree")), client=client)
                 elif path == "/api/chats":
                     result = {"chats": session.list_chats(), "current": session.chat_id}
                 elif path == "/api/chat/open":
-                    session.open_chat(str(data.get("id")))
+                    session.open_chat(str(data.get("id")), client)
+                elif path == "/api/chats/order":
+                    session.config["chat_order"] = [str(x) for x in data.get("order", [])][:500]
+                    session.save()
                 elif path == "/api/chat/delete":
                     session.delete_chat(str(data.get("id")))
                 elif path == "/api/worktree/finish":
+                    session.current = chat
                     result = {"message": session.finish_worktree(bool(data.get("merge")))}
                 elif path == "/api/undo":
-                    result = {"restored": session.undo(str(data.get("turn")))}
+                    result = {"restored": chat.undo(str(data.get("turn")))}
                 elif path == "/api/config":
                     if set(data) <= {"auto", "plan"}:
                         session.config.update({k: bool(v) for k, v in data.items()})
@@ -1108,6 +1228,11 @@ def make_handler(session: Session, token: str):
                         if "hooks" in data:
                             h = data.pop("hooks")
                             session.config["hooks"][folder] = {k: str(h.get(k, "")).strip() for k in ("after_edit", "before_finish")}
+                        if "mcp_local" in data:  # blank env values mean "keep the saved secret"
+                            old = {m["name"]: m for m in session.config["mcp_local"]}
+                            for m in data["mcp_local"]:
+                                prev = (old.get(m.get("name")) or {}).get("env") or {}
+                                m["env"] = {k: (v or prev.get(k, "")) for k, v in (m.get("env") or {}).items()}
                         session.apply_config(data, keep_history=True)
                     session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/instructions":
@@ -1174,6 +1299,31 @@ def make_handler(session: Session, token: str):
                     session.install_browser()
                 elif path == "/api/update":
                     result = session.check_update()
+                elif path == "/api/update/install":
+                    session.install_update()
+                elif path == "/api/share":
+                    url = session.share(chat)
+                    webbrowser.open(url)
+                    result = {"url": url}
+                elif path == "/api/report":
+                    webbrowser.open(px.problem_report_url(REPO, __version__, BUILD, str(data.get("text", ""))))
+                elif path == "/api/logs/open":
+                    px.LOG_DIR.mkdir(parents=True, exist_ok=True)
+                    px.open_path(px.LOG_DIR)
+                elif path == "/api/settings/export":
+                    result = px.export_settings(session.config, bool(data.get("include_keys")))
+                elif path == "/api/settings/import":
+                    if chat and chat.busy:
+                        raise RuntimeError("Stop the current task first.")
+                    new = px.import_settings(data.get("data"), session.config)
+                    session.apply_config(new, keep_history=True)
+                    session.config.update({k: new[k] for k in ("rules", "hooks", "schedules", "chat_order") if k in new})
+                    session.save()
+                    session.events.put({"kind": "config", "config": session.public_config()})
+                elif path == "/api/window/new":
+                    if not session.new_window:
+                        raise RuntimeError("Extra windows are available in the desktop app.")
+                    session.new_window()
                 elif path == "/api/open-url":
                     url = str(data.get("url", ""))
                     if re.match(r"^https://github\.com/", url):
@@ -1182,6 +1332,7 @@ def make_handler(session: Session, token: str):
                     return self._json({"error": "not found"}, 404)
                 self._json(result)
             except Exception as e:
+                px.log.warning("Request %s failed: %s", self.path.split("?")[0], e)
                 self._json({"error": str(e)}, 400)
 
     return Handler
@@ -1189,6 +1340,7 @@ def make_handler(session: Session, token: str):
 
 def start_server(cwd: str | None = None, port: int = 0, session: Session | None = None):
     """Start the engine on 127.0.0.1. Returns (server, url, session). port=0 picks a free port."""
+    px.setup_logging()
     session = session or Session()
     session.load()
     session._handler_factory = make_handler

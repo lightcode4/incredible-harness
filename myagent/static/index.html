@@ -276,6 +276,15 @@ body.agent-browsing .agentbadge { display: block; }
 .sched .row input, .sched textarea { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 5px 8px; font-size: 13px; width: 100%; }
 .sched textarea { min-height: 54px; resize: vertical; }
 #qr { background: #fff; padding: 10px; border-radius: 10px; width: max-content; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chatitem.dragging { opacity: .4; } .chatitem.dropline { box-shadow: 0 -2px 0 var(--accent); }
+#keys table { width: 100%; border-collapse: collapse; font-size: 14px; } #keys td { padding: 6px 4px; border-bottom: 1px solid var(--line); }
+#keys kbd { font: 12px ui-monospace, Menlo, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.lmcp { border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 6px; margin-bottom: 8px; }
+.lmcp input, .lmcp textarea { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 5px 8px; font-size: 13px; width: 100%; min-width: 0; }
+.lmcp textarea { min-height: 40px; font-family: ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+.mstat { font-size: 12px; color: var(--muted); } .mstat.bad { color: var(--bad); } .mstat.ok { color: var(--ok); }
 @media (max-width: 760px) { aside { position: absolute; z-index: 5; height: 100%; } #welcome h1 { font-size: 28px; } #costPill { display: none; } }
 </style>
 </head>
@@ -322,13 +331,16 @@ body.agent-browsing .agentbadge { display: block; }
 
 <main>
   <div class="topbar">
-    <button class="iconbtn" id="toggleSide" title="Toggle sidebar"><svg><use href="#i-side"/></svg></button>
+    <button class="iconbtn" id="toggleSide" title="Toggle sidebar (Ctrl+B)" aria-label="Toggle sidebar"><svg><use href="#i-side"/></svg></button>
     <button class="pill" id="folderPill" title="Working folder"><svg><use href="#i-folder"/></svg><span id="folderName">…</span></button>
     <button class="pill" id="wtPill" hidden title="This chat works on its own branch in a separate folder"><svg><use href="#i-map"/></svg><span id="wtName"></span></button>
     <span class="pill" id="instrPill" hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
     <span class="spacer"></span>
-    <button class="iconbtn" id="termToggle" title="Terminal (Ctrl+`)"><svg><use href="#i-term"/></svg></button>
-    <button class="iconbtn" id="browserToggle" title="Browser"><svg><use href="#i-globe"/></svg></button>
+    <button class="iconbtn" id="shareBtn" title="Share this chat (GitHub gist)" aria-label="Share this chat"><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></button>
+    <button class="iconbtn" id="winBtn" title="New window" aria-label="New window"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v11"/></svg></button>
+    <button class="iconbtn" id="keysBtn" title="Keyboard shortcuts (Ctrl+/)" aria-label="Keyboard shortcuts"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></button>
+    <button class="iconbtn" id="termToggle" title="Terminal (Ctrl+`)" aria-label="Terminal"><svg><use href="#i-term"/></svg></button>
+    <button class="iconbtn" id="browserToggle" title="Browser" aria-label="Browser"><svg><use href="#i-globe"/></svg></button>
     <span class="pill" id="costPill" title="Cost and tokens for this chat"><b id="cost">$0.00</b><span id="tokens">0 tokens</span></span>
   </div>
   <div id="banner"><span id="bannerText"></span><span class="spacer"></span><button class="btn small primary" id="bannerBtn">Download</button><button class="iconbtn" id="bannerX"><svg><use href="#i-x"/></svg></button></div>
@@ -338,13 +350,13 @@ body.agent-browsing .agentbadge { display: block; }
     <div class="composer" id="composer">
       <div id="cmdMenu"></div>
       <div id="files"></div>
-      <textarea id="input" rows="1" placeholder="Ask Incredible Herness to build, fix or explain something… (type / for commands)"></textarea>
+      <textarea id="input" aria-label="Message" rows="1" placeholder="Ask Incredible Herness to build, fix or explain something… (type / for commands)"></textarea>
       <div class="comp-row">
-        <button class="ghost" id="attach" title="Attach images, PDFs or text files"><svg><use href="#i-clip"/></svg></button>
-        <button class="ghost" id="micBtn" title="Voice typing"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <button class="ghost" id="attach" title="Attach images, PDFs or text files" aria-label="Attach files"><svg><use href="#i-clip"/></svg></button>
+        <button class="ghost" id="micBtn" title="Voice typing" aria-label="Voice typing"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
         <button class="ghost" id="planBtn" title="Plan mode: research and propose a plan before changing anything"><svg><use href="#i-map"/></svg>Plan</button>
         <button class="ghost" id="modelPill"><span id="modelName">model</span></button>
-        <button class="send" id="send" title="Send (Enter)" disabled><svg><use href="#i-up"/></svg></button>
+        <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg><use href="#i-up"/></svg></button>
       </div>
       <input type="file" id="fileInput" multiple hidden>
     </div>
@@ -356,7 +368,7 @@ body.agent-browsing .agentbadge { display: block; }
     </div>
   </section>
 
-  <div id="scroll"><div class="col"><div id="log"></div></div></div>
+  <div id="scroll"><div class="col"><div id="log" role="log" aria-live="polite" aria-label="Conversation"></div></div></div>
   <div id="dock"><details id="todos" open><summary><svg><use href="#i-list"/></svg><span id="todoSum">Tasks</span></summary><ul id="todoList"></ul></details></div>
 </main>
 
@@ -394,6 +406,16 @@ body.agent-browsing .agentbadge { display: block; }
   </div>
 </section>
 
+<dialog id="keys" aria-label="Keyboard shortcuts"><div class="dlg-head"><h2 class="serif">Keyboard shortcuts</h2><button class="iconbtn" id="closeKeys" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
+  <div class="dlg-body"><table>
+    <tr><td><kbd>Enter</kbd></td><td>Send</td></tr><tr><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>New line</td></tr>
+    <tr><td><kbd>/</kbd></td><td>Commands menu</td></tr><tr><td><kbd>Esc</kbd></td><td>Stop the agent</td></tr>
+    <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>,</kbd></td><td>Settings</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>K</kbd></td><td>New chat</td></tr>
+    <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>B</kbd></td><td>Show or hide the sidebar</td></tr><tr><td><kbd>Ctrl</kbd>+<kbd>`</kbd></td><td>Terminal</td></tr>
+    <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td><td>New window</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>/</kbd></td><td>This list</td></tr>
+    <tr><td>Drag a chat</td><td>Reorder chats in the sidebar</td></tr>
+  </table></div></dialog>
+
 <dialog id="settings">
   <div class="dlg-head"><h2 class="serif">Settings</h2><button class="iconbtn" id="closeSettings"><svg><use href="#i-x"/></svg></button></div>
   <div class="tabs" id="tabs">
@@ -410,6 +432,10 @@ body.agent-browsing .agentbadge { display: block; }
         <div class="field" id="effortField"><label>Effort</label><select id="effort">
           <option value="low">Low (cheapest)</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Extra high</option><option value="max">Max</option></select></div>
       </div>
+      <div class="row">
+        <div class="field"><label>Model for sub-agents &amp; simple steps</label><input id="fastModel" spellcheck="false" list="models"><small id="fastHint"></small></div>
+        <div class="field"><label>Reply language</label><input id="language" placeholder="Same as you write" list="langs"><datalist id="langs"><option>English</option><option>Spanish</option><option>French</option><option>Portuguese</option><option>German</option><option>Arabic</option><option>Hindi</option><option>Chinese</option><option>Japanese</option><option>Yoruba</option><option>Swahili</option></datalist></div>
+      </div>
       <div class="field" id="baseField"><label>Base URL</label><input id="baseurl" spellcheck="false" placeholder="Leave empty for the default"><small id="baseHint"></small></div>
       <div class="field"><label>API key</label><input id="key" type="password" placeholder="Paste your key"><small>Saved only on this computer, readable only by your user account.</small></div>
       <div class="field"><label>Working folder</label><div style="display:flex;gap:8px"><input id="cwd" spellcheck="false"><button class="btn" id="pick" hidden>Browse…</button></div></div>
@@ -425,6 +451,10 @@ body.agent-browsing .agentbadge { display: block; }
     </div>
     <div class="pane" data-p="perms">
       <label class="toggle"><span>Auto-approve everything<small>Skips Allow prompts for commands and edits. Deny rules still apply.</small></span><span class="switch"><input type="checkbox" id="auto"><span></span></span></label>
+      <div class="field"><label>Command sandbox</label><select id="sandbox">
+        <option value="off">Off — commands run with your full user rights</option>
+        <option value="folder">On — commands can only change files in the project folder (and temp)</option>
+        <option value="folder_no_net">Strict — project folder only, and no internet</option></select><small id="sandboxHint"></small></div>
       <div class="field"><label>Always allow (one rule per line) — this folder</label><textarea id="allow" spellcheck="false" placeholder="bash(npm test*)&#10;bash(git status*)&#10;edit(src/**)"></textarea></div>
       <div class="row">
         <div class="field"><label>Hook: after every edit (this folder)</label><input id="hookEdit" spellcheck="false" placeholder="e.g. npx prettier --write &quot;$HERNESS_FILE&quot;"></div>
@@ -452,14 +482,23 @@ body.agent-browsing .agentbadge { display: block; }
       <div id="phoneBox" class="note" hidden><div id="qr"></div><div style="margin-top:8px;word-break:break-all;font-size:12.5px" id="phoneUrl"></div></div>
     </div>
     <div class="pane" data-p="mcp">
-      <div class="note">Connect remote MCP servers (GitHub, Linear, databases, your own tools…). Claude calls them directly. Works with the Claude provider.</div>
-      <div id="mcpRows"></div>
-      <div><button class="btn small" id="addMcp">+ Add connector</button></div>
+      <div class="note">Connectors give the agent extra tools through MCP: GitHub, files, databases, Slack, your own tools. Local ones run on this computer and work with every provider; remote ones (web addresses) work with Claude. Each tool call asks for approval like other actions.</div>
+      <div class="field"><label>Quick connect</label><div class="presets" id="presets"></div>
+        <small>Local connectors run programs on this computer and need <b>Node.js</b> (npx) or <b>uv</b> (uvx) installed. They work with every provider.</small></div>
+      <div class="field"><label>Local connectors (programs on this computer)</label><div id="lmcpRows"></div><button class="btn small" id="addLmcp">+ Add local connector</button></div>
+      <div class="field"><label>Remote connectors (Claude only)</label><div id="mcpRows"></div><button class="btn small" id="addMcp">+ Add remote connector</button></div>
     </div>
     <div class="pane" data-p="about">
       <div class="note" id="aboutText">Incredible Herness</div>
       <div class="field"><label>GitHub token (only needed if the app's repository is private)</label><input id="ghToken" type="password" placeholder="github_pat_…"><small>Fine-grained token with read access to the repository's contents.</small></div>
-      <div><button class="btn" id="checkUpdate">Check for updates</button> <span id="updateResult" style="font-size:13px;color:var(--muted)"></span></div>
+      <div><button class="btn" id="checkUpdate">Check for updates</button> <button class="btn primary" id="installUpdate" hidden>Install &amp; restart</button> <span id="updateResult" style="font-size:13px;color:var(--muted)"></span></div>
+      <div class="field"><label>Settings on another computer</label><div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn small" id="exportSettings">Export settings</button><button class="btn small" id="exportSettingsKeys">Export with API keys</button>
+        <button class="btn small" id="importSettings">Import settings…</button><input type="file" id="importFile" accept=".json" hidden></div>
+        <small>Exports go to a file you can copy to your other computer. Files with keys must be kept private.</small></div>
+      <div class="field"><label>Problems</label><div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn small" id="reportBtn">Report a problem</button><button class="btn small" id="logsBtn">Open log folder</button></div>
+        <small>Reports open a GitHub issue with the app version and recent log lines. API keys and tokens are removed first; check the text before you send it.</small></div>
     </div>
   </div>
   <div class="dlg-foot"><span id="dlgError"></span><button class="btn" id="cancelSettings">Cancel</button><button class="btn primary" id="saveSettings">Save</button></div>
@@ -473,8 +512,10 @@ let cur = null, curKind = null, busy = false, config = {}, provider = "claude", 
 const icon = n => `<svg><use href="#i-${n}"/></svg>`;
 const MODELS = { claude: ["claude-opus-5-5", "claude-fable-5-2", "claude-sonnet-5-5", "claude-haiku-5-5"], openai: ["gpt-5", "gpt-5-mini"], local: ["llama3.1", "qwen2.5-coder", "mistral"] };
 
+const CLIENT = Math.random().toString(36).slice(2);
 async function api(path, body) {
-  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Token": TOKEN }, body: JSON.stringify(body || {}) });
+  body = { client: CLIENT, ...(typeof currentChat !== "undefined" && currentChat ? { chat: currentChat } : {}), ...(body || {}) };
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Token": TOKEN }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
@@ -660,6 +701,8 @@ function handle(ev) {
     case "hook": endBlock(); hookRow(ev); break;
     case "chats_changed": refreshChats(); break;
     case "toast": notice(ev.text); break;
+    case "update_progress": { const t = ev.error ? "Update failed: " + ev.error : ev.text || `Downloading update… ${ev.pct}%`;
+      $("updateResult").textContent = t; if ($("banner").classList.contains("show")) $("bannerText").textContent = t; if (ev.error) { $("installUpdate").disabled = false; $("bannerBtn").disabled = false; } } break;
     case "term": termWrite(ev); break;
     case "term_exit": if (ev.id === termId) { term?.write("\r\n\x1b[2m[process exited — click New terminal]\x1b[0m\r\n"); termId = null; } break;
     case "browser_open": if (!replaying) { openPanel("browser"); document.body.classList.add("agent-browsing"); } break;
@@ -686,10 +729,11 @@ function replay(ev) {
   if (panelTab === "git") gitRefresh();
 }
 const es = new EventSource("/api/events?token=" + TOKEN);
-let currentChat = null, chatsTimer = null;
+var currentChat = null; let chatsTimer = null;
 const refreshChats = () => { clearTimeout(chatsTimer); chatsTimer = setTimeout(loadChats, 300); };
 es.onmessage = m => {
   const ev = JSON.parse(m.data);
+  if (ev.kind === "replay" && ev.client && ev.client !== CLIENT) { refreshChats(); return; }
   if (ev.chat && currentChat && ev.chat !== currentChat) { if (["status", "approve", "turn_end", "user"].includes(ev.kind)) refreshChats(); return; }
   handle(ev);
 };
@@ -704,7 +748,7 @@ async function loadChats() {
     chats.forEach(c => {
       const st = c.approval ? '<i class="st ask" title="Needs approval"></i>' : c.running ? '<i class="st run" title="Working"></i>' : "";
       const it = el("div", "chatitem" + (c.id === current ? " on" : ""), `${st}<span></span>${c.worktree ? '<b class="wt" title="Parallel worktree chat">⑂</b>' : ""}<button title="Delete">${icon("trash")}</button>`);
-      it.querySelector("span").textContent = c.title; it.title = c.title;
+      it.querySelector("span").textContent = c.title; it.title = c.title; it.dataset.id = c.id; it.draggable = true;
       it.onclick = async e => {
         if (e.target.closest("button")) { if (confirm(`Delete "${c.title}"?`)) { await api("/api/chat/delete", { id: c.id }); loadChats(); } return; }
         try { await api("/api/chat/open", { id: c.id }); } catch (err) { notice(err.message); }
@@ -747,13 +791,17 @@ async function openSettings(tab) {
   $("ghToken").value = ""; $("ghToken").placeholder = config.github_token ? "Saved — leave empty to keep" : "github_pat_…";
   $("allow").value = (config.rules?.allow || []).join("\n"); $("deny").value = (config.rules?.deny || []).join("\n");
   $("mcpRows").innerHTML = ""; (config.mcp || []).forEach(mcpRow);
+  $("fastModel").value = config.fast_model || ""; $("fastModel").placeholder = config.fast_model_default || ""; $("fastHint").textContent = "Empty = " + (config.fast_model_default || "same model");
+  $("language").value = config.language || ""; $("sandbox").value = config.sandbox || "off";
+  $("sandboxHint").textContent = config.sandbox_available ? "Uses the " + config.sandbox_available + "." : "Not supported on this computer (Windows): with the sandbox on, commands won't run.";
+  $("lmcpRows").innerHTML = ""; (config.mcp_local || []).forEach(lmcpRow);
   $("diagnostics").checked = config.diagnostics !== false; $("computer").checked = !!config.computer; $("phone").checked = !!config.phone;
   $("voiceKey").value = ""; $("voiceKey").placeholder = config.voice_key ? "Saved — leave empty to keep" : "sk-… (only needed if voice typing isn't built into your system)";
   $("hookEdit").value = config.hooks?.after_edit || ""; $("hookFinish").value = config.hooks?.before_finish || "";
   showPhone(); try { $("memoryText").value = memLoaded = (await api("/api/memory")).text; } catch (e) { memLoaded = ""; }
   $("schedList").innerHTML = ""; (config.schedules || []).forEach(schedRow);
   $("aboutText").textContent = `Incredible Herness ${config.version || ""} · build ${config.build || "dev"}`;
-  $("dlgError").textContent = ""; $("updateResult").textContent = "";
+  $("dlgError").textContent = ""; $("dlgError").style.color = ""; $("updateResult").textContent = "";
   try { const r = await api("/api/instructions"); $("instr").value = instrLoaded = r.text; $("instrLabel").textContent = r.file; } catch (e) { instrLoaded = $("instr").value = ""; }
   showTab(typeof tab === "string" ? tab : "model");
   if (!$("settings").open) $("settings").showModal();
@@ -767,6 +815,10 @@ $("saveSettings").onclick = async () => {
   const body = { provider, model: $("model").value.trim(), effort: $("effort").value, base_url: $("baseurl").value.trim(), cwd: $("cwd").value.trim(),
     auto: $("auto").checked, web: $("web").checked, compaction: $("compaction").checked, budget: parseFloat($("budget").value) || 0, mcp,
     rules: { allow: lines("allow"), deny: lines("deny") }, diagnostics: $("diagnostics").checked, computer: $("computer").checked,
+    fast_model: $("fastModel").value.trim(), language: $("language").value.trim(), sandbox: $("sandbox").value,
+    mcp_local: [...document.querySelectorAll(".lmcp")].map(r => ({ name: r.querySelector(".ln").value.trim(), command: r.querySelector(".lc").value.trim(),
+      args: r.querySelector(".la").value.trim(), env: Object.fromEntries(r.querySelector(".le").value.split("\n").map(l => l.trim()).filter(l => l.includes("="))
+        .map(l => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()])) })).filter(m => m.name && m.command),
     phone: $("phone").checked, hooks: { after_edit: $("hookEdit").value.trim(), before_finish: $("hookFinish").value.trim() } };
   if ($("voiceKey").value) body.voice_key = $("voiceKey").value;
   if ($("key").value) body.api_key = $("key").value;
@@ -792,7 +844,9 @@ $("checkUpdate").onclick = async () => {
   try { const r = await api("/api/update"); $("updateResult").textContent = r.error || (r.update ? `Build ${r.latest} is available.` : "You have the latest build."); if (r.update) showUpdate(r); }
   catch (e) { $("updateResult").textContent = e.message; }
 };
-function showUpdate(r) { $("bannerText").textContent = `A new version of Incredible Herness (build ${r.latest}) is available.`; $("banner").classList.add("show"); $("bannerBtn").onclick = () => api("/api/open-url", { url: r.url }); }
+function showUpdate(r) { $("bannerText").textContent = `A new version of Incredible Herness (build ${r.latest}) is available.`; $("banner").classList.add("show");
+  $("bannerBtn").textContent = "Install & restart"; $("bannerBtn").onclick = () => { $("bannerBtn").disabled = true; $("bannerText").textContent = "Downloading the update…"; api("/api/update/install"); };
+  $("installUpdate").hidden = false; }
 $("bannerX").onclick = () => $("banner").classList.remove("show");
 
 // ---------- Attachments ----------
@@ -973,6 +1027,64 @@ function showPhone() {
   $("phoneUrl").textContent = url;
   try { const q = qrcode(0, "M"); q.addData(url); q.make(); $("qr").innerHTML = q.createSvgTag(4, 0); } catch (e) { $("qr").textContent = ""; }
 }
+
+// ---------- Connectors ----------
+const PRESETS = [
+  { label: "GitHub", remote: { name: "github", url: "https://api.githubcopilot.com/mcp/" }, tokenUrl: "https://github.com/settings/personal-access-tokens/new", tip: "Paste a GitHub token in the token box (Claude provider)." },
+  { label: "Files (another folder)", local: { name: "files", command: "npx", args: "-y @modelcontextprotocol/server-filesystem ~/Documents" }, tip: "Change the folder at the end of the arguments." },
+  { label: "SQLite database", local: { name: "sqlite", command: "uvx", args: "mcp-server-sqlite --db-path ~/data.db" }, tip: "Point --db-path at your database file." },
+  { label: "Postgres", local: { name: "postgres", command: "npx", args: "-y @modelcontextprotocol/server-postgres postgresql://localhost/mydb" }, tip: "Replace the connection URL." },
+  { label: "Slack", local: { name: "slack", command: "npx", args: "-y @modelcontextprotocol/server-slack", env: { SLACK_BOT_TOKEN: "", SLACK_TEAM_ID: "" } }, tokenUrl: "https://api.slack.com/apps", tip: "Create a Slack app, then paste its bot token and team ID." },
+  { label: "Custom", local: { name: "", command: "", args: "" } },
+];
+function lmcpRow(m = {}) {
+  const st = (config.mcp_status || []).find(x => x.name === m.name);
+  const r = el("div", "lmcp", `<div class="row"><input class="ln" placeholder="name"><input class="lc" placeholder="command (npx, uvx, python…)"></div>
+    <input class="la" placeholder="arguments"><textarea class="le" placeholder="Environment, one per line: TOKEN=value (saved values stay hidden)"></textarea>
+    <div style="display:flex;gap:8px;align-items:center"><span class="mstat ${st ? (st.error ? "bad" : st.running ? "ok" : "") : ""}"></span><span class="spacer"></span><button class="btn small">Remove</button></div>`);
+  r.querySelector(".ln").value = m.name || ""; r.querySelector(".lc").value = m.command || "";
+  r.querySelector(".la").value = Array.isArray(m.args) ? m.args.join(" ") : (m.args || "");
+  r.querySelector(".le").value = Object.entries(m.env || {}).map(([k, v]) => `${k}=${v}`).join("\n");
+  r.querySelector(".mstat").textContent = st ? (st.error ? "Error: " + st.error.slice(0, 160) : st.running ? `Running · ${st.tools} tools` : "Starts on next message") : "";
+  r.querySelector("button").onclick = () => r.remove(); $("lmcpRows").appendChild(r);
+}
+$("addLmcp").onclick = () => lmcpRow();
+PRESETS.forEach(p => { const b = el("button", "btn small"); b.textContent = p.label; b.onclick = () => {
+  if (p.remote) mcpRow(p.remote); else lmcpRow(p.local);
+  if (p.tokenUrl) api("/api/open-url", { url: p.tokenUrl }).catch(() => window.open(p.tokenUrl));
+  $("dlgError").textContent = p.tip || ""; $("dlgError").style.color = "var(--muted)"; }; $("presets").appendChild(b); });
+
+// ---------- Share, windows, shortcuts, updates, settings transfer ----------
+$("shareBtn").onclick = async () => { try { const r = await api("/api/share"); startChatting(); notice("Shared (secret gist): " + r.url); } catch (e) { startChatting(); notice(e.message); } };
+$("winBtn").onclick = () => api("/api/window/new").catch(e => notice(e.message));
+$("keysBtn").onclick = () => $("keys").showModal(); $("closeKeys").onclick = () => $("keys").close();
+document.addEventListener("keydown", e => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key === "/") { e.preventDefault(); $("keys").open ? $("keys").close() : $("keys").showModal(); }
+  else if (mod && e.key.toLowerCase() === "k") { e.preventDefault(); $("newchat").click(); }
+  else if (mod && e.key.toLowerCase() === "b") { e.preventDefault(); $("toggleSide").click(); }
+  else if (mod && e.shiftKey && e.key.toLowerCase() === "n") { e.preventDefault(); $("winBtn").click(); }
+});
+$("installUpdate").onclick = () => { $("installUpdate").disabled = true; $("updateResult").textContent = "Downloading…"; api("/api/update/install").catch(e => $("updateResult").textContent = e.message); };
+function downloadJson(obj, name) { const a = el("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" })); a.download = name; a.click(); }
+$("exportSettings").onclick = async () => downloadJson(await api("/api/settings/export", { include_keys: false }), "herness-settings.json");
+$("exportSettingsKeys").onclick = async () => { if (confirm("This file will contain your API keys. Keep it private. Continue?")) downloadJson(await api("/api/settings/export", { include_keys: true }), "herness-settings-with-keys.json"); };
+$("importSettings").onclick = () => $("importFile").click();
+$("importFile").onchange = async e => { const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try { await api("/api/settings/import", { data: JSON.parse(await f.text()) }); $("settings").close(); notice("Settings imported."); } catch (err) { $("dlgError").textContent = err.message; } };
+$("reportBtn").onclick = () => { const t = prompt("What went wrong? (optional)") ?? null; if (t !== null) api("/api/report", { text: t }); };
+$("logsBtn").onclick = () => api("/api/logs/open").catch(e => $("dlgError").textContent = e.message);
+
+// ---------- Drag to reorder chats ----------
+let dragId = null;
+$("chatList").addEventListener("dragstart", e => { const it = e.target.closest(".chatitem"); if (!it) return; dragId = it.dataset.id; it.classList.add("dragging"); });
+$("chatList").addEventListener("dragend", e => { e.target.closest(".chatitem")?.classList.remove("dragging"); document.querySelectorAll(".dropline").forEach(x => x.classList.remove("dropline")); });
+$("chatList").addEventListener("dragover", e => { e.preventDefault(); document.querySelectorAll(".dropline").forEach(x => x.classList.remove("dropline")); e.target.closest(".chatitem")?.classList.add("dropline"); });
+$("chatList").addEventListener("drop", e => {
+  e.preventDefault(); const target = e.target.closest(".chatitem"); if (!target || !dragId || target.dataset.id === dragId) return;
+  const ids = [...document.querySelectorAll("#chatList .chatitem")].map(x => x.dataset.id).filter(id => id !== dragId);
+  ids.splice(ids.indexOf(target.dataset.id), 0, dragId); api("/api/chats/order", { order: ids }).then(loadChats);
+});
 
 // ---------- Side panel ----------
 let panelTab = null, term = null, termId = null, fit = null, browserViewing = false;

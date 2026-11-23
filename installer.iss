@@ -24,4 +24,4 @@ Name: "{autodesktop}\Incredible Herness"; Filename: "{app}\Incredible Herness.ex
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 
 [Run]
-Filename: "{app}\Incredible Herness.exe"; Description: "Launch Incredible Herness"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\Incredible Herness.exe"; Description: "Launch Incredible Herness"; Flags: nowait postinstall

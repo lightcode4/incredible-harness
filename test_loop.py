@@ -4,6 +4,7 @@ No real API calls, no tokens used.   Run: python test_loop.py
 import base64
 import json
 import os
+import sys
 import tempfile
 import threading
 import time
@@ -59,6 +60,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["content-length"])))
         REQUESTS.append((self.path, dict(self.headers), body))
+        if self.path.endswith("/gists"):
+            out = json.dumps({"html_url": "https://gist.github.com/test/abc123"}).encode()
+            self.send_response(201)
+            self.send_header("content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(out)
+            return
         step = SCRIPT.pop(0) if SCRIPT else ("text", "Done.")
         data = _claude_events(step, len(REQUESTS)) if "/messages" in self.path else _openai_events(step)
         self.send_response(200)
@@ -71,6 +79,7 @@ def start_fake():
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{srv.server_port}"
+    os.environ["HERNESS_GITHUB_API"] = url
     os.environ["ANTHROPIC_BASE_URL"] = url
     os.environ["ANTHROPIC_API_KEY"] = "test"
     return url
@@ -485,6 +494,77 @@ def main():
     except ValueError as e:
         assert "OpenAI API key" in str(e)
     print("29 voice OK")
+
+    from myagent import platform_extras as px
+    # 30. every connected window gets every event
+    a, b = s.events.subscribe(), s.events.subscribe()
+    s.events.put({"kind": "ping"})
+    assert a.get(timeout=2)["kind"] == "ping" and b.get(timeout=2)["kind"] == "ping"
+    s.events.unsubscribe(a)
+    s.events.unsubscribe(b)
+    print("30 multi-window events OK")
+
+    # 31. model routing: sub-agents use the cheaper model
+    n0 = len(REQUESTS)
+    d.run("research", script=[("tool", "task", {"description": "look", "prompt": "List files"}), ("text", "REPORT"), ("text", "ok")])
+    assert REQUESTS[n0 + 1][2]["model"] == "claude-haiku-5-5" and REQUESTS[n0][2]["model"] == "claude-opus-5-5"
+    print("31 model routing OK")
+
+    # 32. local MCP server: tools offered to the model, calls approved and answered
+    s.apply_config({"mcp_local": [{"name": "fake", "command": sys.executable,
+                                   "args": [str(Path(__file__).parent / "tests" / "fake_mcp_server.py")]}]})
+    s.new_chat()
+    evs = d.run("shout", script=[("tool", "mcp_fake_shout", {"text": "hello mcp"}), ("text", "done")])
+    assert any(t.get("name") == "mcp_fake_shout" for t in REQUESTS[-2][2]["tools"])
+    assert d.kinds(evs, "approve") and "HELLO MCP" in json.dumps(REQUESTS[-1][2]["messages"][-1])
+    s.apply_config({"mcp_local": []})
+    print("32 local MCP OK")
+
+    # 33. sandbox: writes outside the project folder are blocked (where the OS supports it)
+    s.apply_config({"sandbox": "folder"})
+    s.new_chat()
+    outside = Path.home() / f"herness-outside-{os.getpid()}.txt"  # home is not writable inside the sandbox
+    if px.sandbox_available():
+        d.run("sb", script=[("tool", "bash", {"command": f"echo in > inside.txt; echo out > {outside}"}), ("text", "ok")])
+        assert (Path(s.current.cwd) / "inside.txt").exists() and not outside.exists(), "sandbox let a write escape"
+        print(f"33 sandbox OK ({px.sandbox_available()})")
+    else:
+        evs = d.run("sb", script=[("tool", "bash", {"command": "echo hi"}), ("text", "ok")])
+        assert "no sandbox support" in d.kinds(evs, "tool_result")[0]["output"]
+        print("33 sandbox OK (not available here: commands refuse to run unsandboxed)")
+    s.apply_config({"sandbox": "off"})
+
+    # 34. settings export/import (keys left out unless asked) and secret scrubbing in logs
+    s.config["api_key"] = "sk-ant-secret123456"
+    exp = px.export_settings(s.config, include_keys=False)
+    assert "api_key" not in exp["settings"] and exp["settings"]["model"]
+    merged = px.import_settings(exp, s.config)
+    assert merged["api_key"] == "sk-ant-secret123456"
+    assert "secret123456" not in px.scrub("key sk-ant-secret123456 and token=abc and oc_sk_zzz")
+    s.config["api_key"] = ""
+    print("34 settings transfer + log scrubbing OK")
+
+    # 35. share a chat as a GitHub gist
+    s.config["github_token"] = "ghp_test"
+    s.current.title = "Shared chat"
+    url = s.share(s.current)
+    assert url.startswith("https://gist.github.com/") and REQUESTS[-1][0].endswith("/gists")
+    assert "Shared chat" in json.dumps(REQUESTS[-1][2])
+    s.config["github_token"] = ""
+    print("35 sharing OK")
+
+    # 36. auto-update installer script, chat ordering, reply language
+    argv, script = px.updater_script("/tmp/new.dmg" if sys.platform != "win32" else "C:/new.exe", 4242)
+    assert "4242" in script and argv
+    ids = [c["id"] for c in s.list_chats()][:2]
+    s.config["chat_order"] = list(reversed(ids))
+    assert [c["id"] for c in s.list_chats()][:2] == list(reversed(ids))
+    s.apply_config({"language": "Spanish"})
+    s.new_chat()
+    d.run("hola", script=[("text", "Hola")])
+    assert "in Spanish" in REQUESTS[-1][2]["system"][0]["text"]
+    s.apply_config({"language": ""})
+    print("36 updates + chat order + language OK")
     print("ALL TESTS PASSED")
 
 

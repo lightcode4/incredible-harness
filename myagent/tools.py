@@ -299,6 +299,7 @@ class Workspace:
     def __init__(self, cwd: str, on_file_change=None):
         self.cwd = Path(cwd).resolve()
         self.on_file_change = on_file_change  # called with (Path, old_text_or_None) before a file changes
+        self.sandbox = "off"  # off | folder | folder_no_net (see platform_extras.wrap_command)
         self.jobs: dict[str, dict] = {}
         self._job_n = 0
 
@@ -347,8 +348,9 @@ class Workspace:
     def _bash(self, command: str, timeout: int = 120, run_in_background: bool = False) -> str:
         if run_in_background:
             return self._start_job(command)
+        argv = self._sandboxed(command)
         try:
-            proc = subprocess.run(command, shell=True, cwd=self.cwd, capture_output=True, text=True, encoding="utf-8",
+            proc = subprocess.run(argv or command, shell=argv is None, cwd=self.cwd, capture_output=True, text=True, encoding="utf-8",
                                   errors="replace", timeout=max(1, min(timeout, 1800)), stdin=subprocess.DEVNULL)
         except subprocess.TimeoutExpired as e:
             out = e.stdout.decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
@@ -362,11 +364,22 @@ class Workspace:
         self._job_n += 1
         job_id = f"job{self._job_n}"
         log = tempfile.NamedTemporaryFile(prefix=f"herness-{job_id}-", suffix=".log", delete=False)
-        proc = subprocess.Popen(command, shell=True, cwd=self.cwd, stdout=log, stderr=subprocess.STDOUT,
+        argv = self._sandboxed(command)
+        proc = subprocess.Popen(argv or command, shell=argv is None, cwd=self.cwd, stdout=log, stderr=subprocess.STDOUT,
                                 stdin=subprocess.DEVNULL, start_new_session=(os.name != "nt"))
         log.close()
         self.jobs[job_id] = {"proc": proc, "log": log.name, "pos": 0, "command": command}
         return f"Started background job {job_id} (pid {proc.pid}). Read its output with bash_output."
+
+    def _sandboxed(self, command: str) -> list[str] | None:
+        if self.sandbox == "off":
+            return None
+        from .platform_extras import wrap_command
+        argv = wrap_command(command, str(self.cwd), self.sandbox)
+        if argv is None:
+            raise ToolError("The command sandbox is on, but this computer has no sandbox support (Windows). "
+                            "Turn it off in Settings > Permissions to run commands.")
+        return argv
 
     def _bash_output(self, job_id: str) -> str:
         job = self.jobs.get(job_id)
