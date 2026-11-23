@@ -65,6 +65,12 @@ TOOLS = [
      "description": "Search file contents with a regular expression. Returns path:line:text.",
      "schema": _schema({"pattern": _S, "path": {"type": "string", "description": "Folder or file (default: working directory)."}},
                        ["pattern"])},
+    {"name": "notebook_edit", "kind": "mutating",
+     "description": "Edit a Jupyter notebook (.ipynb) cell: mode replace (default) sets a cell's source, insert adds a new "
+                    "cell at that index, delete removes it. Read the notebook with read_file first to see cell numbers.",
+     "schema": _schema({"path": _S, "cell": {"type": "integer", "description": "0-based cell index."},
+                        "source": _S, "cell_type": {"type": "string", "enum": ["code", "markdown"]},
+                        "mode": {"type": "string", "enum": ["replace", "insert", "delete"]}}, ["path", "cell"])},
     {"name": "read_pdf", "kind": "readonly",
      "description": "Read a PDF file (path in the folder, or an http(s) URL). With Claude you see the real pages: text, "
                     "tables, charts and scanned pages. Use pages like '1-5' or '2,7' for long documents (default: first 100).",
@@ -92,6 +98,24 @@ TOOLS = [
     {"name": "open_preview", "kind": "session",
      "description": "Open a web page, local dev server URL or HTML file in a preview window so the user can see it.",
      "schema": _schema({"target": {"type": "string", "description": "URL or file path."}}, ["target"])},
+    {"name": "remember", "kind": "session",
+     "description": "Save a short, lasting note about the user's preferences or recurring facts (not task details) so "
+                    "future chats know it, e.g. 'Prefers TypeScript and pnpm'. Use only when the user states a preference "
+                    "or asks you to remember something.",
+     "schema": _schema({"note": _S}, ["note"])},
+    # Computer use (handled in gui.py; only offered when enabled in Settings). Every action asks first.
+    {"name": "desktop_screenshot", "kind": "desktop", "description": "Take a screenshot of the user's whole screen.",
+     "schema": _schema({}, [])},
+    {"name": "desktop_click", "kind": "desktop",
+     "description": "Click on the screen at x, y in screenshot coordinates. button: left/right; double for double-click.",
+     "schema": _schema({"x": {"type": "integer"}, "y": {"type": "integer"},
+                        "button": {"type": "string", "enum": ["left", "right"]}, "double": {"type": "boolean"}}, ["x", "y"])},
+    {"name": "desktop_type", "kind": "desktop", "description": "Type text with the keyboard into the focused app.",
+     "schema": _schema({"text": _S}, ["text"])},
+    {"name": "desktop_key", "kind": "desktop", "description": "Press keys or a shortcut, e.g. 'enter', 'cmd+c', 'ctrl+shift+t'.",
+     "schema": _schema({"keys": _S}, ["keys"])},
+    {"name": "desktop_scroll", "kind": "desktop", "description": "Scroll by dy (positive = down), optionally at x, y.",
+     "schema": _schema({"dy": {"type": "integer"}, "x": {"type": "integer"}, "y": {"type": "integer"}}, ["dy"])},
     # Built-in browser (handled in gui.py). Clicking/typing/key presses ask for approval like file changes.
     {"name": "browser_navigate", "kind": "browser",
      "description": "Open a URL in your built-in browser (also local dev servers like http://localhost:3000). "
@@ -117,10 +141,10 @@ TOOLS = [
 ]
 
 TOOLS_BY_NAME = {t["name"]: t for t in TOOLS}
-WORKSPACE_TOOLS = [t for t in TOOLS if t["kind"] not in ("session", "browser")]
+WORKSPACE_TOOLS = [t for t in TOOLS if t["kind"] not in ("session", "browser", "desktop")]
 READONLY_TOOLS = [t for t in TOOLS if t["kind"] == "readonly"]
 MUTATING = {t["name"] for t in TOOLS if t["kind"] == "mutating"}
-FILE_CHANGING = {"write_file", "edit_file", "multi_edit"}
+FILE_CHANGING = {"write_file", "edit_file", "multi_edit", "notebook_edit"}
 
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".mypy_cache", "dist", "build"}
 _TYPES = {"string": str, "integer": int, "boolean": bool, "array": list, "object": dict}
@@ -170,6 +194,13 @@ def describe(name: str, args: dict) -> str:
         return f"write {args.get('path')}"
     if name == "read_file":
         return f"read {args.get('path')}"
+    if name.startswith("desktop_"):
+        d = args.get("text") or args.get("keys") or (f"({args['x']}, {args['y']})" if "x" in args else args.get("dy", ""))
+        return f"computer {name[8:]} {d}".strip()
+    if name == "notebook_edit":
+        return f"notebook {args.get('mode', 'replace')} cell {args.get('cell')} in {args.get('path')}"
+    if name == "remember":
+        return f"remember: {args.get('note', '')[:60]}"
     if name == "read_pdf":
         return f"read pdf {args.get('source')}" + (f" (pages {args['pages']})" if args.get("pages") else "")
     if name == "fetch_url":
@@ -290,6 +321,12 @@ class Workspace:
                 new = args["content"]
             elif name == "edit_file":
                 new = _apply_edits(old, [args])
+            elif name == "notebook_edit":
+                from .extras import edit_notebook
+                try:
+                    new = edit_notebook(old, args["cell"], args.get("source"), args.get("cell_type"), args.get("mode", "replace"))
+                except (ValueError, KeyError) as e:
+                    raise ToolError(str(e))
             else:
                 new = _apply_edits(old, args["edits"])
         except ToolError as e:
@@ -367,6 +404,12 @@ class Workspace:
         p = self.path(path)
         if not p.is_file():
             raise ToolError(f"No such file: {p}")
+        if p.suffix.lower() == ".ipynb":
+            from .extras import render_notebook
+            try:
+                return render_notebook(p)
+            except ValueError as e:
+                raise ToolError(f"Not a valid notebook: {e}")
         if p.suffix.lower() == ".pdf":
             return pdf_extract(p.read_bytes())[0] + "\n\n(Tip: read_pdf shows the real pages, including tables and images.)"
         lines = p.read_text(errors="replace").splitlines()
@@ -394,6 +437,21 @@ class Workspace:
         self._before_change(p)
         p.write_text(new, encoding="utf-8")
         return f"Applied {len(edits)} edit(s) to {p}"
+
+    def _notebook_edit(self, path: str, cell: int, source: str | None = None, cell_type: str | None = None,
+                       mode: str = "replace") -> str:
+        from .extras import edit_notebook
+
+        p = self.path(path)
+        if not p.is_file():
+            raise ToolError(f"No such notebook: {p}")
+        try:
+            new = edit_notebook(p.read_text(encoding="utf-8"), cell, source, cell_type, mode)
+        except (ValueError, KeyError) as e:
+            raise ToolError(str(e))
+        self._before_change(p)
+        p.write_text(new, encoding="utf-8")
+        return f"Notebook updated ({mode} cell {cell})."
 
     def _walk(self, root: Path):
         if root.is_file():

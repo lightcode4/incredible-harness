@@ -2,6 +2,7 @@ const { chromium } = require('playwright');
 (async () => {
   const url = process.argv[2]; const b = await chromium.launch();
   const pg = await b.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, colorScheme: 'light' });
+  const errors = []; pg.on('pageerror', e => errors.push(String(e)));
   await pg.goto(url); await pg.waitForFunction(() => document.getElementById('modelName').textContent !== 'model');
   await pg.screenshot({ path: 'shot-1-welcome.png' });
   await pg.fill('#input', 'Make total() handle an empty list'); await pg.keyboard.press('Enter');
@@ -24,11 +25,22 @@ const { chromium } = require('playwright');
   const box = await pg.locator('#bimg').boundingBox();
   await pg.mouse.click(box.x + box.width * 0.1, box.y + box.height * 0.27); await pg.waitForTimeout(1500);
   await pg.screenshot({ path: 'shot-7-browser.png' });
+  // Git panel
+  await pg.click('.ptabs .tab[data-v="git"]'); await pg.waitForSelector('.gfile', { timeout: 10000 });
+  await pg.click('.gfile'); await pg.waitForTimeout(500); await pg.screenshot({ path: 'shot-8-git.png' });
   await pg.click('#closePanel');
+  // Slash command menu
+  await pg.fill('#input', '/re'); await pg.waitForSelector('#cmdMenu.show'); await pg.screenshot({ path: 'shot-9-commands.png' });
+  await pg.fill('#input', '');
+  await pg.click('#openSettings'); await pg.waitForSelector('dialog[open]'); await pg.click('#tabs button[data-p="sched"]');
+  await pg.click('#addSched'); await pg.fill('.sched .sn', 'Morning repo check'); await pg.fill('.sched .sp', 'Pull the latest code, run the tests and summarize failures.');
+  await pg.fill('.sched .sa', '08:30'); await pg.waitForTimeout(200); await pg.screenshot({ path: 'shot-10-schedules.png' });
+  await pg.click('#cancelSettings');
   await pg.click('#openSettings'); await pg.waitForSelector('dialog[open]'); await pg.click('#tabs button[data-p="perms"]');
   await pg.waitForTimeout(200); await pg.screenshot({ path: 'shot-5-settings.png' });
   await pg.click('#cancelSettings');
   await pg.click('.turnfoot button'); await pg.waitForTimeout(500);   // Undo
   if (!(await pg.innerText('#log')).includes('Undid changes')) throw new Error('undo failed');
+  if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
   await b.close(); console.log('BROWSER OK');
 })().catch(e => { console.error(String(e).slice(0, 400)); process.exit(1); });

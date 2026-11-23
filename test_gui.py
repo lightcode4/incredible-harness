@@ -6,6 +6,8 @@ from test_loop import SCRIPT, start_fake
 
 start_fake()
 work = Path(tempfile.mkdtemp()); (work / "app.py").write_text("def total(xs):\n    return sum(xs)\n")
+for c in (["init", "-q", "-b", "main"], ["config", "user.email", "t@e.com"], ["config", "user.name", "T"], ["add", "-A"], ["commit", "-qm", "init"]):
+    subprocess.run(["git", *c], cwd=work, check=True)
 (work / "HERNESS.md").write_text("Use pytest.")
 from myagent.gui import start_server
 SCRIPT[:] = [

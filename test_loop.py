@@ -157,8 +157,8 @@ def main():
     print("3 multi_edit + undo OK")
 
     # 4. permission rules: deny wins, allow skips the prompt, decline sends feedback
-    s.add_rule("bash(rm *)", "deny")
-    s.add_rule("bash(echo *)", "allow")
+    s.add_rule(s.current.rules_dir, "bash(rm *)", "deny")
+    s.add_rule(s.current.rules_dir, "bash(echo *)", "allow")
     evs = d.run("rules", script=[("tools", [("bash", {"command": "rm -rf x"}), ("bash", {"command": "echo ok"})]), ("text", "ok")])
     assert not d.kinds(evs, "approve"), "allow rule should skip the prompt"
     blocked = [e for e in d.kinds(evs, "tool") if e.get("blocked")]
@@ -327,6 +327,164 @@ def main():
           script=[("text", "It says revenue 42.")])
     assert "Quarterly revenue 42" in json.dumps(REQUESTS[-1][2]["messages"][-1]["content"])
     print("17 PDFs OK")
+
+    import subprocess
+    from myagent import extras
+    s.apply_config({"provider": "claude", "model": "claude-opus-5-5"})
+    repo = Path(tempfile.mkdtemp()) / "proj"
+    repo.mkdir()
+    for c in (["init", "-q", "-b", "main"], ["config", "user.email", "t@example.com"], ["config", "user.name", "T"]):
+        subprocess.run(["git", *c], cwd=repo, check=True)
+    (repo / "app.py").write_text("print('hi')\n")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "init"], cwd=repo, check=True)
+    s.apply_config({"cwd": str(repo)})
+    s.new_chat()
+
+    # 18. diagnostics after an edit that breaks Python syntax
+    d.run("break it", script=[("tool", "write_file", {"path": "app.py", "content": "def broken(:\n    pass\n"}), ("text", "oops")])
+    res = REQUESTS[-1][2]["messages"][-1]["content"][0]["content"]
+    assert "Problems found in app.py" in res, res
+    (repo / "app.py").write_text("print('hi')\n")
+    print("18 diagnostics OK")
+
+    # 19. hooks: after-edit output on failure; before-finish failure is sent back to the agent to fix
+    folder = s.current.rules_dir
+    s.config["hooks"][folder] = {"after_edit": "exit 3", "before_finish": "python -c \"import sys; sys.exit(0 if open('ok.txt').read()=='yes' else 1)\""}
+    evs = d.run("make ok", script=[("tool", "write_file", {"path": "ok.txt", "content": "no"}), ("text", "done"),
+                                   ("tool", "write_file", {"path": "ok.txt", "content": "yes"}), ("text", "fixed")])
+    hooks = d.kinds(evs, "hook")
+    assert any(h["name"] == "after edit" and not h["ok"] for h in hooks)
+    assert [h["ok"] for h in hooks if h["name"] == "before finish"] == [False, True], hooks
+    assert "project check" in json.dumps(REQUESTS[-2][2]["messages"][-1])
+    s.config["hooks"][folder] = {}
+    print("19 hooks OK")
+
+    # 20. memory: the agent saves a preference, new chats see it
+    d.run("remember", script=[("tool", "remember", {"note": "Prefers tabs over spaces"}), ("text", "Noted")])
+    assert "Prefers tabs over spaces" in extras.read_memory()
+    s.new_chat()
+    d.run("hi", script=[("text", "hello")])
+    assert "Prefers tabs over spaces" in REQUESTS[-1][2]["system"][0]["text"]
+    print("20 memory OK")
+
+    # 21. slash commands: built-in /review and a project command expand into prompts
+    (repo / ".herness" / "commands").mkdir(parents=True)
+    (repo / ".herness" / "commands" / "deploy.md").write_text("---\ndescription: Ship it\n---\nDeploy to $ARGUMENTS now.")
+    d.run("/review focus on auth", script=[("text", "No issues.")])
+    sent = json.dumps(REQUESTS[-1][2]["messages"][-1])
+    assert "git diff HEAD" in sent and "focus on auth" in sent
+    d.run("/deploy staging", script=[("text", "ok")])
+    assert "Deploy to staging now." in json.dumps(REQUESTS[-1][2]["messages"][-1])
+    assert any(c["name"] == "deploy" for c in s.command_list())
+    print("21 slash commands OK")
+
+    # 22. notebooks: read shows cells, edit changes one cell and can be undone
+    nb = {"cells": [{"cell_type": "code", "metadata": {}, "source": ["x = 1\n"], "outputs": [], "execution_count": None}],
+          "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
+    (repo / "nb.ipynb").write_text(json.dumps(nb))
+    assert "[cell 0] code" in s.ws.run("read_file", {"path": "nb.ipynb"})
+    evs = d.run("nb", script=[("tool", "notebook_edit", {"path": "nb.ipynb", "cell": 1, "source": "print(x)", "mode": "insert"}), ("text", "ok")])
+    assert len(json.loads((repo / "nb.ipynb").read_text())["cells"]) == 2
+    s.undo(d.kinds(evs, "turn_end")[0]["turn"])
+    assert len(json.loads((repo / "nb.ipynb").read_text())["cells"]) == 1
+    print("22 notebooks OK")
+
+    # 23. git panel: status, diff, commit, branch
+    (repo / "new.txt").write_text("hello\n")
+    st = s.git_action({"action": "status"})
+    assert st["repo"] and st["branch"] == "main" and any(f["path"] == "new.txt" for f in st["files"])
+    assert "+hello" in s.git_action({"action": "diff", "path": "new.txt"})["diff"]
+    s.git_action({"action": "commit", "message": "Add files"})
+    assert s.git_action({"action": "status"})["files"] == []
+    s.git_action({"action": "checkout", "branch": "feature", "create": True})
+    assert s.git_action({"action": "status"})["branch"] == "feature"
+    s.git_action({"action": "checkout", "branch": "main"})
+    print("23 git OK")
+
+    # 24. parallel agents: two chats run at the same time; a worktree chat merges back
+    s.new_chat(worktree=True)
+    wt_chat = s.current
+    assert wt_chat.worktree and Path(wt_chat.cwd).is_dir() and wt_chat.cwd != str(repo)
+    SCRIPT[:] = [("tool", "bash", {"command": "sleep 1.5 && echo A > from_a.txt"}),
+                 ("tool", "bash", {"command": "sleep 1.5 && echo B > from_b.txt"}), ("text", "A done"), ("text", "B done")]
+    s.config["auto"] = True
+    wt_chat.send("task A")
+    time.sleep(0.4)
+    s.new_chat()
+    other = s.current
+    other.send("task B")
+    time.sleep(0.5)
+    assert wt_chat.busy and other.busy, "both chats should be working at once"
+    for _ in range(100):
+        if not wt_chat.busy and not other.busy:
+            break
+        time.sleep(0.1)
+    s.config["auto"] = False
+    assert (Path(wt_chat.cwd) / "from_a.txt").exists() and (repo / "from_b.txt").exists()
+    assert not (repo / "from_a.txt").exists()  # isolated until merged
+    assert any(c["id"] == wt_chat.id for c in s.list_chats())
+    s.open_chat(wt_chat.id)
+    s.finish_worktree(merge=True)
+    assert (repo / "from_a.txt").exists() and s.current.worktree is None
+    print("24 parallel agents + worktree OK")
+
+    # 25. export
+    out_path = Path(s.export("md"))
+    assert out_path.exists() and "task A" in out_path.read_text()
+    out_path.unlink()
+    print("25 export OK")
+
+    # 26. scheduled tasks: due() logic and unattended runs cannot get approvals
+    assert s.due({"prompt": "x", "every": 60, "last": 0}, time.time())
+    assert not s.due({"prompt": "x", "every": 60, "last": time.time()}, time.time())
+    SCRIPT[:] = [("tool", "bash", {"command": "echo should-not-run"}), ("text", "Summary: skipped one step.")]
+    task = {"id": "t1", "name": "Nightly check", "prompt": "check things", "cwd": str(repo), "every": 60}
+    s.config["schedules"] = [task]
+    chat = s.run_task(task)
+    for _ in range(100):
+        if not chat.busy:
+            break
+        time.sleep(0.1)
+    blocked = [e for e in chat.transcript if e["kind"] == "tool" and e.get("blocked")]
+    assert blocked and "scheduled" in blocked[0]["blocked"] and task["last"] > 0
+    print("26 scheduled tasks OK")
+
+    # 27. phone access: a second server on the network with its own token
+    from myagent.gui import make_handler
+    s._handler_factory = make_handler
+    s.set_phone(True)
+    try:
+        import urllib.request as ur
+        phone = s.phone_url.replace(s.phone_url.split("/")[2].split(":")[0], "127.0.0.1")
+        assert "Incredible Herness" in ur.urlopen(phone, timeout=5).read().decode()
+        try:
+            ur.urlopen(phone.split("?")[0], timeout=5)
+            raise AssertionError("phone server must require the token")
+        except Exception as e:
+            assert "403" in str(e)
+    finally:
+        s.set_phone(False)
+    print("27 phone access OK")
+
+    # 28. computer use: off by default, tools hidden; enabled -> offered and every action asks
+    assert not any(t["name"].startswith("desktop_") for t in REQUESTS[-1][2]["tools"] if "name" in t)
+    s.apply_config({"computer": True})
+    s.new_chat()
+    d.policy = "deny"
+    evs = d.run("click", script=[("tool", "desktop_click", {"x": 10, "y": 10}), ("text", "ok")])
+    assert d.kinds(evs, "approve") and any(t.get("name") == "desktop_click" for t in REQUESTS[-2][2]["tools"])
+    d.policy = "allow"
+    s.apply_config({"computer": False})
+    print("28 computer use gating OK")
+
+    # 29. voice: clear message without a transcription key
+    try:
+        s.transcribe(base64.b64encode(b"x").decode(), "audio/webm")
+        raise AssertionError("should need a key")
+    except ValueError as e:
+        assert "OpenAI API key" in str(e)
+    print("29 voice OK")
     print("ALL TESTS PASSED")
 
 

@@ -33,7 +33,7 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: |
-          python -m pip install anthropic openai pywebview pyinstaller playwright pypdf
+          python -m pip install anthropic openai pywebview pyinstaller playwright pypdf mss pyautogui pillow
           if [ "${{ matrix.name }}" = "windows" ]; then python -m pip install pywinpty; fi
 
       # Herness's own browser engine, installed inside the playwright package so PyInstaller bundles it.
@@ -56,6 +56,9 @@ jobs:
           pyinstaller --noconfirm --windowed --name "Incredible Herness" \
             --osx-bundle-identifier com.incrediblehernes.app --collect-all playwright \
             --add-data "myagent/static:myagent/static" run_app.py
+          PLIST="dist/Incredible Herness.app/Contents/Info.plist"
+          plutil -insert NSMicrophoneUsageDescription -string "Voice typing in the message box." "$PLIST"
+          plutil -insert NSAppleEventsUsageDescription -string "Computer use: controlling apps when you allow it." "$PLIST"
           # Optional signing + notarization: runs only when the Apple secrets are added to the repository.
           if [ -n "$MACOS_CERT_P12" ]; then
             echo "$MACOS_CERT_P12" | base64 --decode > cert.p12

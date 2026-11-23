@@ -1,8 +1,11 @@
-"""The app engine behind the window: one Session (settings, chats, approvals, undo, costs) served to the
-page over a local HTTP server.
+"""The app engine behind the window.
 
-Security: listens only on 127.0.0.1 and every request must carry a secret token from the page URL,
-so other websites cannot send commands to it.
+Session (the app): settings, the shared browser/terminals/computer, scheduler, phone access, and any number of
+Chats. Each Chat has its own model conversation, working folder (optionally its own git worktree), approvals,
+undo checkpoints, costs and task list, so several chats can run at the same time (parallel agents).
+
+Security: the window server listens only on 127.0.0.1; phone access (off by default) listens on the local network
+with its own long random token. Every request must carry the token.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ import queue
 import re
 import secrets
 import shlex
+import socket
 import threading
 import time
 import urllib.request
@@ -25,12 +29,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__
+from . import __version__, extras, gitops
 from ._build import BUILD, REPO
 from .browser import Browser, NeedsBrowser, install_chromium
+from .computer import Computer, ComputerError
 from .providers import ClaudeProvider, OpenAIProvider, cost_of
 from .terminal import Terminal
-from .tools import (MUTATING, READONLY_TOOLS, TOOLS, ToolError, Workspace, describe,
+from .tools import (FILE_CHANGING, MUTATING, READONLY_TOOLS, TOOLS, ToolError, Workspace, describe,
                     project_instructions, validate)
 
 PAGE = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf-8")
@@ -42,22 +47,31 @@ LOCAL_URL = "http://localhost:11434/v1"
 IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 
-def system_prompt(cwd: str, instructions: str = "") -> str:
+def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: bool = False) -> str:
     s = (
         "You are Incredible Herness, a capable software and computer agent working on the user's machine. "
-        "You can run shell commands, read, write and edit files, search, fetch web pages, keep a task list, "
-        "start sub-agents for research and open previews. "
+        "You can run shell commands, read, write and edit files (including PDFs and Jupyter notebooks), search, "
+        "fetch web pages, use your own built-in browser (navigate, read, click, type, screenshot), keep a task list, "
+        "start read-only research sub-agents, open previews and remember the user's lasting preferences. "
         f"The working directory is {cwd} on {platform.system()} {platform.release()} ({platform.machine()}).\n\n"
         "How to work:\n"
         "- For tasks with 3 or more steps, write a task list with todo_write first and keep it updated.\n"
         "- Look before you change things: read the relevant files and understand the code.\n"
         "- Make focused edits; prefer edit_file/multi_edit over rewriting whole files.\n"
-        "- Verify your work: run it, run its tests, or open a preview. If something fails, find and fix the cause.\n"
+        "- After edits, the app reports syntax/type problems in the tool result. Fix them before moving on.\n"
+        "- Verify your work: run it, run its tests, or open it in the browser and take a screenshot. "
+        "If something fails, find and fix the cause.\n"
         "- Run servers and long jobs with run_in_background, then check them with bash_output.\n"
+        "- Use git for version control when the folder is a repository, but only commit or push when asked.\n"
         "- Use the task tool to research large codebases without filling this conversation.\n"
-        "- Ask the user when a decision is genuinely theirs. Keep replies short and concrete; "
-        "say plainly what you changed and what you verified, and what you could not verify."
+        "- Ask the user when a decision is genuinely theirs. Keep replies short and concrete; say plainly what you "
+        "changed, what you verified, and what you could not verify."
     )
+    if computer:
+        s += ("\n- You can also see and control the user's screen with the desktop_* tools. Take a screenshot first, "
+              "act in small steps, and check the result with another screenshot.")
+    if memory.strip():
+        s += "\n\nWhat you remember about the user (from earlier chats):\n" + memory
     if instructions:
         s += "\n\nProject instructions from the user (follow them):\n" + instructions
     return s
@@ -74,7 +88,10 @@ class Stop(Exception):
 def _rule_kind(name: str) -> str:
     if name.startswith("browser_"):
         return "browser"
-    return {"bash": "bash", "kill_shell": "bash", "write_file": "write", "edit_file": "edit", "multi_edit": "edit"}.get(name, name)
+    if name.startswith("desktop_"):
+        return "computer"
+    return {"bash": "bash", "kill_shell": "bash", "write_file": "write", "edit_file": "edit", "multi_edit": "edit",
+            "notebook_edit": "edit"}.get(name, name)
 
 
 def rule_matches(rule: str, name: str, target: str) -> bool:
@@ -84,46 +101,65 @@ def rule_matches(rule: str, name: str, target: str) -> bool:
     return m.group(2) is None or fnmatch.fnmatch(target, m.group(2).strip())
 
 
-class Session:
-    def __init__(self):
-        self.events: "queue.Queue[dict]" = queue.Queue()
-        self.lock = threading.Lock()
-        self.busy = False
-        self.cancel = threading.Event()
-        self.pending: dict[str, tuple[threading.Event, dict]] = {}
-        self.config = {"provider": "claude", "model": DEFAULT_MODELS["claude"], "effort": "high", "base_url": "",
-                       "api_key": "", "cwd": str(Path.home()), "web": True, "compaction": True, "budget": 0.0,
-                       "mcp": [], "rules": {}, "github_token": "", "auto": False, "plan": False}
-        self.provider = None
-        self.ws: Workspace | None = None
-        self.instruction_files: list[str] = []
-        self.preview_opener = webbrowser.open
-        self.browser = Browser(HOME / "browser", self._browser_frame, self._browser_state)
-        self.browser_url = ""
-        self.terminals: dict[str, Terminal] = {}
-        self._new_chat_state()
+def lan_ip() -> str:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("192.0.2.1", 80))  # no packet is sent; picks the interface used for the LAN
+            return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
 
-    # ------------------------------------------------------------------ chat state
-    def _new_chat_state(self):
-        self.chat_id = time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
-        self.chat_title = ""
+
+# ==================================================================================================== Chat
+
+class Chat:
+    REPLAYABLE = {"user", "text", "thinking", "notice", "tool", "tool_result", "todos", "turn_end", "server_tool",
+                  "preview", "plan_ready", "hook"}
+    BROWSER_ACTS = {"browser_click", "browser_type", "browser_press"}
+
+    def __init__(self, app: "Session", cwd: str, chat_id: str | None = None, worktree: dict | None = None,
+                 unattended: bool = False, title: str = ""):
+        self.app = app
+        self.id = chat_id or time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
+        self.cwd = cwd
+        self.worktree = worktree  # {"path", "branch", "origin"} for parallel worktree chats
+        self.rules_dir = worktree["origin"] if worktree else cwd
+        self.unattended = unattended  # scheduled runs: nobody is there to approve
+        self.title = title
         self.transcript: list[dict] = []
         self.checkpoints: dict[str, dict] = {}
         self.turn = 0
         self.turn_changes: dict[str, str | None] = {}
-        self.cost = 0.0
+        self.cost = self.turn_cost = 0.0
         self.tokens = 0
-        self.turn_cost = 0.0
         self.todos: list = []
         self._open = None
+        self.busy = False
+        self.cancel = threading.Event()
+        self.pending_info: dict[str, dict] = {}
+        self.provider = None
+        self.ws: Workspace | None = None
+        self.instruction_files: list[str] = []
+        self.build()
 
-    # ------------------------------------------------------------------ events
-    REPLAYABLE = {"user", "text", "thinking", "notice", "tool", "tool_result", "todos", "turn_end", "server_tool",
-                  "preview", "plan_ready"}
+    # ---------------------------------------------------------------- setup
+    def build(self, keep_history: bool = False):
+        cfg = {**self.app.config, "cwd": self.cwd}
+        old = self.provider.serialize() if (keep_history and self.provider) else None
+        old_kind = getattr(self, "_provider_kind", None)
+        self.provider = self.app.make_provider(cfg)
+        self._provider_kind = cfg["provider"]
+        if old and old_kind == cfg["provider"]:
+            self.provider.restore(old)
+        if self.ws:
+            self.ws.stop_all_jobs()
+        self.ws = Workspace(self.cwd, on_file_change=self._snapshot)
+        self.instruction_files = project_instructions(self.cwd)[1]
 
+    # ---------------------------------------------------------------- events
     def emit(self, kind: str, **data):
-        ev = {"kind": kind, **data}
-        self.events.put(ev)
+        ev = {"kind": kind, "chat": self.id, **data}
+        self.app.events.put(ev)
         if kind in ("text", "thinking"):
             if self._open == kind and self.transcript and self.transcript[-1]["kind"] == kind:
                 self.transcript[-1] = {**self.transcript[-1], "text": self.transcript[-1]["text"] + data["text"]}
@@ -133,13 +169,13 @@ class Session:
             return
         if kind == "end_block":
             self._open = None
-        if kind in self.REPLAYABLE:
+        elif kind in self.REPLAYABLE:
             self._open = None
-            self.transcript.append({**ev, "kind": "tool"} if kind == "approve" else ev)
-        if kind == "approve":
+            self.transcript.append(ev)
+        elif kind == "approve":
+            self._open = None
             self.transcript.append({**ev, "kind": "tool"})
 
-    # UI protocol used by providers
     def text(self, chunk):
         self._check()
         self.emit("text", text=chunk)
@@ -167,7 +203,7 @@ class Session:
 
     def before_request(self):
         self._check()
-        budget = float(self.config.get("budget") or 0)
+        budget = float(self.app.config.get("budget") or 0)
         if budget > 0 and self.cost >= budget:
             raise Stop(f"Budget of ${budget:.2f} for this chat reached. Raise it in Settings to continue.")
 
@@ -175,7 +211,458 @@ class Session:
         if self.cancel.is_set():
             raise Stop("Stopped.")
 
-    # ------------------------------------------------------------------ settings
+    # ---------------------------------------------------------------- undo
+    def _snapshot(self, path: Path, old: str | None):
+        key = str(path)
+        if key not in self.turn_changes:
+            self.turn_changes[key] = old if (old is None or len(old) < 2_000_000) else "\0too-large"
+
+    def undo(self, turn: str) -> str:
+        changes = self.checkpoints.pop(turn, None)
+        if not changes:
+            raise ValueError("Nothing to undo for that message (already undone or not saved).")
+        restored = []
+        for path, old in changes.items():
+            p = Path(path)
+            if old == "\0too-large":
+                continue
+            if old is None:
+                p.unlink(missing_ok=True)
+            else:
+                p.write_text(old, encoding="utf-8")
+            restored.append(p.name)
+        self.notice(f"Undid changes to {', '.join(restored)}.")
+        self.save()
+        return ", ".join(restored)
+
+    # ---------------------------------------------------------------- permissions
+    def folder_rules(self) -> dict:
+        return self.app.config["rules"].get(self.rules_dir, {"allow": [], "deny": []})
+
+    def _target(self, name: str, args: dict) -> str:
+        if name.startswith("browser_"):
+            return self.app.browser_url
+        if name.startswith("desktop_"):
+            return describe(name, args)
+        if name == "bash":
+            return args["command"]
+        if "path" in args:
+            try:
+                return self.ws.path(args["path"]).relative_to(self.ws.cwd).as_posix()
+            except ValueError:
+                return str(self.ws.path(args["path"]))
+        return args.get("job_id", "")
+
+    def _suggest_rule(self, name: str, args: dict) -> str:
+        if name == "bash":
+            try:
+                words = shlex.split(args["command"])[:2]
+            except ValueError:
+                words = args["command"].split()[:2]
+            return f"bash({' '.join(words)}*)" if words else "bash"
+        if name.startswith("browser_"):
+            host = urlparse(self.app.browser_url).netloc
+            return f"browser(*{host}*)" if host else "browser"
+        return f"{_rule_kind(name)}(*)"
+
+    def decide(self, name: str, args: dict) -> str:
+        """'allow' | 'deny' | 'ask'"""
+        rules, target = self.folder_rules(), self._target(name, args)
+        if any(rule_matches(r, name, target) for r in rules.get("deny", [])):
+            return "deny"
+        if any(rule_matches(r, name, target) for r in rules.get("allow", [])):
+            return "allow"
+        if self.app.config["auto"] and not name.startswith("desktop_"):  # screen control always asks
+            return "allow"
+        return "ask"
+
+    def gate(self, name: str, args: dict, info: dict) -> tuple[str, bool] | None:
+        """Plan mode, rules and approval for an action. Returns a refusal (text, True) or None to go ahead."""
+        if self.app.config["plan"]:
+            self.emit("tool", **info, blocked="Plan mode")
+            return ("Plan mode is on: do not change anything yet. Finish researching, then present your plan "
+                    "as your final message for the user to approve."), True
+        verdict = self.decide(name, args)
+        if verdict == "deny":
+            self.emit("tool", **info, blocked="Blocked by a rule")
+            return "Blocked by the user's permission rules for this folder. Do not try to work around it.", True
+        if verdict == "ask" and self.unattended:
+            self.emit("tool", **info, blocked="Needs approval (scheduled run)")
+            return ("Nobody is available to approve this during a scheduled run, and no permission rule allows it. "
+                    "Skip it and mention it in your summary."), True
+        if verdict == "ask":
+            rule = self._suggest_rule(name, args)
+            answer = self._ask(info, rule)
+            if answer.get("decision") == "always":
+                self.app.add_rule(self.rules_dir, rule)
+            elif answer.get("decision") != "allow":
+                fb = answer.get("feedback") or "The user declined."
+                self.emit("tool_result", id=info["id"], output=f"Declined. {fb}", error=True)
+                return f"The user did not allow this. Their reply: {fb}", True
+        else:
+            self.emit("tool", **info)
+        return None
+
+    def _ask(self, info: dict, rule: str) -> dict:
+        done, answer = threading.Event(), {}
+        ev = {**info, "rule": rule}
+        self.app.pending[info["id"]] = (done, answer)
+        self.pending_info[info["id"]] = ev
+        self.emit("approve", **ev)
+        if self.app.current is not self:
+            extras.notify("Incredible Herness", f"“{self.title or 'A chat'}” needs your approval.")
+        try:
+            while not done.wait(0.25):
+                self._check()
+        finally:
+            self.app.pending.pop(info["id"], None)
+            self.pending_info.pop(info["id"], None)
+        return answer
+
+    # ---------------------------------------------------------------- tools
+    def run_tool(self, name: str, args: dict):
+        self._check()
+        problem = validate(name, args)
+        if problem:
+            self.emit("tool", id=secrets.token_hex(4), summary=f"invalid {name} call", error=True)
+            return f"Invalid input: {problem} Fix the call and try again.", True
+        if name == "todo_write":
+            self.todos = args["todos"]
+            self.emit("todos", todos=self.todos)
+            return "Task list updated.", False
+        if name == "remember":
+            out = extras.remember(args["note"])
+            self.emit("tool", id=secrets.token_hex(4), name=name, summary=describe(name, args))
+            return out, False
+        if name == "task":
+            return self._subagent(args)
+        if name == "open_preview":
+            return self._preview(args["target"])
+        if name.startswith("browser_"):
+            return self._browser_tool(name, args)
+        if name.startswith("desktop_"):
+            return self._desktop_tool(name, args)
+
+        call_id = secrets.token_hex(6)
+        info = {"id": call_id, "name": name, "summary": describe(name, args)}
+        diff = self.ws.preview_diff(name, args)
+        if diff:
+            info["diff"] = diff
+        if name in MUTATING:
+            refusal = self.gate(name, args, info)
+            if refusal:
+                return refusal
+        else:
+            self.emit("tool", **info)
+        try:
+            out, err = self.ws.run(name, args), False
+        except ToolError as e:
+            out, err = str(e), True
+        except Exception as e:
+            out, err = f"{type(e).__name__}: {e}", True
+        if not err and name in FILE_CHANGING:
+            out += self._after_edit(self.ws.path(args["path"]))
+        shown = out if isinstance(out, str) else "\n".join(x.get("text", "") for x in out)
+        self.emit("tool_result", id=call_id, output=shown[:8000], error=err)
+        return out, err
+
+    def _after_edit(self, path: Path) -> str:
+        notes = []
+        if self.app.config.get("diagnostics", True):
+            problems = extras.diagnose(path, self.cwd)
+            if problems:
+                notes.append(f"Problems found in {path.name} after this edit (fix them):\n{problems}")
+        hook = self.app.hooks_for(self.rules_dir).get("after_edit", "").strip()
+        if hook:
+            code, out = extras.run_hook(hook, self.cwd, {"HERNESS_FILE": str(path)})
+            self.emit("hook", name="after edit", command=hook, ok=code == 0, output=out[-1500:])
+            if code != 0:
+                notes.append(f"The after-edit hook `{hook}` failed:\n{out[-3000:]}")
+        return ("\n\n" + "\n\n".join(notes)) if notes else ""
+
+    def _subagent(self, args: dict):
+        call_id = secrets.token_hex(6)
+        self.emit("tool", id=call_id, name="task", summary=f"Sub-agent: {args['description']}")
+        parent = self
+
+        class SubUI:
+            steps = 0
+            def text(self, c): parent._check()
+            def thinking(self, c): parent._check()
+            def end_block(self): pass
+            def notice(self, m): pass
+            def server_tool(self, s): SubUI.steps += 1
+            def usage(self, m, u): parent.usage(m, u)
+            def before_request(self): parent.before_request()
+
+        allowed = {t["name"] for t in READONLY_TOOLS}
+
+        def sub_run(name, a):
+            parent._check()
+            SubUI.steps += 1
+            problem = validate(name, a)
+            if problem or name not in allowed:
+                return f"Not available: {problem or name}", True
+            try:
+                return parent.ws.run(name, a), False
+            except Exception as e:
+                return str(e), True
+
+        try:
+            sub = self.app.make_provider({**self.app.config, "cwd": self.cwd}, tools=READONLY_TOOLS, system=SUBAGENT_SYSTEM)
+            sub.turn(args["prompt"], sub_run, SubUI())
+            report = sub.last_text() or "(the sub-agent returned no report)"
+            self.emit("tool_result", id=call_id, output=f"{SubUI.steps} steps\n\n{report}", error=False)
+            return report, False
+        except Stop:
+            raise
+        except Exception as e:
+            self.emit("tool_result", id=call_id, output=str(e), error=True)
+            return f"Sub-agent failed: {e}", True
+
+    def _preview(self, target: str):
+        if not re.match(r"^https?://", target):
+            p = self.ws.path(target)
+            if not p.exists():
+                return f"No such file: {p}", True
+            target = p.as_uri()
+        try:
+            self.app.preview_opener(target)
+        except Exception as e:
+            return f"Could not open preview: {e}", True
+        self.emit("preview", target=target)
+        return f"Opened a preview of {target} for the user.", False
+
+    def _browser_tool(self, name: str, args: dict):
+        call_id = secrets.token_hex(6)
+        info = {"id": call_id, "name": name, "summary": describe(name, args)}
+        self.emit("browser_open")
+        if name in self.BROWSER_ACTS:
+            refusal = self.gate(name, args, info)
+            if refusal:
+                return refusal
+        else:
+            self.emit("tool", **info)
+        b = self.app.browser
+        try:
+            if name == "browser_navigate":
+                out = b.navigate(args["url"])
+            elif name == "browser_read":
+                out = b.read()
+            elif name == "browser_screenshot":
+                img = b.screenshot()
+                self.emit("tool_result", id=call_id, output=f"Screenshot of {self.app.browser_url}", error=False, image=img)
+                return [{"type": "text", "text": f"Screenshot of {self.app.browser_url} (1280x800):"},
+                        {"type": "image", "media_type": "image/jpeg", "data": img}], False
+            elif name == "browser_click":
+                out = b.click(args.get("x"), args.get("y"), args.get("text"), args.get("selector"))
+            elif name == "browser_type":
+                out = b.type(args["text"], args.get("selector"), bool(args.get("submit")))
+            elif name == "browser_press":
+                out = b.press(args["key"])
+            else:
+                out = b.scroll(args["dy"])
+            err = False
+        except NeedsBrowser as e:
+            self.app.events.put({"kind": "browser_status", "text": str(e), "install": True})
+            out, err = f"{e} Ask the user to click 'Install browser engine' in the Browser panel.", True
+        except Exception as e:
+            out, err = f"{type(e).__name__}: {e}"[:2000], True
+        self.emit("tool_result", id=call_id, output=out[:8000], error=err)
+        return out, err
+
+    def _desktop_tool(self, name: str, args: dict):
+        call_id = secrets.token_hex(6)
+        info = {"id": call_id, "name": name, "summary": describe(name, args)}
+        if not self.app.config.get("computer"):
+            return "Computer use is turned off. The user can enable it in Settings > Tools & limits.", True
+        if name != "desktop_screenshot":
+            refusal = self.gate(name, args, info)
+            if refusal:
+                return refusal
+        else:
+            self.emit("tool", **info)
+        c = self.app.computer
+        try:
+            if name == "desktop_screenshot":
+                img, w, h = c.screenshot()
+                self.emit("tool_result", id=call_id, output=f"Screenshot {w}x{h}", error=False, image=img)
+                return [{"type": "text", "text": f"Screenshot of the screen ({w}x{h}; use these coordinates):"},
+                        {"type": "image", "media_type": "image/jpeg", "data": img}], False
+            if name == "desktop_click":
+                out = c.click(args["x"], args["y"], args.get("button", "left"), bool(args.get("double")))
+            elif name == "desktop_type":
+                out = c.type(args["text"])
+            elif name == "desktop_key":
+                out = c.key(args["keys"])
+            else:
+                out = c.scroll(args["dy"], args.get("x"), args.get("y"))
+            err = False
+        except ComputerError as e:
+            out, err = str(e), True
+        except Exception as e:
+            out, err = (f"{type(e).__name__}: {e}. On macOS, allow Incredible Herness under System Settings > Privacy & "
+                        "Security > Screen Recording and Accessibility.")[:1500], True
+        self.emit("tool_result", id=call_id, output=out, error=err)
+        return out, err
+
+    # ---------------------------------------------------------------- messages
+    def _parts(self, text: str, attachments: list[dict]) -> list[dict]:
+        parts = []
+        for a in attachments or []:
+            name, mime, data = a.get("name", "file"), a.get("mime", ""), a.get("data", "")
+            raw = base64.b64decode(data)
+            if len(raw) > 20_000_000:
+                raise ValueError(f"{name} is larger than 20 MB.")
+            if mime in IMAGE_TYPES:
+                parts.append({"type": "image", "media_type": mime, "data": data})
+            elif mime == "application/pdf" or name.lower().endswith(".pdf"):
+                parts.append({"type": "pdf", "name": name, "data": data})
+            else:
+                try:
+                    parts.append({"type": "file", "name": name, "text": raw.decode("utf-8")[:200_000]})
+                except UnicodeDecodeError:
+                    raise ValueError(f"{name}: only images, PDFs and text files can be attached.")
+        if self.app.config["plan"]:
+            text = ("[Plan mode is ON: research and read as needed, but do not change anything. End with a clear, "
+                    "numbered plan for the user to approve.]\n\n" + text)
+        parts.append({"type": "text", "text": text})
+        return parts
+
+    def send(self, text: str, attachments: list[dict] | None = None) -> None:
+        if self.busy:
+            raise RuntimeError("This chat is still working. Press Stop first, or start another chat.")
+        expanded = extras.expand_command(text, self.cwd) if text.startswith("/") else None
+        parts = self._parts(expanded or text, attachments or [])
+        self.busy = True
+        self.cancel.clear()
+        if not self.title:
+            self.title = text.strip().splitlines()[0][:70] if text.strip() else "Attachment"
+        self.emit("user", text=text, files=[a.get("name") for a in attachments or []], plan=self.app.config["plan"],
+                  command=bool(expanded))
+        threading.Thread(target=self._turn, args=(parts,), daemon=True).start()
+
+    def _turn(self, parts) -> None:
+        self.turn += 1
+        turn_id = f"t{self.turn}"
+        self.turn_changes, self.turn_cost = {}, 0.0
+        self.emit("status", busy=True)
+        try:
+            self.provider.turn(parts, self.run_tool, self)
+            self._finish_hook()
+        except Stop as e:
+            self.notice(str(e))
+            self.provider.close_interrupted()
+        except Exception as e:
+            self.notice(f"{type(e).__name__}: {e}")
+            self.provider.close_interrupted()
+        finally:
+            self.end_block()
+            if self.turn_changes:
+                self.checkpoints[turn_id] = self.turn_changes
+            self.emit("turn_end", turn=turn_id, files=[Path(p).name for p in self.turn_changes],
+                      cost=round(self.turn_cost, 4))
+            if self.app.config["plan"]:
+                self.emit("plan_ready")
+            self.busy = False
+            self.emit("status", busy=False)
+            self.save()
+            if self.app.current is not self or self.unattended:
+                extras.notify("Incredible Herness", f"“{self.title}” finished.")
+
+    def _finish_hook(self):
+        hook = self.app.hooks_for(self.rules_dir).get("before_finish", "").strip()
+        if not hook or self.app.config["plan"] or not self.turn_changes:
+            return
+        for attempt in range(3):
+            self._check()
+            code, out = extras.run_hook(hook, self.cwd)
+            self.emit("hook", name="before finish", command=hook, ok=code == 0, output=out[-1500:])
+            if code == 0 or attempt == 2:
+                return
+            self.provider.turn(f"The project check `{hook}` failed after your changes:\n\n{out[-4000:]}\n\n"
+                               "Fix the problems, then finish.", self.run_tool, self)
+
+    # ---------------------------------------------------------------- persistence
+    def save(self):
+        if not self.transcript:
+            return
+        try:
+            CHATS.mkdir(parents=True, exist_ok=True)
+            data = {"id": self.id, "title": self.title or "Untitled", "updated": time.time(),
+                    "provider": self._provider_kind, "model": self.app.config["model"], "cwd": self.cwd,
+                    "worktree": self.worktree, "messages": self.provider.serialize(), "transcript": self.transcript,
+                    "checkpoints": self.checkpoints, "cost": self.cost, "tokens": self.tokens, "todos": self.todos,
+                    "turn": self.turn}
+            path = CHATS / f"{self.id}.json"
+            path.write_text(json.dumps(data, default=str))
+            os.chmod(path, 0o600)
+        except Exception as e:
+            self.notice(f"Could not save chat: {e}")
+
+    def replay_event(self) -> dict:
+        return {"kind": "replay", "chat": {"id": self.id, "title": self.title, "worktree": self.worktree,
+                                           "cwd": self.cwd},
+                "events": self.transcript, "cost": round(self.cost, 4), "tokens": self.tokens, "todos": self.todos,
+                "undoable": list(self.checkpoints), "busy": self.busy, "pending": list(self.pending_info.values())}
+
+
+# ==================================================================================================== Session
+
+class Session:
+    def __init__(self):
+        self.events: "queue.Queue[dict]" = queue.Queue()
+        self.config = {"provider": "claude", "model": DEFAULT_MODELS["claude"], "effort": "high", "base_url": "",
+                       "api_key": "", "cwd": str(Path.home()), "web": True, "compaction": True, "budget": 0.0,
+                       "mcp": [], "rules": {}, "hooks": {}, "github_token": "", "diagnostics": True,
+                       "computer": False, "schedules": [], "phone": False, "voice_key": "", "auto": False, "plan": False}
+        self.pending: dict[str, tuple[threading.Event, dict]] = {}
+        self.preview_opener = webbrowser.open
+        self.browser = Browser(HOME / "browser", self._browser_frame, self._browser_state)
+        self.browser_url = ""
+        self.computer = Computer()
+        self.terminals: dict[str, Terminal] = {}
+        self.chats: dict[str, Chat] = {}
+        self.current: Chat | None = None
+        self.phone_server = None
+        self.phone_url = ""
+        self._handler_factory = None
+        self._sched_stop = threading.Event()
+
+    # ---------------------------------------------------------------- compatibility helpers (current chat)
+    @property
+    def provider(self):
+        return self.current.provider if self.current else None
+
+    @property
+    def ws(self):
+        return self.current.ws if self.current else None
+
+    @property
+    def transcript(self):
+        return self.current.transcript if self.current else []
+
+    @property
+    def chat_id(self):
+        return self.current.id if self.current else ""
+
+    @property
+    def instruction_files(self):
+        return self.current.instruction_files if self.current else []
+
+    @property
+    def busy(self):
+        return bool(self.current and self.current.busy)
+
+    def send(self, text, attachments=None):
+        if not self.current:
+            raise RuntimeError("Finish setup in Settings first.")
+        self.current.send(text, attachments)
+
+    def undo(self, turn):
+        return self.current.undo(turn)
+
+    # ---------------------------------------------------------------- settings
     def load(self):
         try:
             saved = json.loads(CONFIG_FILE.read_text())
@@ -191,11 +678,14 @@ class Session:
         except OSError:
             pass
 
+    def tools_for(self, cfg: dict) -> list[dict]:
+        return [t for t in TOOLS if t["kind"] != "desktop" or cfg.get("computer")]
+
     def make_provider(self, cfg: dict, tools=None, system: str | None = None):
-        tools = tools if tools is not None else TOOLS
+        tools = tools if tools is not None else self.tools_for(cfg)
         if system is None:
             text, _ = project_instructions(cfg["cwd"])
-            system = system_prompt(cfg["cwd"], text)
+            system = system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")))
         common = dict(tools=tools, compaction=cfg["compaction"])
         if cfg["provider"] == "claude":
             return ClaudeProvider(cfg["model"], system, effort=cfg["effort"], api_key=cfg["api_key"] or None,
@@ -217,153 +707,137 @@ class Session:
             raise ValueError(f"Folder not found: {cwd}")
         cfg["cwd"] = str(cwd.resolve())
         cfg["budget"] = max(0.0, float(cfg.get("budget") or 0))
-        old_messages = self.provider.serialize() if (keep_history and self.provider) else None
-        prov = self.make_provider(cfg)
-        if old_messages and cfg["provider"] == self.config["provider"]:
-            prov.restore(old_messages)
-        if self.ws:
-            self.ws.stop_all_jobs()
-        self.config, self.provider = cfg, prov
-        self.ws = Workspace(cfg["cwd"], on_file_change=self._snapshot)
-        self.instruction_files = project_instructions(cfg["cwd"])[1]
+        self.make_provider(cfg)  # validate (e.g. API key present) before changing anything
+        old = self.config
+        self.config = cfg
+        if self.current is None or (self.current.busy is False and self.current.transcript == [] and not keep_history):
+            self.current = self._new_chat_obj(cfg["cwd"])
+        elif not self.current.busy:
+            if cfg["cwd"] != old["cwd"] and not self.current.worktree:
+                self.current.cwd = self.current.rules_dir = cfg["cwd"]
+            self.current.build(keep_history=keep_history)
         self.save()
+        if bool(cfg.get("phone")) != bool(self.phone_server):
+            self.set_phone(bool(cfg.get("phone")))
+
+    def _new_chat_obj(self, cwd: str, **kw) -> Chat:
+        chat = Chat(self, cwd, **kw)
+        self.chats[chat.id] = chat
+        return chat
 
     def public_config(self) -> dict:
-        c = {k: v for k, v in self.config.items() if k not in ("api_key", "github_token", "rules")}
+        hidden = ("api_key", "github_token", "rules", "hooks", "voice_key")
+        c = {k: v for k, v in self.config.items() if k not in hidden}
         c["api_key"] = bool(self.config["api_key"])
         c["github_token"] = bool(self.config["github_token"])
-        c["rules"] = self.folder_rules()
-        c["instructions"] = self.instruction_files
-        c["build"] = BUILD
-        c["version"] = __version__
+        c["voice_key"] = bool(self.config["voice_key"])
+        chat = self.current
+        c["rules"] = chat.folder_rules() if chat else {"allow": [], "deny": []}
+        c["hooks"] = self.hooks_for(chat.rules_dir) if chat else {}
+        c["instructions"] = chat.instruction_files if chat else []
+        c["chat_cwd"] = chat.cwd if chat else c["cwd"]
+        c["build"], c["version"], c["phone_url"] = BUILD, __version__, self.phone_url
+        c["commands"] = self.command_list()
         return c
 
-    def folder_rules(self) -> dict:
-        return self.config["rules"].get(self.config["cwd"], {"allow": [], "deny": []})
-
-    # ------------------------------------------------------------------ undo checkpoints
-    def _snapshot(self, path: Path, old: str | None):
-        key = str(path)
-        if key not in self.turn_changes:
-            self.turn_changes[key] = old if (old is None or len(old) < 2_000_000) else "\0too-large"
-
-    def undo(self, turn: str) -> str:
-        changes = self.checkpoints.pop(turn, None)
-        if not changes:
-            raise ValueError("Nothing to undo for that message (already undone or not saved).")
-        restored = []
-        for path, old in changes.items():
-            p = Path(path)
-            if old == "\0too-large":
-                continue
-            if old is None:
-                p.unlink(missing_ok=True)
-            else:
-                p.write_text(old, encoding="utf-8")
-            restored.append(p.name)
-        self.emit("notice", text=f"Undid changes to {', '.join(restored)}.")
-        self.save_chat()
-        return ", ".join(restored)
-
-    # ------------------------------------------------------------------ permissions
-    def _target(self, name: str, args: dict) -> str:
-        if name.startswith("browser_"):
-            return self.browser_url
-        if name == "bash":
-            return args["command"]
-        if "path" in args:
-            try:
-                return self.ws.path(args["path"]).relative_to(self.ws.cwd).as_posix()
-            except ValueError:
-                return str(self.ws.path(args["path"]))
-        return args.get("job_id", "")
-
-    def _suggest_rule(self, name: str, args: dict) -> str:
-        if name == "bash":
-            try:
-                words = shlex.split(args["command"])[:2]
-            except ValueError:
-                words = args["command"].split()[:2]
-            return f"bash({' '.join(words)}*)" if words else "bash"
-        if name.startswith("browser_"):
-            host = urlparse(self.browser_url).netloc
-            return f"browser(*{host}*)" if host else "browser"
-        return f"{_rule_kind(name)}(*)"
-
-    def decide(self, name: str, args: dict) -> str:
-        """'allow' | 'deny' | 'ask'"""
-        rules, target = self.folder_rules(), self._target(name, args)
-        if any(rule_matches(r, name, target) for r in rules.get("deny", [])):
-            return "deny"
-        if self.config["auto"] or any(rule_matches(r, name, target) for r in rules.get("allow", [])):
-            return "allow"
-        return "ask"
-
-    def add_rule(self, rule: str, kind: str = "allow"):
-        rules = self.config["rules"].setdefault(self.config["cwd"], {"allow": [], "deny": []})
+    def add_rule(self, folder: str, rule: str, kind: str = "allow"):
+        rules = self.config["rules"].setdefault(folder, {"allow": [], "deny": []})
         if rule not in rules[kind]:
             rules[kind].append(rule)
         self.save()
+        self.events.put({"kind": "config", "config": self.public_config()})
 
-    # ------------------------------------------------------------------ tools
-    def run_tool(self, name: str, args: dict) -> tuple[str, bool]:
-        self._check()
-        problem = validate(name, args)
-        if problem:
-            self.emit("tool", id=secrets.token_hex(4), summary=f"invalid {name} call", error=True)
-            return f"Invalid input: {problem} Fix the call and try again.", True
-        if name == "todo_write":
-            self.todos = args["todos"]
-            self.emit("todos", todos=self.todos)
-            return "Task list updated.", False
-        if name == "task":
-            return self._subagent(args)
-        if name == "open_preview":
-            return self._preview(args["target"])
-        if name.startswith("browser_"):
-            return self._browser_tool(name, args)
+    def hooks_for(self, folder: str) -> dict:
+        return self.config["hooks"].get(folder, {})
 
-        call_id = secrets.token_hex(6)
-        info = {"id": call_id, "name": name, "summary": describe(name, args)}
-        diff = self.ws.preview_diff(name, args)
-        if diff:
-            info["diff"] = diff
-        if name in MUTATING:
-            if self.config["plan"]:
-                self.emit("tool", **info, blocked="Plan mode")
-                return ("Plan mode is on: do not change anything yet. Finish researching, then present your plan "
-                        "as your final message for the user to approve."), True
-            verdict = self.decide(name, args)
-            if verdict == "deny":
-                self.emit("tool", **info, blocked="Blocked by a rule")
-                return "Blocked by the user's permission rules for this folder. Do not try to work around it.", True
-            if verdict == "ask":
-                rule = self._suggest_rule(name, args)
-                answer = self._ask(info, rule)
-                if answer.get("decision") == "always":
-                    self.add_rule(rule)
-                    self.emit("config", config=self.public_config())
-                elif answer.get("decision") != "allow":
-                    fb = answer.get("feedback") or "The user declined."
-                    self.emit("tool_result", id=call_id, output=f"Declined. {fb}", error=True)
-                    return f"The user did not allow this. Their reply: {fb}", True
-            else:
-                self.emit("tool", **info)
-        else:
-            self.emit("tool", **info)
-        try:
-            out, err = self.ws.run(name, args), False
-        except ToolError as e:
-            out, err = str(e), True
-        except Exception as e:
-            out, err = f"{type(e).__name__}: {e}", True
-        shown = out if isinstance(out, str) else "\n".join(x.get("text", "") for x in out)
-        self.emit("tool_result", id=call_id, output=shown[:8000], error=err)
-        return out, err
+    def command_list(self) -> list[dict]:
+        cwd = self.current.cwd if self.current else self.config["cwd"]
+        out = [{"name": n, "description": d, "kind": "ui"} for n, d in extras.UI_COMMANDS.items()]
+        out += [{"name": n, "description": d, "kind": "prompt"} for n, (d, _) in extras.commands(cwd).items()]
+        return out
 
-    # ------------------------------------------------------------------ built-in browser
-    BROWSER_ACTS = {"browser_click", "browser_type", "browser_press"}
+    # ---------------------------------------------------------------- chats
+    def select(self, chat: Chat):
+        self.current = chat
+        self.events.put(chat.replay_event())
+        self.events.put({"kind": "config", "config": self.public_config()})
 
+    def new_chat(self, worktree: bool = False):
+        cwd = self.current.rules_dir if self.current else self.config["cwd"]
+        wt = None
+        if worktree:
+            name = time.strftime("%m%d-%H%M%S")
+            path, branch = gitops.add_worktree(cwd, name)
+            wt = {"path": path, "branch": branch, "origin": cwd}
+        chat = self._new_chat_obj(wt["path"] if wt else cwd, worktree=wt)
+        if wt:
+            chat.notice(f"Parallel chat on branch {wt['branch']} in its own folder ({wt['path']}). "
+                        "Your main folder is untouched until you merge.")
+        self.select(chat)
+
+    def open_chat(self, chat_id: str):
+        live = self.chats.get(chat_id)
+        if live:
+            return self.select(live)
+        d = json.loads((CHATS / f"{Path(chat_id).name}.json").read_text())
+        cwd = d.get("cwd") if Path(d.get("cwd", "")).is_dir() else self.config["cwd"]
+        if d.get("provider") != self.config["provider"] or d.get("model") != self.config["model"]:
+            self.config.update(provider=d["provider"], model=d["model"])
+        wt = d.get("worktree") if d.get("worktree") and Path(d["worktree"]["path"]).is_dir() else None
+        chat = Chat(self, cwd, chat_id=d["id"], worktree=wt, title=d.get("title", ""))
+        chat.provider.restore(d["messages"])
+        chat.transcript, chat.checkpoints = d.get("transcript", []), d.get("checkpoints", {})
+        chat.cost, chat.tokens, chat.todos, chat.turn = d.get("cost", 0), d.get("tokens", 0), d.get("todos", []), d.get("turn", 0)
+        self.chats[chat.id] = chat
+        self.select(chat)
+
+    def delete_chat(self, chat_id: str):
+        live = self.chats.get(chat_id)
+        if live and live.busy:
+            raise RuntimeError("Stop that chat before deleting it.")
+        self.chats.pop(chat_id, None)
+        (CHATS / f"{Path(chat_id).name}.json").unlink(missing_ok=True)
+        if self.current and self.current.id == chat_id:
+            self.current = None
+            self.new_chat()
+
+    def list_chats(self) -> list[dict]:
+        seen, out = set(), []
+        for c in self.chats.values():
+            if c.transcript:
+                out.append({"id": c.id, "title": c.title or "Untitled", "updated": time.time(), "running": c.busy,
+                            "approval": bool(c.pending_info), "worktree": bool(c.worktree)})
+                seen.add(c.id)
+        for p in sorted(CHATS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:200]:
+            if p.stem in seen:
+                continue
+            try:
+                d = json.loads(p.read_text())
+                out.append({"id": d["id"], "title": d.get("title", "Untitled"), "updated": d.get("updated", 0),
+                            "running": False, "approval": False, "worktree": bool(d.get("worktree"))})
+            except (OSError, ValueError, KeyError):
+                continue
+        live = [c for c in out if c["id"] in self.chats]
+        rest = [c for c in out if c["id"] not in self.chats]
+        return live + rest
+
+    def finish_worktree(self, merge: bool) -> str:
+        chat = self.current
+        if not chat or not chat.worktree:
+            raise ValueError("This chat is not running in a worktree.")
+        if chat.busy:
+            raise RuntimeError("Stop the chat first.")
+        chat.ws.stop_all_jobs()
+        msg = gitops.finish_worktree(chat.worktree["path"], merge)
+        origin = chat.worktree["origin"]
+        chat.worktree, chat.cwd = None, origin
+        chat.build(keep_history=True)
+        chat.notice(msg)
+        chat.save()
+        self.select(chat)
+        return msg
+
+    # ---------------------------------------------------------------- browser, terminals
     def _browser_frame(self, data, w, h):
         self.events.put({"kind": "browser_frame", "data": data, "w": w, "h": h})
 
@@ -371,69 +845,14 @@ class Session:
         self.browser_url = st.get("url", "")
         self.events.put({"kind": "browser_state", **st})
 
-    def _browser_tool(self, name: str, args: dict):
-        call_id = secrets.token_hex(6)
-        info = {"id": call_id, "name": name, "summary": describe(name, args)}
-        self.emit("browser_open")
-        if name in self.BROWSER_ACTS:
-            if self.config["plan"]:
-                self.emit("tool", **info, blocked="Plan mode")
-                return "Plan mode is on: you may look at pages but not click or type yet.", True
-            verdict = self.decide(name, args)
-            if verdict == "deny":
-                self.emit("tool", **info, blocked="Blocked by a rule")
-                return "Blocked by the user's permission rules.", True
-            if verdict == "ask":
-                rule = self._suggest_rule(name, args)
-                answer = self._ask(info, rule)
-                if answer.get("decision") == "always":
-                    self.add_rule(rule)
-                    self.emit("config", config=self.public_config())
-                elif answer.get("decision") != "allow":
-                    fb = answer.get("feedback") or "The user declined."
-                    self.emit("tool_result", id=call_id, output=f"Declined. {fb}", error=True)
-                    return f"The user did not allow this. Their reply: {fb}", True
-            else:
-                self.emit("tool", **info)
-        else:
-            self.emit("tool", **info)
-        b = self.browser
-        try:
-            if name == "browser_navigate":
-                out = b.navigate(args["url"])
-            elif name == "browser_read":
-                out = b.read()
-            elif name == "browser_screenshot":
-                img = b.screenshot()
-                self.emit("tool_result", id=call_id, output=f"Screenshot of {self.browser_url}", error=False, image=img)
-                return [{"type": "text", "text": f"Screenshot of {self.browser_url} (1280x800):"},
-                        {"type": "image", "media_type": "image/jpeg", "data": img}], False
-            elif name == "browser_click":
-                out = b.click(args.get("x"), args.get("y"), args.get("text"), args.get("selector"))
-            elif name == "browser_type":
-                out = b.type(args["text"], args.get("selector"), bool(args.get("submit")))
-            elif name == "browser_press":
-                out = b.press(args["key"])
-            else:
-                out = b.scroll(args["dy"])
-            err = False
-        except NeedsBrowser as e:
-            self.emit("browser_status", text=str(e), install=True)
-            out, err = f"{e} Ask the user to click 'Install browser engine' in the Browser panel.", True
-        except Exception as e:
-            out, err = f"{type(e).__name__}: {e}"[:2000], True
-        shown = out if isinstance(out, str) else "\n".join(x.get("text", "") for x in out)
-        self.emit("tool_result", id=call_id, output=shown[:8000], error=err)
-        return out, err
-
     def install_browser(self):
         def run():
             try:
-                self.emit("browser_status", text="Downloading the browser engine (about 100 MB)…")
+                self.events.put({"kind": "browser_status", "text": "Downloading the browser engine (about 100 MB)…"})
                 install_chromium(lambda line: self.events.put({"kind": "browser_status", "text": line}))
-                self.emit("browser_status", text="Browser engine installed.", done=True)
+                self.events.put({"kind": "browser_status", "text": "Browser engine installed.", "done": True})
             except Exception as e:
-                self.emit("browser_status", text=f"Install failed: {e}", install=True)
+                self.events.put({"kind": "browser_status", "text": f"Install failed: {e}", "install": True})
         threading.Thread(target=run, daemon=True).start()
 
     def browser_input(self, d: dict):
@@ -451,200 +870,57 @@ class Session:
         elif kind == "scroll":
             b.scroll(int(d.get("dy", 0)))
 
-    # ------------------------------------------------------------------ terminals
     def open_terminal(self, cols: int, rows: int) -> str:
-        t = Terminal(self.config["cwd"], lambda tid, data: self.events.put({"kind": "term", "id": tid, "data": data}),
+        cwd = self.current.cwd if self.current else self.config["cwd"]
+        t = Terminal(cwd, lambda tid, data: self.events.put({"kind": "term", "id": tid, "data": data}),
                      lambda tid: self.events.put({"kind": "term_exit", "id": tid}), cols, rows)
         self.terminals[t.id] = t
         return t.id
 
-    def shutdown(self):
-        for t in self.terminals.values():
-            t.close()
-        self.browser.close()
-        if self.ws:
-            self.ws.stop_all_jobs()
+    # ---------------------------------------------------------------- git
+    def git_action(self, d: dict) -> dict:
+        cwd = self.current.cwd if self.current else self.config["cwd"]
+        a = d.get("action")
+        if a == "status":
+            return gitops.status(cwd)
+        if a == "diff":
+            return {"diff": gitops.diff(cwd, d.get("path"))}
+        if a == "commit":
+            return {"message": gitops.commit(cwd, str(d.get("message", "")), d.get("files"))}
+        if a == "checkout":
+            return {"message": gitops.checkout(cwd, str(d.get("branch")), bool(d.get("create")))}
+        if a == "push":
+            return {"message": gitops.push(cwd)}
+        if a == "pull":
+            return {"message": gitops.pull(cwd)}
+        if a == "pr":
+            return {"message": gitops.create_pr(cwd)}
+        if a == "init":
+            return {"message": gitops.git(cwd, "init").strip()}
+        raise ValueError(f"Unknown git action {a}")
 
-    def _ask(self, info: dict, rule: str) -> dict:
-        done, answer = threading.Event(), {}
-        self.pending[info["id"]] = (done, answer)
-        self.emit("approve", **info, rule=rule)
-        try:
-            while not done.wait(0.25):
-                self._check()
-        finally:
-            self.pending.pop(info["id"], None)
-        return answer
+    # ---------------------------------------------------------------- export, voice, updates
+    def export(self, fmt: str) -> str:
+        chat = self.current
+        if not chat or not chat.transcript:
+            raise ValueError("Nothing to export yet.")
+        md = extras.export_markdown(chat.title or "Chat", chat.transcript)
+        safe = re.sub(r"[^\w\- ]+", "", chat.title or "chat").strip()[:60] or "chat"
+        path = extras.downloads_dir() / f"{safe}.{'html' if fmt == 'html' else 'md'}"
+        path.write_text(extras.export_html(chat.title, md) if fmt == "html" else md, encoding="utf-8")
+        return str(path)
 
-    def _subagent(self, args: dict) -> tuple[str, bool]:
-        call_id = secrets.token_hex(6)
-        self.emit("tool", id=call_id, name="task", summary=f"Sub-agent: {args['description']}")
-        parent = self
+    def transcribe(self, data_b64: str, mime: str) -> str:
+        key = self.config["voice_key"] or os.environ.get("OPENAI_API_KEY") or (
+            self.config["api_key"] if self.config["provider"] == "openai" else "")
+        if not key:
+            raise ValueError("Voice typing needs an OpenAI API key for transcription (Settings > Tools & limits).")
+        import openai
 
-        class SubUI:
-            steps = 0
-            def text(self, c): parent._check()
-            def thinking(self, c): parent._check()
-            def end_block(self): pass
-            def notice(self, m): pass
-            def server_tool(self, s): SubUI.steps += 1
-            def usage(self, m, u): parent.usage(m, u)
-            def before_request(self): parent.before_request()
-
-        def sub_run(name, a):
-            parent._check()
-            SubUI.steps += 1
-            problem = validate(name, a)
-            if problem or name not in {t["name"] for t in READONLY_TOOLS}:
-                return f"Not available: {problem or name}", True
-            try:
-                return self.ws.run(name, a), False
-            except Exception as e:
-                return str(e), True
-
-        try:
-            sub = self.make_provider(self.config, tools=READONLY_TOOLS, system=SUBAGENT_SYSTEM)
-            sub.turn(args["prompt"], sub_run, SubUI())
-            report = sub.last_text() or "(the sub-agent returned no report)"
-            self.emit("tool_result", id=call_id, output=f"{SubUI.steps} steps\n\n{report}", error=False)
-            return report, False
-        except Stop:
-            raise
-        except Exception as e:
-            self.emit("tool_result", id=call_id, output=str(e), error=True)
-            return f"Sub-agent failed: {e}", True
-
-    def _preview(self, target: str) -> tuple[str, bool]:
-        if not re.match(r"^https?://", target):
-            p = self.ws.path(target)
-            if not p.exists():
-                return f"No such file: {p}", True
-            target = p.as_uri()
-        try:
-            self.preview_opener(target)
-        except Exception as e:
-            return f"Could not open preview: {e}", True
-        self.emit("preview", target=target)
-        return f"Opened a preview of {target} for the user.", False
-
-    # ------------------------------------------------------------------ messages
-    def _parts(self, text: str, attachments: list[dict]) -> list[dict]:
-        parts = []
-        for a in attachments or []:
-            name, mime, data = a.get("name", "file"), a.get("mime", ""), a.get("data", "")
-            raw = base64.b64decode(data)
-            if len(raw) > 20_000_000:
-                raise ValueError(f"{name} is larger than 20 MB.")
-            if mime in IMAGE_TYPES:
-                parts.append({"type": "image", "media_type": mime, "data": data})
-            elif mime == "application/pdf" or name.lower().endswith(".pdf"):
-                parts.append({"type": "pdf", "name": name, "data": data})
-            else:
-                try:
-                    parts.append({"type": "file", "name": name, "text": raw.decode("utf-8")[:200_000]})
-                except UnicodeDecodeError:
-                    raise ValueError(f"{name}: only images, PDFs and text files can be attached.")
-        if self.config["plan"]:
-            text = ("[Plan mode is ON: research and read as needed, but do not change anything. End with a clear, "
-                    "numbered plan for the user to approve.]\n\n" + text)
-        parts.append({"type": "text", "text": text})
-        return parts
-
-    def send(self, text: str, attachments: list[dict]) -> None:
-        if not self.provider:
-            raise RuntimeError("Finish setup in Settings first.")
-        with self.lock:
-            if self.busy:
-                raise RuntimeError("Still working on the last message. Press Stop first.")
-            parts = self._parts(text, attachments)
-            self.busy = True
-            self.cancel.clear()
-        if not self.chat_title:
-            self.chat_title = text.strip().splitlines()[0][:70] if text.strip() else "Attachment"
-        self.emit("user", text=text, files=[a.get("name") for a in attachments or []], plan=self.config["plan"])
-        threading.Thread(target=self._turn, args=(parts,), daemon=True).start()
-
-    def _turn(self, parts) -> None:
-        self.turn += 1
-        turn_id = f"t{self.turn}"
-        self.turn_changes, self.turn_cost = {}, 0.0
-        self.emit("status", busy=True)
-        try:
-            self.provider.turn(parts, self.run_tool, self)
-        except Stop as e:
-            self.notice(str(e))
-            self.provider.close_interrupted()
-        except Exception as e:
-            self.notice(f"{type(e).__name__}: {e}")
-            self.provider.close_interrupted()
-        finally:
-            self.end_block()
-            if self.turn_changes:
-                self.checkpoints[turn_id] = self.turn_changes
-            self.emit("turn_end", turn=turn_id, files=[Path(p).name for p in self.turn_changes],
-                      cost=round(self.turn_cost, 4))
-            if self.config["plan"]:
-                self.emit("plan_ready")
-            self.busy = False
-            self.emit("status", busy=False)
-            self.save_chat()
-
-    # ------------------------------------------------------------------ chat history
-    def save_chat(self):
-        if not self.transcript:
-            return
-        try:
-            CHATS.mkdir(parents=True, exist_ok=True)
-            data = {"id": self.chat_id, "title": self.chat_title or "Untitled", "updated": time.time(),
-                    "provider": self.config["provider"], "model": self.config["model"], "cwd": self.config["cwd"],
-                    "messages": self.provider.serialize() if self.provider else [], "transcript": self.transcript,
-                    "checkpoints": self.checkpoints, "cost": self.cost, "tokens": self.tokens, "todos": self.todos,
-                    "turn": self.turn}
-            path = CHATS / f"{self.chat_id}.json"
-            path.write_text(json.dumps(data, default=str))
-            os.chmod(path, 0o600)
-        except Exception as e:
-            self.emit("notice", text=f"Could not save chat: {e}")
-
-    def list_chats(self) -> list[dict]:
-        out = []
-        for p in sorted(CHATS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:200]:
-            try:
-                d = json.loads(p.read_text())
-                out.append({"id": d["id"], "title": d.get("title", "Untitled"), "updated": d.get("updated", 0)})
-            except (OSError, ValueError, KeyError):
-                continue
-        return out
-
-    def open_chat(self, chat_id: str):
-        path = CHATS / f"{Path(chat_id).name}.json"
-        d = json.loads(path.read_text())
-        changes = {"provider": d["provider"], "model": d["model"]}
-        if Path(d.get("cwd", "")).is_dir():
-            changes["cwd"] = d["cwd"]
-        self.apply_config(changes)
-        self.provider.restore(d["messages"])
-        self._new_chat_state()
-        self.chat_id, self.chat_title = d["id"], d.get("title", "")
-        self.transcript, self.checkpoints = d.get("transcript", []), d.get("checkpoints", {})
-        self.cost, self.tokens, self.todos, self.turn = d.get("cost", 0), d.get("tokens", 0), d.get("todos", []), d.get("turn", 0)
-        self.events.put({"kind": "replay", "events": self.transcript, "chat": {"id": self.chat_id, "title": self.chat_title},
-                         "cost": round(self.cost, 4), "tokens": self.tokens, "todos": self.todos,
-                         "undoable": list(self.checkpoints)})
-        self.emit("config", config=self.public_config())
-
-    def new_chat(self):
-        if self.provider:
-            self.provider.clear()
-        self._new_chat_state()
-        self.events.put({"kind": "replay", "events": [], "chat": {"id": self.chat_id, "title": ""}, "cost": 0,
-                         "tokens": 0, "todos": [], "undoable": []})
-
-    # ------------------------------------------------------------------ project instructions & updates
-    def instructions_file(self) -> Path:
-        for name in self.instruction_files:
-            return Path(self.config["cwd"]) / name
-        return Path(self.config["cwd"]) / "HERNESS.md"
+        ext = "webm" if "webm" in mime else "mp4" if "mp4" in mime else "wav"
+        r = openai.OpenAI(api_key=key).audio.transcriptions.create(
+            model="whisper-1", file=(f"speech.{ext}", base64.b64decode(data_b64), mime or "audio/webm"))
+        return r.text
 
     def check_update(self) -> dict:
         req = urllib.request.Request(f"https://api.github.com/repos/{REPO}/releases?per_page=5",
@@ -655,7 +931,7 @@ class Session:
             with urllib.request.urlopen(req, timeout=15) as r:
                 releases = json.loads(r.read())
         except Exception as e:
-            return {"error": f"Could not check for updates ({e}). If the repository is private, add a GitHub token in Settings."}
+            return {"error": f"Could not check for updates ({e})."}
         best = None
         for rel in releases:
             m = re.match(r"build-(\d+)$", rel.get("tag_name", ""))
@@ -665,8 +941,69 @@ class Session:
             return {"latest": None, "current": BUILD, "update": False}
         return {"latest": best[0], "current": BUILD, "update": best[0] > BUILD, "url": best[1]}
 
+    # ---------------------------------------------------------------- scheduled tasks
+    def start_scheduler(self):
+        threading.Thread(target=self._scheduler, daemon=True).start()
 
-# ---------------------------------------------------------------------- HTTP server
+    def due(self, task: dict, now: float) -> bool:
+        if not task.get("enabled", True) or not task.get("prompt"):
+            return False
+        last = float(task.get("last") or 0)
+        every = int(task.get("every") or 0)
+        if every > 0:
+            return now - last >= every * 60
+        at = task.get("at") or ""
+        if re.match(r"^\d{1,2}:\d{2}$", at):
+            h, m = map(int, at.split(":"))
+            lt = time.localtime(now)
+            today_at = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, h, m, 0, 0, 0, -1))
+            return now >= today_at and last < today_at
+        return False
+
+    def run_task(self, task: dict):
+        cwd = task.get("cwd") if Path(task.get("cwd", "") or "/nonexistent").is_dir() else self.config["cwd"]
+        chat = self._new_chat_obj(cwd, unattended=True, title=f"⏰ {task.get('name') or 'Scheduled task'}")
+        task["last"] = time.time()
+        self.save()
+        chat.send(task["prompt"])
+        self.events.put({"kind": "chats_changed"})
+        return chat
+
+    def _scheduler(self):
+        while not self._sched_stop.wait(30):
+            now = time.time()
+            for task in list(self.config.get("schedules", [])):
+                try:
+                    if self.due(task, now):
+                        self.run_task(task)
+                except Exception as e:
+                    self.events.put({"kind": "toast", "text": f"Scheduled task failed to start: {e}"})
+
+    # ---------------------------------------------------------------- phone access
+    def set_phone(self, on: bool):
+        if on and not self.phone_server and self._handler_factory:
+            token = secrets.token_urlsafe(24)
+            srv = ThreadingHTTPServer(("0.0.0.0", 8790), self._handler_factory(self, token))
+            srv.daemon_threads = True
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            self.phone_server, self.phone_url = srv, f"http://{lan_ip()}:{srv.server_port}/?token={token}"
+        elif not on and self.phone_server:
+            self.phone_server.shutdown()
+            self.phone_server, self.phone_url = None, ""
+
+    def shutdown(self):
+        self._sched_stop.set()
+        for t in self.terminals.values():
+            t.close()
+        self.browser.close()
+        for c in self.chats.values():
+            if c.ws:
+                c.ws.stop_all_jobs()
+        if self.phone_server:
+            self.phone_server.shutdown()
+
+
+# ==================================================================================================== HTTP
 
 def make_handler(session: Session, token: str):
     class Handler(BaseHTTPRequestHandler):
@@ -680,45 +1017,38 @@ def make_handler(session: Session, token: str):
             self.send_error(403)
             return False
 
-        def _json(self, obj, code=200):
-            body = json.dumps(obj).encode()
+        def _send(self, body: bytes, ctype: str, code=200):
             self.send_response(code)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+
+        def _json(self, obj, code=200):
+            self._send(json.dumps(obj, default=str).encode(), "application/json", code)
 
         def do_GET(self):
             path = urlparse(self.path).path
             if path.startswith("/vendor/"):
                 f = Path(__file__).parent / "static" / "vendor" / Path(path).name
                 if f.is_file():
-                    body = f.read_bytes()
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/css" if f.suffix == ".css" else "application/javascript")
-                    self.send_header("Content-Length", str(len(body)))
-                    self.end_headers()
-                    self.wfile.write(body)
-                else:
-                    self.send_error(404)
-                return
+                    return self._send(f.read_bytes(), "text/css" if f.suffix == ".css" else "application/javascript")
+                return self.send_error(404)
             if not self._authed():
                 return
             if path == "/":
-                body = PAGE.replace("__TOKEN__", token).encode()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                self._send(PAGE.replace("__TOKEN__", token).encode(), "text/html; charset=utf-8")
             elif path == "/api/events":
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
                 self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 try:
-                    first = {"kind": "config", "config": session.public_config()}
-                    self.wfile.write(f"data: {json.dumps(first)}\n\n".encode())
+                    first = [{"kind": "config", "config": session.public_config()}]
+                    if session.current:
+                        first.append(session.current.replay_event())
+                    for ev in first:
+                        self.wfile.write(f"data: {json.dumps(ev, default=str)}\n\n".encode())
                     self.wfile.flush()
                     while True:
                         try:
@@ -739,6 +1069,7 @@ def make_handler(session: Session, token: str):
                 data = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
                 path = urlparse(self.path).path
                 result: dict = {"ok": True}
+                chat = session.current
                 if path == "/api/send":
                     session.send(str(data.get("text", "")), data.get("attachments") or [])
                 elif path == "/api/approve":
@@ -747,42 +1078,75 @@ def make_handler(session: Session, token: str):
                         item[1].update(decision=data.get("decision"), feedback=data.get("feedback", ""))
                         item[0].set()
                 elif path == "/api/stop":
-                    session.cancel.set()
-                elif path == "/api/clear":
-                    session.new_chat()
+                    target = session.chats.get(data.get("chat")) or chat
+                    if target:
+                        target.cancel.set()
+                elif path in ("/api/clear", "/api/chat/new"):
+                    session.new_chat(worktree=bool(data.get("worktree")))
                 elif path == "/api/chats":
                     result = {"chats": session.list_chats(), "current": session.chat_id}
                 elif path == "/api/chat/open":
-                    if session.busy:
-                        raise RuntimeError("Stop the current task first.")
                     session.open_chat(str(data.get("id")))
                 elif path == "/api/chat/delete":
-                    (CHATS / f"{Path(str(data.get('id'))).name}.json").unlink(missing_ok=True)
-                    if data.get("id") == session.chat_id:
-                        session.new_chat()
+                    session.delete_chat(str(data.get("id")))
+                elif path == "/api/worktree/finish":
+                    result = {"message": session.finish_worktree(bool(data.get("merge")))}
                 elif path == "/api/undo":
                     result = {"restored": session.undo(str(data.get("turn")))}
                 elif path == "/api/config":
-                    if session.busy and set(data) - {"auto", "plan"}:
-                        raise RuntimeError("Stop the current task before changing settings.")
                     if set(data) <= {"auto", "plan"}:
                         session.config.update({k: bool(v) for k, v in data.items()})
                     else:
-                        if "rules" in data:  # rules arrive for the current folder only
+                        if chat and chat.busy:
+                            raise RuntimeError("Stop the current task before changing settings.")
+                        folder = chat.rules_dir if chat else session.config["cwd"]
+                        if "rules" in data:
                             r = data.pop("rules")
-                            session.config["rules"][data.get("cwd") or session.config["cwd"]] = {
+                            session.config["rules"][folder] = {
                                 "allow": [x.strip() for x in r.get("allow", []) if x.strip()],
                                 "deny": [x.strip() for x in r.get("deny", []) if x.strip()]}
+                        if "hooks" in data:
+                            h = data.pop("hooks")
+                            session.config["hooks"][folder] = {k: str(h.get(k, "")).strip() for k in ("after_edit", "before_finish")}
                         session.apply_config(data, keep_history=True)
-                    session.emit("config", config=session.public_config())
+                    session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/instructions":
-                    f = session.instructions_file()
+                    cwd = chat.cwd if chat else session.config["cwd"]
+                    names = project_instructions(cwd)[1]
+                    f = Path(cwd) / (names[0] if names else "HERNESS.md")
                     if "text" in data:
                         f.parent.mkdir(parents=True, exist_ok=True)
                         f.write_text(data["text"], encoding="utf-8")
-                        session.apply_config({}, keep_history=True)
-                        session.emit("config", config=session.public_config())
+                        if chat and not chat.busy:
+                            chat.build(keep_history=True)
+                        session.events.put({"kind": "config", "config": session.public_config()})
                     result = {"file": f.name, "text": f.read_text(errors="replace") if f.is_file() else ""}
+                elif path == "/api/memory":
+                    if "text" in data:
+                        extras.write_memory(str(data["text"]))
+                    result = {"text": extras.read_memory()}
+                elif path == "/api/commands":
+                    result = {"commands": session.command_list()}
+                elif path == "/api/schedules":
+                    if "schedules" in data:
+                        session.config["schedules"] = [
+                            {"id": s.get("id") or secrets.token_hex(4), "name": str(s.get("name", ""))[:80],
+                             "prompt": str(s.get("prompt", "")), "cwd": str(s.get("cwd", "")),
+                             "at": str(s.get("at", "")), "every": int(s.get("every") or 0),
+                             "enabled": bool(s.get("enabled", True)), "last": s.get("last", 0)}
+                            for s in data["schedules"] if s.get("prompt")]
+                        session.save()
+                    if data.get("run"):
+                        task = next((t for t in session.config["schedules"] if t["id"] == data["run"]), None)
+                        if task:
+                            session.select(session.run_task(task))
+                    result = {"schedules": session.config["schedules"]}
+                elif path == "/api/git":
+                    result = session.git_action(data)
+                elif path == "/api/export":
+                    result = {"path": session.export(str(data.get("format", "md")))}
+                elif path == "/api/transcribe":
+                    result = {"text": session.transcribe(str(data.get("data", "")), str(data.get("mime", "")))}
                 elif path == "/api/term/open":
                     result = {"id": session.open_terminal(data.get("cols", 100), data.get("rows", 30))}
                 elif path == "/api/term/input":
@@ -800,12 +1164,12 @@ def make_handler(session: Session, token: str):
                 elif path == "/api/browser/view":
                     session.browser.viewers = max(0, session.browser.viewers + (1 if data.get("on") else -1))
                     if data.get("on") and session.browser.thread and session.browser.thread.is_alive():
-                        session.browser.call(lambda page: None)  # push a fresh frame
+                        session.browser.call(lambda page: None)
                 elif path == "/api/browser/input":
                     try:
                         session.browser_input(data)
                     except NeedsBrowser as e:
-                        session.emit("browser_status", text=str(e), install=True)
+                        session.events.put({"kind": "browser_status", "text": str(e), "install": True})
                 elif path == "/api/browser/install":
                     session.install_browser()
                 elif path == "/api/update":
@@ -827,15 +1191,17 @@ def start_server(cwd: str | None = None, port: int = 0, session: Session | None 
     """Start the engine on 127.0.0.1. Returns (server, url, session). port=0 picks a free port."""
     session = session or Session()
     session.load()
+    session._handler_factory = make_handler
     try:
         session.apply_config({"cwd": cwd} if cwd else {})
     except Exception as e:  # e.g. no API key yet: the window opens Settings
         session.config["cwd"] = cwd or session.config["cwd"]
-        session.emit("setup", text=str(e))
+        session.events.put({"kind": "setup", "text": str(e)})
     token = secrets.token_urlsafe(16)
     server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(session, token))
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True).start()
+    session.start_scheduler()
     return server, f"http://127.0.0.1:{server.server_port}/?token={token}", session
 
 
@@ -845,14 +1211,14 @@ def main(argv=None):
     p.add_argument("--cwd", default=None)
     p.add_argument("--no-browser", action="store_true")
     args = p.parse_args(argv)
-    server, url, _ = start_server(args.cwd, args.port)
+    server, url, session = start_server(args.cwd, args.port)
     print(f"Incredible Herness {__version__} at {url}\nCtrl-C to quit.")
     if not args.no_browser:
         threading.Timer(0.5, webbrowser.open, args=(url,)).start()
     try:
         threading.Event().wait()
     except KeyboardInterrupt:
-        _.shutdown()
+        session.shutdown()
         server.shutdown()
 
 

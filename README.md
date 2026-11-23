@@ -22,6 +22,16 @@ reads and edits files, searches the web, and asks before every change.
 - **Terminal panel:** a real terminal in your working folder (zsh on Mac, PowerShell on Windows). Ctrl+` toggles it.
 - **Built-in browser:** Herness's own Chromium, shown live in a side panel. The agent navigates, reads, clicks, types and
   takes screenshots to check its work; you can browse and click in it too. Clicks and typing by the agent ask first.
+- **Git panel:** changed files with diffs, commit, branches, pull/push and pull requests (with the GitHub CLI).
+- **Parallel chats:** several agents at once; a *Parallel chat (worktree)* works on its own branch in its own folder,
+  then merges back with one click.
+- **Code checks after every edit** (Python, JavaScript, TypeScript, JSON) and **hooks**: commands that run after each
+  edit or before the agent finishes (e.g. `npm test`) — failures go back to the agent to fix.
+- **Memory** across chats, **slash commands** (`/review`, `/init`, `/test`, `/commit`, `/fix`, `/explain`, plus your own
+  in `.herness/commands/*.md` or `~/.incredible-herness/commands/*.md`), **Jupyter notebooks**, **export** (`/export`).
+- **Scheduled tasks** that run while the app is open (only actions your rules allow).
+- **Phone access** on your Wi-Fi (scan a QR code), **voice typing**, and optional **computer use** (screen control,
+  every action asks first).
 - **Update check** from Settings → Updates.
 
 ## Install
