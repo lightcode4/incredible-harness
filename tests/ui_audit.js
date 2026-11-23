@@ -2,6 +2,7 @@
 const { chromium } = require('playwright');
 const url = process.argv[2];
 const problems = [], passed = [];
+async function navTo(pg, sel) { if (!(await pg.isVisible(sel))) { await pg.hover('#moreBtn'); await pg.waitForTimeout(300); } await pg.click(sel); }
 const check = (name, ok, detail = '') => (ok ? passed : problems).push(name + (detail ? ' — ' + detail : ''));
 async function overlaps(pg, label) {
   const found = await pg.evaluate(() => {
@@ -55,16 +56,22 @@ async function overlaps(pg, label) {
     } else if (w === 1440) {
       // --- sidebar
       await pg.click('#navSessions'); check('Sessions opens the session list', await pg.isVisible('#sessBox'));
-      await pg.click('#navGit'); check('Source control opens Git', await pg.isVisible('#gitView'));
-      await pg.click('#navFiles'); check('Workspace opens the terminal', await pg.isVisible('#termBox'));
+      check('Sidebar shows only the essentials until More is opened', !(await pg.isVisible('#navGit')) && !(await pg.isVisible('#navUsage')) && await pg.isVisible('#moreBtn') && await pg.isVisible('#newchat'));
+      await pg.hover('#moreBtn'); await pg.waitForTimeout(350);
+      check('Pointing at More drops the rest down', await pg.isVisible('#navGit') && await pg.isVisible('#navHelp') && await pg.isVisible('aside [data-set="mcp"]'));
+      await overlaps(pg, 'More open');
+      await pg.mouse.move(900, 500); await pg.waitForTimeout(400);
+      check('Moving away folds More back up', !(await pg.isVisible('#navGit')));
+      await navTo(pg, '#navGit'); check('Source control opens Git', await pg.isVisible('#gitView'));
+      await navTo(pg, '#navFiles'); check('Workspace opens the terminal', await pg.isVisible('#termBox'));
       await pg.click('#navPlay'); check('Agent playground shows the conversation', !(await pg.isVisible('#panel')));
       for (const [tab, pane] of [['instr', 'instr'], ['tools', 'tools'], ['mcp', 'mcp'], ['sched', 'sched']]) {
-        await pg.click(`aside [data-set="${tab}"]`); await pg.waitForSelector('#settings[open]');
+        await navTo(pg, `aside [data-set="${tab}"]`); await pg.waitForSelector('#settings[open]');
         check(`Sidebar “${tab}” opens Settings on the right tab`, await pg.isVisible(`.pane[data-p="${pane}"]`));
         await pg.click('#cancelSettings');
       }
-      await pg.click('#navUsage'); check('Usage & cost shows the cost', (await pg.innerText('#log')).includes('cost'));
-      await pg.click('#navHelp'); check('A little help opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
+      await navTo(pg, '#navUsage'); check('Usage & cost shows the cost', (await pg.innerText('#log')).includes('cost'));
+      await navTo(pg, '#navHelp'); check('A little help opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
       await pg.click('#railWsBtn'); await pg.waitForTimeout(300);
       check('Workspace row opens the folder chooser', await pg.isVisible('#folderPicker[open]'));
       if (await pg.isVisible('#folderPicker[open]')) { await overlaps(pg, 'folder chooser'); await pg.keyboard.press('Escape'); }
