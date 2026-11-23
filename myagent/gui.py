@@ -280,6 +280,7 @@ class Chat:
         if self.ws:
             self.ws.stop_all_jobs()
         self.ws = Workspace(self.cwd, on_file_change=self._snapshot)
+        self.ws.on_job = lambda: self.emit("jobs_changed")
         self.ws.sandbox = self.app.config.get("sandbox", "off")
         self.instruction_files = project_instructions(self.cwd)[1]
 
@@ -534,6 +535,8 @@ class Chat:
             out += self._after_edit(self.ws.path(args["path"]))
         shown = out if isinstance(out, str) else "\n".join(x.get("text", "") for x in out)
         self.emit("tool_result", id=call_id, output=shown[:8000], error=err)
+        if name in FILE_CHANGING or name in ("bash", "kill_shell"):
+            self.emit("fs_changed", path=str(args.get("path", "")))  # Changes and Files tabs refresh live
         return out, err
 
     def _after_edit(self, path: Path) -> str:
@@ -1569,6 +1572,15 @@ def make_handler(session: Session, token: str):
                     result = {"message": session.finish_worktree(bool(data.get("merge")))}
                 elif path == "/api/undo":
                     result = {"restored": chat.undo(str(data.get("turn")))}
+                elif path == "/api/jobs":
+                    result = {"jobs": chat.ws.job_list() if chat else []}
+                elif path == "/api/jobs/stop":
+                    chat.ws._kill_shell(str(data.get("id")))
+                    result = {"jobs": chat.ws.job_list()}
+                elif path == "/api/files/list":
+                    result = {"items": chat.ws.list_dir(str(data.get("path", ""))), "root": str(chat.ws.cwd)}
+                elif path == "/api/files/read":
+                    result = chat.ws.read_for_view(str(data.get("path", "")))
                 elif path == "/api/rewind":
                     result = {"restored": chat.rewind(int(data.get("idx", -1)), str(data.get("text", "")),
                                                       bool(data.get("undo_files", True)))}

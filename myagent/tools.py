@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import urllib.request
 from pathlib import Path
 
@@ -335,6 +336,7 @@ class Workspace:
         self.sandbox = "off"  # off | folder | folder_no_net (see platform_extras.wrap_command)
         self.jobs: dict[str, dict] = {}
         self._job_n = 0
+        self.on_job = None  # called when a background job starts (live Tasks tab)
 
     def path(self, p: str) -> Path:
         path = Path(os.path.expanduser(p))
@@ -406,7 +408,9 @@ class Workspace:
         proc = subprocess.Popen(argv or command, shell=argv is None, cwd=self.cwd, stdout=log, stderr=subprocess.STDOUT,
                                 stdin=subprocess.DEVNULL, start_new_session=(os.name != "nt"))
         log.close()
-        self.jobs[job_id] = {"proc": proc, "log": log.name, "pos": 0, "command": command}
+        self.jobs[job_id] = {"proc": proc, "log": log.name, "pos": 0, "command": command, "started": time.time()}
+        if self.on_job:
+            self.on_job()
         return f"Started background job {job_id} (pid {proc.pid}). Read its output with bash_output."
 
     def _sandboxed(self, command: str) -> list[str] | None:
@@ -442,6 +446,54 @@ class Workspace:
             except subprocess.TimeoutExpired:
                 job["proc"].kill()
         return f"Stopped {job_id}."
+
+    def job_list(self) -> list[dict]:
+        out = []
+        for job_id, job in self.jobs.items():
+            try:
+                with open(job["log"], "rb") as f:
+                    f.seek(0, 2)
+                    size = f.tell()
+                    f.seek(max(0, size - 6000))
+                    tail = f.read().decode(errors="replace")
+            except OSError:
+                tail = ""
+            code = job["proc"].poll()
+            out.append({"id": job_id, "command": job["command"], "running": code is None, "code": code,
+                        "started": job.get("started", 0), "pid": job["proc"].pid, "tail": tail})
+        return out
+
+    def list_dir(self, rel: str) -> list[dict]:
+        p = self.path(rel or ".")
+        self._inside(p)
+        if not p.is_dir():
+            raise ToolError(f"Not a folder: {rel}")
+        items = []
+        for c in sorted(p.iterdir(), key=lambda c: (not c.is_dir(), c.name.lower()))[:2000]:
+            if c.name in (".git", ".DS_Store"):
+                continue
+            try:
+                items.append({"name": c.name, "dir": c.is_dir(), "size": 0 if c.is_dir() else c.stat().st_size,
+                              "path": c.relative_to(self.cwd).as_posix()})
+            except OSError:
+                pass
+        return items
+
+    def read_for_view(self, rel: str) -> dict:
+        p = self.path(rel)
+        self._inside(p)
+        if not p.is_file():
+            raise ToolError(f"No such file: {rel}")
+        raw = p.read_bytes()[:400_000]
+        if b"\0" in raw[:8000]:
+            return {"binary": True, "size": p.stat().st_size}
+        return {"text": raw.decode(errors="replace"), "truncated": p.stat().st_size > 400_000, "size": p.stat().st_size}
+
+    def _inside(self, p: Path):
+        try:
+            p.resolve().relative_to(self.cwd)
+        except ValueError:
+            raise ToolError("That path is outside the project folder.")
 
     def stop_all_jobs(self):
         for job_id in list(self.jobs):

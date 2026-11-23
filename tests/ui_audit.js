@@ -107,8 +107,8 @@ async function overlaps(pg, label) {
       check('Rail model opens the model list', await pg.isVisible('#mpList')); await overlaps(pg, 'model picker'); await pg.keyboard.press('Escape');
       await pg.click('#planBtn'); await pg.waitForTimeout(200); check('Plan mode toggles on', await pg.evaluate(() => document.getElementById('planBtn').classList.contains('on')));
       await pg.click('#planBtn'); await pg.waitForTimeout(200);
-      await pg.click('#termToggle'); check('Terminal button opens Run logs', await pg.isVisible('#termBox'));
-      await pg.click('#browserToggle'); check('Browser preview opens Preview', await pg.isVisible('#bview'));
+      await pg.click('#termToggle'); check('Terminal button opens the Terminal', await pg.isVisible('#termBox'));
+      await pg.click('#browserToggle'); check('Browser button opens the Browser', await pg.isVisible('#bview'));
       for (const t of ['git', 'term', 'browser', 'chat']) { await pg.click(`.ctab[data-c="${t}"]`); await overlaps(pg, `tab ${t}`); }
       // --- right rail
 
@@ -155,6 +155,18 @@ async function overlaps(pg, label) {
       await pg.locator('.hunk input').nth(1).uncheck(); await pg.getByRole('button', { name: 'Apply selected' }).click();
       await pg.waitForFunction(() => document.querySelectorAll('.turnfoot').length >= 2, null, { timeout: 15000 });
       check('Apply selected applies only the chosen change', (await pg.innerText('#log')).includes('Applied 1 of 2'));
+      check('Tabs are named Changes, Terminal, Browser, Files, Tasks', (await pg.innerText('.ctabs')).replace(/\s+/g, ' ').includes('Changes') && (await pg.innerText('.ctabs')).includes('Terminal') && (await pg.innerText('.ctabs')).includes('Browser') && (await pg.innerText('.ctabs')).includes('Files') && (await pg.innerText('.ctabs')).includes('Tasks'));
+      await pg.click('.ctab[data-c="files"]'); await pg.waitForSelector('#fTree .fitem', { timeout: 8000 });
+      check('Files tab lists the project folder', (await pg.innerText('#fTree')).includes('app.py'));
+      await pg.locator('#fTree .fitem', { hasText: 'app.py' }).click(); await pg.waitForTimeout(400);
+      check('Clicking a file shows its contents', (await pg.innerText('#fBody')).includes('def total'));
+      await overlaps(pg, 'files tab');
+      await pg.click('.ctab[data-c="tasks"]'); await pg.waitForTimeout(400);
+      check('Tasks tab shows background tasks', await pg.isVisible('#jobList') && (await pg.innerText('#jobList')).includes('No background tasks'));
+      await overlaps(pg, 'tasks tab');
+      await pg.click('.ctab[data-c="git"]'); await pg.waitForTimeout(500);
+      check('Changes tab shows changed files', (await pg.innerText('#gitFiles')).includes('app.py'));
+      await pg.click('.ctab[data-c="chat"]'); await pg.waitForTimeout(200);
       // Activity panel and side panel button
       await pg.click('#activityBtn'); await pg.waitForTimeout(250);
       check('Activity panel lists what the agent did', await pg.isVisible('#activityPop') && (await pg.locator('#actList .arow').count()) >= 2, String(await pg.locator('#actList .arow').count()));

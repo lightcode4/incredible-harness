@@ -889,6 +889,29 @@ def main():
     finally:
         pxx.find_cloudflared = old_find
     print("50 access from anywhere OK")
+    # 51. live views: background jobs listed with output and stoppable; folder browsing stays inside the project; edits announce changes
+    s.new_chat()
+    cw = Path(s.current.cwd)
+    evs = d.run("serve", script=[("tool", "bash", {"command": f'"{sys.executable}" -c "import time; print(\'serving on 8000\', flush=True); time.sleep(60)"', "run_in_background": True}), ("text", "started")])
+    assert any(e["kind"] == "jobs_changed" for e in evs), "starting a job should tell the Tasks tab"
+    time.sleep(1.0)
+    jobs = s.current.ws.job_list()
+    assert len(jobs) == 1 and jobs[0]["running"] and "serving on 8000" in jobs[0]["tail"], jobs
+    s.current.ws._kill_shell(jobs[0]["id"])
+    assert not s.current.ws.job_list()[0]["running"]
+    (cw / "sub").mkdir(exist_ok=True)
+    (cw / "sub" / "x.txt").write_text("hello")
+    names = [i["name"] for i in s.current.ws.list_dir("")]
+    assert "sub" in names and ".git" not in names and names.index("sub") < len(names)
+    assert s.current.ws.read_for_view("sub/x.txt")["text"] == "hello"
+    try:
+        s.current.ws.read_for_view("../../etc/passwd")
+        raise AssertionError("paths outside the project must be refused")
+    except Exception as e:
+        assert "outside the project" in str(e) or "No such file" in str(e), e
+    evs = d.run("edit", script=[("tool", "write_file", {"path": "live.txt", "content": "x"}), ("text", "ok")])
+    assert any(e["kind"] == "fs_changed" for e in evs), "edits should refresh the Changes and Files tabs live"
+    print("51 live Changes / Files / Tasks OK")
     print("ALL TESTS PASSED")
 
 
