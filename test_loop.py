@@ -843,11 +843,13 @@ def main():
     print("48 context meter + compact OK")
 
     # 49. more hooks: session start adds context, on-prompt can block, before-tool can block
-    py = shlex.quote(sys.executable)
-    s.config["hooks"][s.current.rules_dir] = {
-        "session_start": f"{py} -c \"print('branch is main')\"",
-        "on_prompt": f"{py} -c \"import os,sys; p=os.environ['HERNESS_PROMPT']; print('blocked word') if 'secret' in p else None; sys.exit(2 if 'secret' in p else 0)\"",
-        "before_tool": f"{py} -c \"import os,sys; sys.exit(3 if 'rm ' in os.environ['HERNESS_INPUT'] else 0)\""}
+    hd = Path(tempfile.mkdtemp())
+    (hd / "start.py").write_text("print('branch is main')\n")
+    (hd / "prompt.py").write_text("import os, sys\np = os.environ['HERNESS_PROMPT']\nif 'secret' in p:\n    print('blocked word')\n    sys.exit(2)\n")
+    (hd / "tool.py").write_text("import os, sys\nsys.exit(3 if 'rm ' in os.environ['HERNESS_INPUT'] else 0)\n")
+    run = lambda f: f'"{sys.executable}" "{hd / f}"'  # double quotes work in both sh and Windows cmd
+    s.config["hooks"][s.current.rules_dir] = {"session_start": run("start.py"), "on_prompt": run("prompt.py"),
+                                              "before_tool": run("tool.py")}
     s.new_chat()
     d.run("hello", script=[("text", "hi")])
     assert "branch is main" in json.dumps(REQUESTS[-1][2]["messages"][0])

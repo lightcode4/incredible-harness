@@ -442,13 +442,27 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
 
 .rail { width: auto; background: none; padding: 0; border: 0; overflow: visible; margin: 0; }
 #railDock { position: fixed; z-index: 60; right: 26px; top: 84px; touch-action: none; }
-#railFab { width: 44px; height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--accent);
+#railFab { width: 46px; height: 46px; border-radius: 13px; border: 1px solid #3a3020; background: linear-gradient(160deg, #2b2418, #17130c); color: #dfbd69;
   display: grid; place-items: center; box-shadow: var(--shadow); cursor: grab; position: relative; transition: transform .15s, box-shadow .15s; }
 #railFab:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,.08), 0 10px 28px rgba(91,65,21,.14); }
 #railFab.dragging { cursor: grabbing; transform: scale(1.06); }
-#railFab svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
-#railFab .fdot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); border: 1.5px solid var(--panel); }
+#railFab svg.sun { width: 28px; height: 28px; }
+#railFab .fdot { position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%; background: var(--faint); border: 2px solid var(--bg); display: none; }
+#railFab .fdot.busy, #railFab .fdot.done { display: block; }
 #railFab .fdot.busy { background: var(--sun); animation: fpulse 1.2s ease-in-out infinite; } #railFab .fdot.done { background: var(--ok); }
+.tbwrap { position: relative; display: inline-flex; }
+#sidePanelBtn.on, #activityBtn.on { color: var(--accent); background: var(--hover); }
+.acount { position: absolute; top: 1px; right: 0; min-width: 15px; height: 15px; border-radius: 8px; background: var(--accent); color: var(--accent-text); font-size: 9.5px; line-height: 15px; text-align: center; padding: 0 3px; font-family: var(--monoF); }
+#activityPop { position: absolute; top: calc(100% + 8px); right: -6px; width: 360px; max-height: min(560px, 75vh); overflow-y: auto; z-index: 70; background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.06), 0 18px 48px rgba(91,65,21,.16); padding: 10px; opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .15s, transform .15s, visibility 0s .15s; }
+#activityPop.open { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+.aphead { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 6px 8px; } .aphead b { font-size: 14px; } .aphead span { font-size: 11.5px; color: var(--muted); }
+.arow { display: flex; gap: 9px; align-items: center; width: 100%; border: 0; background: none; text-align: left; padding: 7px 8px; border-radius: 8px; font-size: 12.5px; color: var(--body); cursor: pointer; }
+.arow:hover { background: var(--hover); color: var(--text); }
+.arow i { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--faint); } .arow i.ok { background: var(--ok); } .arow i.bad { background: var(--bad); } .arow i.wait { background: var(--sun); } .arow i.run { background: var(--accent); animation: fpulse 1.2s infinite; }
+.arow span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--monoF); font-size: 12px; } .arow small { color: var(--faint); font-size: 11px; flex: none; }
+.aempty { padding: 18px 8px; color: var(--muted); font-size: 12.5px; text-align: center; }
+.flash { animation: flash 1.2s ease; } @keyframes flash { 0%, 40% { box-shadow: 0 0 0 2px var(--sun); } 100% { box-shadow: none; } }
 @keyframes fpulse { 50% { transform: scale(1.5); opacity: .6; } }
 #railPop { position: absolute; width: 300px; max-height: min(620px, calc(100vh - 40px)); overflow-y: auto; opacity: 0; visibility: hidden;
   transform: scale(.96); transition: opacity .16s, transform .16s, visibility 0s .16s; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.06), 0 18px 48px rgba(91,65,21,.16); }
@@ -618,6 +632,9 @@ body.models-open #modelsView { display: block !important; }
     </div>
     <button class="iconbtn" id="termToggle" title="Terminal (Ctrl+`)" aria-label="Terminal"><svg><use href="#i-term"/></svg></button>
     <button class="iconbtn" id="browserToggle" title="Built-in browser" aria-label="Browser"><svg><use href="#i-globe"/></svg></button>
+    <span class="tbwrap"><button class="iconbtn" id="activityBtn" title="Activity panel" aria-label="Activity panel" aria-expanded="false" aria-controls="activityPop"><svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="1.2"/><circle cx="5" cy="12" r="1.2"/><circle cx="5" cy="18" r="1.2"/><path d="M9.5 6H20M9.5 12H20M9.5 18H20"/></svg><span class="acount" id="actCount" hidden></span></button>
+      <div id="activityPop" role="dialog" aria-label="Activity"><div class="aphead"><b>Activity</b><span id="actSum"></span></div><div id="actList"></div></div></span>
+    <button class="iconbtn" id="sidePanelBtn" title="Show side panel (⌘.)" aria-label="Show side panel" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M15 4.5v15"/></svg></button>
     <button class="iconbtn" id="keysBtn" title="Help and keyboard shortcuts" aria-label="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg></button>
   </div>
   <div id="banner"><span id="bannerText"></span><span class="spacer"></span><button class="btn small primary" id="bannerBtn">Download</button><button class="iconbtn" id="bannerX" aria-label="Dismiss"><svg><use href="#i-x"/></svg></button></div>
@@ -720,7 +737,7 @@ body.models-open #modelsView { display: block !important; }
       </section>
       <div id="railDock">
       <button id="railFab" title="Run overview — click to open, drag to move, double-click to put it back" aria-label="Run overview" aria-expanded="false" aria-controls="railPop">
-        <svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M8 9h8M8 13h5M8 17h3"/></svg><span class="fdot" id="railFabDot"></span></button>
+        <svg class="sun" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M17 35a15 15 0 0 1 30 0M8 43h48M15 52h34M23 60h18M32 5v9M9 15l7 7M55 15l-7 7"/></g><path d="M17 35a15 15 0 0 1 30 0Z" fill="currentColor"/></svg><span class="fdot" id="railFabDot"></span></button>
       <aside class="rail" id="railPop">
         <div class="card overview">
           <div class="ovhead"><b>Run overview</b><span class="status" id="railStatus">Idle</span></div>
@@ -1325,10 +1342,47 @@ window.addEventListener("drop", e => { e.preventDefault(); dragDepth = 0; docume
   fab.addEventListener("dblclick", () => { dock.style.left = dock.style.top = dock.style.right = dock.style.bottom = ""; openRail(false);
     try { localStorage.removeItem("lc4.railPos"); } catch (e) {} });
   fab.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openRail(); } });
-  document.addEventListener("pointerdown", e => { if (dock.classList.contains("open") && !dock.contains(e.target) && !e.target.closest("dialog")) openRail(false); });
+  document.addEventListener("pointerdown", e => { if (dock.classList.contains("open") && !dock.contains(e.target) && !e.target.closest("dialog, #sidePanelBtn")) openRail(false); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && dock.classList.contains("open")) openRail(false); });
   pop.addEventListener("click", e => { if (e.target.closest("#railModelBtn, #railWsBtn, #railUndo")) openRail(false); });
 })();
+// ---------- Side panel button + Activity panel ----------
+const syncSideBtn = () => { const on = $("railDock").classList.contains("open"); $("sidePanelBtn").classList.toggle("on", on); $("sidePanelBtn").setAttribute("aria-pressed", on); };
+new MutationObserver(syncSideBtn).observe($("railDock"), { attributes: true, attributeFilter: ["class"] });
+$("sidePanelBtn").onclick = e => { e.stopPropagation(); openRail(); };
+document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key === ".") { e.preventDefault(); openRail(); } });
+function activityItems() {
+  return [...document.querySelectorAll("#log .toolcard, #log .hookrow")].map(c => {
+    const badge = c.querySelector(".badge")?.textContent || "", hook = c.classList.contains("hookrow");
+    const text = (c.querySelector(".sum") || c.querySelector("summary span"))?.textContent || "";
+    const state = hook ? (/failed/.test(text) ? "bad" : "ok") : /Failed|Denied|Blocked|Invalid|rule|hook|Skipped/i.test(badge) ? "bad" : /Needs approval/.test(badge) ? "wait" : /Running/.test(badge) ? "run" : "ok";
+    return { c, text, state, badge: hook ? "hook" : badge };
+  });
+}
+function renderActivity() {
+  const items = activityItems(), list = $("actList"); list.innerHTML = "";
+  const n = items.length, failed = items.filter(i => i.state === "bad").length;
+  $("actSum").textContent = n ? `${n} step${n === 1 ? "" : "s"}${failed ? ` · ${failed} not done` : ""}` : "";
+  const c = $("actCount"); c.hidden = !n; c.textContent = n > 99 ? "99+" : n;
+  if (!n) { list.innerHTML = `<div class="aempty">Nothing yet. Commands, edits, searches and checks the agent runs in this session show up here.</div>`; return; }
+  items.forEach(({ c: card, text, state, badge }) => {
+    const r = el("button", "arow"); r.innerHTML = `<i class="${state}"></i><span></span><small></small>`;
+    r.querySelector("span").textContent = text; r.querySelector("small").textContent = badge; r.title = text;
+    r.onclick = () => { toggleActivity(false); if (typeof closePanel === "function") closePanel(); card.open = true; card.scrollIntoView({ behavior: "smooth", block: "center" });
+      card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash"); };
+    list.appendChild(r);
+  });
+}
+function toggleActivity(on = !$("activityPop").classList.contains("open")) {
+  if (on) renderActivity();
+  $("activityPop").classList.toggle("open", on); $("activityBtn").classList.toggle("on", on); $("activityBtn").setAttribute("aria-expanded", on);
+}
+$("activityBtn").onclick = e => { e.stopPropagation(); toggleActivity(); };
+document.addEventListener("pointerdown", e => { if ($("activityPop").classList.contains("open") && !e.target.closest(".tbwrap")) toggleActivity(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") toggleActivity(false); });
+let actTimer = null;
+new MutationObserver(() => { clearTimeout(actTimer); actTimer = setTimeout(() => { if ($("activityPop").classList.contains("open")) renderActivity(); else { const n = activityItems().length; $("actCount").hidden = !n; $("actCount").textContent = n > 99 ? "99+" : n; } }, 150); })
+  .observe($("log"), { childList: true, subtree: true, characterData: true });
 // ---------- Sidebar "More" ----------
 $("moreBtn").onclick = () => { const o = $("more").classList.toggle("open"); $("moreBtn").setAttribute("aria-expanded", o); };
 $("more").addEventListener("mouseleave", () => { if (!$("more").contains(document.activeElement)) { $("more").classList.remove("open"); $("moreBtn").setAttribute("aria-expanded", "false"); } });
@@ -1640,7 +1694,7 @@ $("navGit").onclick = () => { navSet("navGit"); openPanel("git"); };
 $("navTasks").onclick = $("taskBoardBtn").onclick = () => { navSet("navTasks"); closePanel(); openRail(true); if (!(lastTodos || []).length) { startChatting(); notice("No plan yet. For bigger jobs the agent writes one here, or turn on Plan mode."); } };
 document.querySelectorAll("[data-set]").forEach(b => b.onclick = () => openSettings(b.dataset.set === "instr" ? "instr" : b.dataset.set));
 $("navUsage").onclick = () => uiCommand("cost");
-$("navActivity").onclick = () => api("/api/logs/open").catch(e => notice(e.message));
+$("navActivity").onclick = e => { e.stopPropagation(); toggleActivity(true); };
 $("navHelp").onclick = () => $("keys").showModal();
 $("wsBox").onclick = $("railWsBtn").onclick = () => openSettings("model");
 $("railModelBtn").onclick = () => openModelPicker();

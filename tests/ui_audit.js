@@ -7,7 +7,7 @@ const check = (name, ok, detail = '') => (ok ? passed : problems).push(name + (d
 async function overlaps(pg, label) {
   const found = await pg.evaluate(() => {
     const sel = 'button, a, input, select, textarea, .pill, .card, .status, .badge, h1, .eyebrow, .sub, .navbtn, .chatitem, .modelchip, .sdk, .wsbox, .who, .composer, .ctab, kbd, .rrow, .nums span, .savednote';
-    const modal = document.querySelector('dialog[open]') || document.querySelector('#provMenu:not([hidden])') || document.querySelector('#railDock.open #railPop');
+    const modal = document.querySelector('dialog[open]') || document.querySelector('#provMenu:not([hidden])') || document.querySelector('#railDock.open #railPop') || document.querySelector('#activityPop.open');
     const clip = el => { // the part of the element that is visible inside scrolling/clipping ancestors
       let r = el.getBoundingClientRect(); r = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
       for (let p = el.parentElement; p; p = p.parentElement) {
@@ -155,6 +155,18 @@ async function overlaps(pg, label) {
       await pg.locator('.hunk input').nth(1).uncheck(); await pg.getByRole('button', { name: 'Apply selected' }).click();
       await pg.waitForFunction(() => document.querySelectorAll('.turnfoot').length >= 2, null, { timeout: 15000 });
       check('Apply selected applies only the chosen change', (await pg.innerText('#log')).includes('Applied 1 of 2'));
+      // Activity panel and side panel button
+      await pg.click('#activityBtn'); await pg.waitForTimeout(250);
+      check('Activity panel lists what the agent did', await pg.isVisible('#activityPop') && (await pg.locator('#actList .arow').count()) >= 2, String(await pg.locator('#actList .arow').count()));
+      await overlaps(pg, 'activity panel');
+      await pg.locator('#actList .arow').first().click(); await pg.waitForTimeout(400);
+      check('Clicking a step closes the panel and jumps to it', !(await pg.isVisible('#activityPop')));
+      await pg.click('#sidePanelBtn'); await pg.waitForTimeout(250);
+      check('Show side panel opens the overview', await pg.isVisible('#railPop') && await pg.evaluate(() => document.getElementById('sidePanelBtn').classList.contains('on')));
+      await pg.click('#sidePanelBtn'); await pg.waitForTimeout(250);
+      check('Clicking it again hides it', !(await pg.isVisible('#railPop')));
+      await pg.keyboard.press('Control+.'); await pg.waitForTimeout(250);
+      check('Ctrl/Cmd+. toggles the side panel', await pg.isVisible('#railPop')); await pg.keyboard.press('Escape'); await pg.waitForTimeout(250);
       await pg.locator('.umsg').first().hover(); await pg.waitForTimeout(250);
       check('Hovering a message shows Edit and Fork', await pg.locator('.umsg').first().getByRole('button', { name: 'Edit' }).isVisible());
       const before = await pg.innerText('#chatHead');
