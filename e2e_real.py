@@ -50,6 +50,14 @@ def main():
     s.config.update(effort="low", budget=BUDGET, auto=True, schedules=[], phone=False, computer=False)
     s.apply_config({"cwd": str(work)})
     s.save = lambda: None  # never write test settings back to the user's settings file
+    from myagent.gui import Stop
+    chat, orig = s.current, s.current.before_request
+
+    def capped():  # providers without known prices: cap tokens instead of dollars
+        if chat.tokens > 400_000:
+            raise Stop("Test token cap (400k) reached.")
+        orig()
+    chat.before_request = capped
     print(f"Testing {s.config['provider']} · {s.config['model']}" + (f" · {s.config['base_url']}" if s.config["base_url"] else ""), flush=True)
     events = []
     threading.Thread(target=lambda: [events.append(s.events.get()) for _ in iter(int, 1)], daemon=True).start()
