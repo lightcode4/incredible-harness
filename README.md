@@ -36,3 +36,6 @@ Add these repository secrets and the build signs automatically:
     python -m myagent          # terminal version
     python test_loop.py        # offline tests: fake API server, no tokens used
     python test_gui.py         # interface test (needs Node + Playwright)
+
+## License
+MIT. See [LICENSE](LICENSE).
