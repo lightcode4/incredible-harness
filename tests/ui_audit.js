@@ -48,7 +48,7 @@ async function overlaps(pg, label) {
     await overlaps(pg, L + ' start');
     if (process.argv[3]) {  // translated interface: check the words changed and nothing overflows
       const text = await pg.innerText('aside');
-      check(`[${L}] sidebar is translated`, text.includes('Control de versiones') && text.includes('Ajustes'), text.slice(0, 80));
+      check(`[${L}] sidebar is translated`, text.includes('Más') && text.includes('Nueva sesión') && text.includes('Ajustes'), text.slice(0, 80));
       await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
       for (const t of ['model', 'tools', 'perms']) { await pg.click(`#tabs button[data-p="${t}"]`); await pg.waitForTimeout(120); await overlaps(pg, `${L} settings ${t}`); }
       await pg.click('#cancelSettings');
