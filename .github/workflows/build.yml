@@ -53,7 +53,7 @@ jobs:
       - name: Build app (macOS)
         if: matrix.name == 'mac'
         run: |
-          pyinstaller --noconfirm --windowed --name "LightCode4" --icon assets/icon.icns \
+          pyinstaller --noconfirm --windowed --name "LightCode4" --icon assets/icon.icns --collect-submodules pynput \
             --osx-bundle-identifier com.lightcode4.app --collect-all playwright \
             --add-data "myagent/static:myagent/static" run_app.py
           PLIST="dist/LightCode4.app/Contents/Info.plist"
@@ -89,7 +89,7 @@ jobs:
       - name: Build app (Windows)
         if: matrix.name == 'windows'
         run: |
-          pyinstaller --noconfirm --windowed --name "LightCode4" --icon assets/icon.ico --collect-all playwright --collect-all winpty \
+          pyinstaller --noconfirm --windowed --name "LightCode4" --icon assets/icon.ico --collect-submodules pynput --collect-all playwright --collect-all winpty \
             --add-data "myagent/static;myagent/static" run_app.py
           # Optional code signing: runs only when the Windows certificate secrets are added.
           # The app itself is signed before packaging, then the installer.
