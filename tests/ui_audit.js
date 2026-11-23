@@ -7,7 +7,7 @@ const check = (name, ok, detail = '') => (ok ? passed : problems).push(name + (d
 async function overlaps(pg, label) {
   const found = await pg.evaluate(() => {
     const sel = 'button, a, input, select, textarea, .pill, .card, .status, .badge, h1, .eyebrow, .sub, .navbtn, .chatitem, .modelchip, .sdk, .wsbox, .who, .composer, .ctab, kbd, .rrow, .nums span, .savednote';
-    const modal = document.querySelector('dialog[open]') || document.querySelector('#provMenu:not([hidden])') || document.querySelector('#railDock.open #railPop') || document.querySelector('#activityPop.open') || document.querySelector('#sideChat:not([hidden])');
+    const FLOATERS = ['railFab']; const modal = document.querySelector('dialog[open]') || document.querySelector('#provMenu:not([hidden])') || document.querySelector('#railDock.open #railPop') || document.querySelector('#activityPop.open') || document.querySelector('#sideChat:not([hidden])') || document.querySelector('#modeMenu:not([hidden])');
     const clip = el => { // the part of the element that is visible inside scrolling/clipping ancestors
       let r = el.getBoundingClientRect(); r = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
       for (let p = el.parentElement; p; p = p.parentElement) {
@@ -25,6 +25,7 @@ async function overlaps(pg, label) {
     const out = [];
     for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
       const a = els[i], b = els[j]; if (a.contains(b) || b.contains(a)) continue;
+      if ((FLOATERS.includes(a.id) && b.classList.contains('card')) || (FLOATERS.includes(b.id) && a.classList.contains('card'))) continue;  // floating button over the chat area is intended
       const ra = clip(a), rb = clip(b);
       const w = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left), h = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
       if (w > 3 && h > 3) {
@@ -82,10 +83,9 @@ async function overlaps(pg, label) {
       await pg.fill('#palIn', 'git'); check('Palette search finds Source control', (await pg.innerText('#palList')).includes('Source control')); await pg.keyboard.press('Escape');
       await pg.click('#keysBtn'); check('Help button opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
       // --- header & model bar
-      const narrow = (await pg.locator('#modelPill').boundingBox()).width;
-      await pg.hover('#modelPill'); await pg.waitForTimeout(400);
-      const wide = (await pg.locator('#modelPill').boundingBox()).width;
-      check('Model button is just the logo, and expands on hover', narrow < 60 && wide > narrow + 80, `${Math.round(narrow)} -> ${Math.round(wide)}px`);
+      check('Front page is clean: no big heading, no suggestion chips, no footer slogan', !(await pg.isVisible('.page > .pagehead')) && !(await pg.isVisible('.chip')) && !(await pg.innerText('body')).includes('Your machine. Your rules'));
+      const mp = await pg.locator('#modelPill').boundingBox(), cb = await pg.locator('#composer').boundingBox();
+      check('Model and mode sit under the message box', mp && cb && mp.y > cb.y + cb.height - 2 && await pg.isVisible('#planBtn'), JSON.stringify([mp?.y, cb?.y, cb?.height]));
       await pg.click('#modelPill'); await pg.waitForTimeout(500);
       check('Model name opens the provider menu', await pg.isVisible('#provMenu'));
       check('Provider menu lists providers with logos', (await pg.locator('#provList .prow').count()) >= 15 && (await pg.locator('#provList .plogo svg').count()) >= 8);
@@ -106,8 +106,14 @@ async function overlaps(pg, label) {
       await overlaps(pg, 'overview open');
       await pg.click('#railModelBtn'); await pg.waitForSelector('#modelPicker[open]'); await pg.waitForTimeout(300);
       check('Rail model opens the model list', await pg.isVisible('#mpList')); await overlaps(pg, 'model picker'); await pg.keyboard.press('Escape');
-      await pg.click('#planBtn'); await pg.waitForTimeout(200); check('Plan mode toggles on', await pg.evaluate(() => document.getElementById('planBtn').classList.contains('on')));
-      await pg.click('#planBtn'); await pg.waitForTimeout(200);
+      await pg.click('#planBtn'); await pg.waitForTimeout(200); check('Mode button opens the mode menu', await pg.isVisible('#modeMenu'));
+      await overlaps(pg, 'mode menu');
+      await pg.click('#modeMenu [data-mode="plan"]'); await pg.waitForTimeout(250);
+      check('Choosing Plan mode turns it on', await pg.evaluate(() => document.getElementById('planBtn').classList.contains('on')) && (await pg.innerText('#modeLabel')) === 'Plan mode');
+      await pg.click('#planBtn'); await pg.click('#modeMenu [data-mode="auto"]'); await pg.waitForTimeout(250);
+      check('Auto-approve can be chosen', (await pg.innerText('#modeLabel')) === 'Auto-approve' && !(await pg.evaluate(() => document.getElementById('planBtn').classList.contains('on'))));
+      await pg.click('#planBtn'); await pg.click('#modeMenu [data-mode="ask"]'); await pg.waitForTimeout(250);
+      check('Back to Asks first', (await pg.innerText('#modeLabel')) === 'Asks first');
       await pg.click('#termToggle'); check('Terminal button opens the Terminal', await pg.isVisible('#termBox'));
       await pg.click('#browserToggle'); check('Browser button opens the Browser', await pg.isVisible('#bview'));
       for (const t of ['git', 'term', 'browser', 'chat']) { await pg.click(`.ctab[data-c="${t}"]`); await overlaps(pg, `tab ${t}`); }
