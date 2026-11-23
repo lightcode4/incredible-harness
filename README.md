@@ -62,3 +62,6 @@ Add these repository secrets and the build signs automatically:
 
 ## License
 MIT. See [LICENSE](LICENSE).
+
+## Interface audit
+    python tests/ui_audit.py   # clicks through every section at 3 window sizes, light+dark; reports overlaps and errors

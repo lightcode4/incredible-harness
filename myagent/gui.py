@@ -723,7 +723,8 @@ class Session:
                        "api_key": "", "cwd": str(Path.home()), "web": True, "compaction": True, "budget": 0.0,
                        "mcp": [], "rules": {}, "hooks": {}, "github_token": "", "diagnostics": True,
                        "computer": False, "schedules": [], "phone": False, "voice_key": "", "auto": False, "plan": False,
-                       "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": []}
+                       "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
+                       "recent_folders": []}
         self.mcp = McpManager()
         self.quit_app = None  # set by the desktop app: closes the window
         self.new_window = None  # set by the desktop app: opens another window
@@ -828,6 +829,7 @@ class Session:
         cfg["cwd"] = str(cwd.resolve())
         cfg["budget"] = max(0.0, float(cfg.get("budget") or 0))
         cfg["base_url"] = fix_base_url(cfg.get("base_url", ""))
+        cfg["recent_folders"] = ([cfg["cwd"]] + [f for f in cfg.get("recent_folders", []) if f != cfg["cwd"] and Path(f).is_dir()])[:10]
         self.make_provider(cfg)  # validate (e.g. API key present) before changing anything
         old = self.config
         self.config = cfg

@@ -1,0 +1,16 @@
+"""Run the UI audit (tests/ui_audit.js) against the real engine with a scripted fake model. No API calls."""
+import subprocess, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import test_loop
+from test_loop import SCRIPT, start_fake
+start_fake()
+work = Path(tempfile.mkdtemp()); (work / "app.py").write_text("def total(xs):\n    return sum(xs)\n")
+for c in (["init", "-q", "-b", "main"], ["config", "user.email", "t@e.com"], ["config", "user.name", "T"], ["add", "-A"], ["commit", "-qm", "init"]):
+    subprocess.run(["git", *c], cwd=work, check=True)
+from myagent.gui import start_server
+SCRIPT[:] = [("tool", "todo_write", {"todos": [{"content": "Read app.py", "status": "completed"}, {"content": "Handle empty input", "status": "in_progress"}]}),
+             ("tool", "edit_file", {"path": "app.py", "old_text": "    return sum(xs)", "new_text": "    return sum(xs or [])"}), ("text", "Done.")]
+server, url, session = start_server(str(work))
+r = subprocess.run(["node", str(Path(__file__).with_name("ui_audit.js")), url], capture_output=True, text=True, timeout=300, cwd=Path(__file__).parent.parent)
+print(r.stdout[-6000:], r.stderr[-2000:])

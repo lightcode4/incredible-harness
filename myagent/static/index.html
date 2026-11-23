@@ -436,6 +436,17 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
 .mlogo { background: color-mix(in srgb, var(--warn) 18%, var(--panel)); color: var(--warn); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mlogo { background: color-mix(in srgb, var(--warn) 22%, var(--panel)); } }
 .navbtn em:empty { display: none; }
+#folderPicker { width: min(520px, 92vw); }
+.fpnote { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+#fpRecent { display: grid; gap: 2px; margin-bottom: 12px; }
+.fpitem { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 9px; cursor: pointer; border: 0; background: none; text-align: left; width: 100%; }
+.fpitem:hover { background: var(--hover); } .fpitem.cur { background: var(--soft); }
+.fpitem b { display: block; font-size: 13.5px; font-weight: 500; } .fpitem small { display: block; font-size: 11.5px; color: var(--muted); word-break: break-all; }
+.fpitem svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.fprow { display: flex; gap: 8px; margin-bottom: 10px; } .fprow input { flex: 1; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 8px 11px; font-family: var(--monoF); font-size: 12.5px; color: var(--text); }
+#fpChoose { width: 100%; justify-content: center; }
+@media (max-height: 860px) { .page { gap: 12px; padding-top: 16px; } .pagehead h1 { font-size: 34px; margin: 2px 0 0; } .pagehead .sub, .eyebrow { display: none; } .grid { min-height: 420px; } }
+@media (max-width: 900px) { .jump kbd { display: none; } }
 </style>
 </head>
 <body>
@@ -616,6 +627,12 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
 
 
 
+<dialog id="folderPicker" aria-label="Choose a project folder">
+  <div class="dlg-head"><h2 class="serif">Project folder</h2><button class="iconbtn" id="fpClose" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
+  <div class="dlg-body"><p class="fpnote">The agent works inside this folder: it reads and changes files only here (unless you allow more). Picking a folder starts a new session.</p>
+    <div id="fpRecent"></div>
+    <div class="fprow"><input id="fpPath" spellcheck="false" placeholder="/Users/you/projects/my-app"><button class="btn" id="fpOpen">Open</button></div>
+    <button class="btn primary" id="fpChoose" hidden>Choose folder…</button></div></dialog>
 <dialog id="modelPicker" aria-label="Choose a model"><input id="mpSearch" placeholder="Search models…" aria-label="Search models">
   <div id="mpInfo"></div><div id="mpList"></div>
   <div class="mpfoot"><button class="linkbtn" id="mpSettings">Provider, key &amp; more settings</button><button class="linkbtn" id="mpRefresh">Refresh list</button></div></dialog>
@@ -904,7 +921,7 @@ function handle(ev) {
     case "tool": toolCard(ev, false); break;
     case "approve": toolCard(ev, true); break;
     case "tool_result": toolResult(ev); break;
-    case "todos": setTodos(ev.todos); break;
+    case "todos": endBlock(); setTodos(ev.todos); break;
     case "turn_end": endBlock(); turnEnd(ev); if (panelTab === "git") gitRefresh(); break;
     case "preview": endBlock(); { const s = add(el("div", "srv", icon("eye"))); s.appendChild(document.createTextNode("Opened preview: " + ev.target)); } break;
     case "plan_ready": planReady(); break;
@@ -1446,13 +1463,17 @@ function palette() {
 let palSel = 0, palItems = [];
 function palRender() {
   const q = $("palIn").value.toLowerCase();
-  const nav = [["New session", () => $("newchat").click()], ["Parallel session (worktree)", () => $("parallelChat").click()], ["Source control", () => openPanel("git")],
-    ["Run logs (terminal)", () => openPanel("term")], ["Preview (browser)", () => openPanel("browser")], ["Settings", () => openSettings()], ["Models", () => openSettings("model")],
-    ["Connectors", () => openSettings("mcp")], ["Automations", () => openSettings("sched")], ["Context & rules", () => openSettings("instr")], ["Keyboard shortcuts", () => $("keys").showModal()]]
-    .map(([t, f]) => ({ t, k: "Go to", f }));
+  const nav = [["New session", () => $("newchat").click(), "chat new start"], ["Parallel session (worktree)", () => $("parallelChat").click(), "branch agent"],
+    ["Source control", () => openPanel("git"), "git commit branch push diff files"], ["Run logs (terminal)", () => openPanel("term"), "shell console command"],
+    ["Preview (browser)", () => openPanel("browser"), "web page localhost"], ["Project folder", () => openFolderPicker(), "workspace directory open"],
+    ["Choose model", () => openModelPicker(), "model gpt claude switch"], ["Settings", () => openSettings(), "preferences options"],
+    ["Models & API key", () => openSettings("model"), "provider key base url"], ["Connectors", () => openSettings("mcp"), "mcp tools integrations"],
+    ["Automations", () => openSettings("sched"), "schedule cron tasks"], ["Context & rules", () => openSettings("instr"), "instructions herness.md permissions"],
+    ["Memory", () => openSettings("memory"), "remember preferences"], ["Keyboard shortcuts", () => $("keys").showModal(), "keys help"]]
+    .map(([t, f, w]) => ({ t, k: "Go to", f, w }));
   const cmds = (config.commands || []).map(c => ({ t: "/" + c.name, k: c.description, f: () => { $("input").value = "/" + c.name + " "; autosize(); $("input").focus(); } }));
   const chats = chatCache.map(c => ({ t: c.title, k: "Session", f: () => api("/api/chat/open", { id: c.id }) }));
-  palItems = [...nav, ...chats, ...cmds].filter(i => !q || i.t.toLowerCase().includes(q) || i.k.toLowerCase().includes(q)).slice(0, 40);
+  palItems = [...nav, ...chats, ...cmds].filter(i => !q || (i.t + " " + i.k + " " + (i.w || "")).toLowerCase().includes(q)).slice(0, 40);
   palSel = Math.min(palSel, Math.max(0, palItems.length - 1));
   $("palList").innerHTML = ""; palItems.forEach((it, i) => { const r = el("div", "pal" + (i === palSel ? " on" : "")); r.innerHTML = "<span></span><small></small>";
     r.firstChild.textContent = it.t; r.lastChild.textContent = it.k; r.onclick = () => { $("palette").close(); it.f(); }; $("palList").appendChild(r); });
@@ -1527,6 +1548,31 @@ $("modelPill").onclick = openModelPicker;
 // settings: load the model list automatically when the dialog opens on the Model tab
 const _openSettings2 = openSettings;
 openSettings = async function (tab) { await _openSettings2(tab); if (!tab || tab === "model") $("loadModels").click(); };
+
+// ---------- Project folder chooser ----------
+function openFolderPicker() {
+  const box = $("fpRecent"); box.innerHTML = "";
+  const cur = config.chat_cwd || config.cwd;
+  (config.recent_folders || [cur]).forEach(f => {
+    const name = f.split(/[\\/]/).filter(Boolean).pop() || f;
+    const b = el("button", "fpitem" + (f === cur ? " cur" : ""), `<svg><use href="#i-folder"/></svg><span><b></b><small></small></span>`);
+    b.querySelector("b").textContent = name + (f === cur ? " · current" : ""); b.querySelector("small").textContent = f;
+    b.onclick = () => useFolder(f); box.appendChild(b);
+  });
+  $("fpPath").value = ""; $("fpChoose").hidden = !window.pywebview; $("folderPicker").showModal();
+}
+async function useFolder(f) {
+  if (!f) return;
+  try {
+    if (f !== (config.chat_cwd || config.cwd)) { await api("/api/config", { cwd: f }); await api("/api/chat/new"); }
+    $("folderPicker").close();
+  } catch (e) { $("fpPath").value = f; $("fpPath").title = e.message; alert(e.message); }
+}
+$("fpOpen").onclick = () => useFolder($("fpPath").value.trim());
+$("fpPath").addEventListener("keydown", e => { if (e.key === "Enter") useFolder($("fpPath").value.trim()); });
+$("fpChoose").onclick = async () => { const f = await window.pywebview.api.pick_folder(); if (f) useFolder(f); };
+$("fpClose").onclick = () => $("folderPicker").close();
+$("wsBox").onclick = $("railWsBtn").onclick = $("folderPill").onclick = openFolderPicker;
 
 loadChats(); $("input").focus();
 setTimeout(() => { if (config.build > 0) api("/api/update").then(r => { if (r.update) showUpdate(r); }).catch(() => {}); }, 4000);

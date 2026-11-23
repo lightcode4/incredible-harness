@@ -159,15 +159,18 @@ class ClaudeProvider:
     def _stream(self, ui: UI):
         try:
             with self.client.beta.messages.stream(**self._request()) as stream:
+                current = None
                 for event in stream:
-                    if event.type == "content_block_delta":
+                    if event.type == "content_block_start":
+                        current = getattr(event.content_block, "type", None)
+                    elif event.type == "content_block_delta":
                         if event.delta.type == "text_delta":
                             ui.text(event.delta.text)
                         elif event.delta.type == "thinking_delta":
                             ui.thinking(event.delta.thinking)
                     elif event.type == "content_block_stop":
                         block = getattr(event, "content_block", None)
-                        kind = getattr(block, "type", None)
+                        kind = getattr(block, "type", None) or current
                         if kind in ("text", "thinking"):
                             ui.end_block()
                         elif kind == "server_tool_use":
