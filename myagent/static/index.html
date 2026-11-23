@@ -490,6 +490,8 @@ body.models-open #modelsView { display: block !important; }
 .modelchip:hover > svg, .modelchip:focus-visible > svg, .modelchip.open > svg { max-width: 16px; opacity: 1; margin: 0 6px 0 8px; }
 #planBtn { height: 40px; border-radius: 12px; background: var(--panel); }
 #provMenu { left: 0; }
+#side .brand { padding-bottom: 6px; }
+#railWsBtn { cursor: pointer; } #railWsBtn:hover b { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -523,7 +525,7 @@ body.models-open #modelsView { display: block !important; }
 
 <aside id="side" aria-label="Navigation">
   <div class="brand"><div class="logo serif" aria-hidden="true">H</div><b class="serif">herness<span>.</span></b></div>
-  <button class="wsbox" id="wsBox" title="Workspace folder"><span class="wsav">M</span><span class="wst"><b id="wsName">My workspace</b><small id="wsPath">Personal workspace</small></span><svg><use href="#i-chev"/></svg></button>
+  <button class="wsbox" id="wsBox" title="Workspace folder" hidden><span class="wsav">M</span><span class="wst"><b id="wsName">My workspace</b><small id="wsPath">Personal workspace</small></span><svg><use href="#i-chev"/></svg></button>
   <div class="section">Workspace</div>
   <button class="navbtn on" id="navPlay"><svg><use href="#i-spark"/></svg>Agent playground</button>
   <button class="navbtn" id="navSessions"><svg><use href="#i-list"/></svg>Sessions<em id="sessCount">0</em></button>

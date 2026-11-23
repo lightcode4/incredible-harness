@@ -65,8 +65,8 @@ async function overlaps(pg, label) {
       }
       await pg.click('#navUsage'); check('Usage & cost shows the cost', (await pg.innerText('#log')).includes('cost'));
       await pg.click('#navHelp'); check('A little help opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
-      await pg.click('#wsBox'); await pg.waitForTimeout(300);
-      check('Workspace box opens the folder chooser', await pg.isVisible('#folderPicker[open]'));
+      await pg.click('#railWsBtn'); await pg.waitForTimeout(300);
+      check('Workspace row opens the folder chooser', await pg.isVisible('#folderPicker[open]'));
       if (await pg.isVisible('#folderPicker[open]')) { await overlaps(pg, 'folder chooser'); await pg.keyboard.press('Escape'); }
       // --- top bar
       await pg.click('#jumpBtn'); check('Jump to anything opens the palette', await pg.isVisible('#palette[open]'));
