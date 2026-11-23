@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Incredible Herness</title>
+<link rel="stylesheet" href="/vendor/xterm.css">
+<script src="/vendor/xterm.js"></script>
+<script src="/vendor/addon-fit.js"></script>
 <style>
 :root {
   --bg: #faf9f5; --side: #f3f1ea; --panel: #ffffff; --text: #29261b; --muted: #77736a; --faint: #a8a49a;
@@ -217,6 +220,30 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 .note { font-size: 13px; color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
 #dropHint { display: none; position: fixed; inset: 0; background: color-mix(in srgb, var(--accent) 10%, transparent); border: 3px dashed var(--accent); z-index: 50; place-items: center; font-size: 20px; color: var(--accent); pointer-events: none; }
 body.dragging #dropHint { display: grid; }
+/* Side panel: terminal + browser */
+#panel { display: none; flex-direction: column; width: var(--pw, 46%); min-width: 340px; max-width: 75%; border-left: 1px solid var(--line); background: var(--panel); position: relative; }
+body.panel-open #panel { display: flex; }
+#resizer { position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 3; }
+.ptabs { display: flex; align-items: center; gap: 2px; padding: 8px 10px 0; border-bottom: 1px solid var(--line); }
+.ptabs button.tab { border: 0; background: none; padding: 7px 12px; font-size: 13.5px; color: var(--muted); border-bottom: 2px solid transparent; display: flex; gap: 6px; align-items: center; }
+.ptabs button.tab.on { color: var(--text); border-bottom-color: var(--accent); }
+.ptabs svg { width: 15px; height: 15px; }
+.pview { flex: 1; min-height: 0; display: none; flex-direction: column; }
+.pview.on { display: flex; }
+#termBox { flex: 1; min-height: 0; background: #1c1b1a; padding: 6px 4px 4px 8px; }
+#termBox .xterm { height: 100%; }
+.termbar { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.bbar { display: flex; gap: 4px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.bbar input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+.bbar .iconbtn { padding: 5px; } .bbar svg { width: 16px; height: 16px; }
+#bview { flex: 1; min-height: 0; overflow: auto; background: var(--bg); display: flex; align-items: flex-start; justify-content: center; position: relative; outline: none; }
+#bview:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+#bimg { width: 100%; height: auto; display: none; cursor: default; user-select: none; }
+#bempty { margin: auto; text-align: center; color: var(--muted); font-size: 14px; padding: 24px; max-width: 360px; }
+#bempty b { display: block; color: var(--text); font-size: 16px; margin-bottom: 6px; }
+.agentbadge { position: absolute; top: 8px; right: 10px; font-size: 11.5px; background: var(--accent); color: var(--accent-text); padding: 2px 9px; border-radius: 999px; display: none; }
+body.agent-browsing .agentbadge { display: block; }
+.shot { display: block; max-width: 100%; border-top: 1px solid var(--line); }
 @media (max-width: 760px) { aside { position: absolute; z-index: 5; height: 100%; } #welcome h1 { font-size: 28px; } #costPill { display: none; } }
 </style>
 </head>
@@ -266,6 +293,8 @@ body.dragging #dropHint { display: grid; }
     <button class="pill" id="folderPill" title="Working folder"><svg><use href="#i-folder"/></svg><span id="folderName">…</span></button>
     <span class="pill" id="instrPill" hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
     <span class="spacer"></span>
+    <button class="iconbtn" id="termToggle" title="Terminal (Ctrl+`)"><svg><use href="#i-term"/></svg></button>
+    <button class="iconbtn" id="browserToggle" title="Browser"><svg><use href="#i-globe"/></svg></button>
     <span class="pill" id="costPill" title="Cost and tokens for this chat"><b id="cost">$0.00</b><span id="tokens">0 tokens</span></span>
   </div>
   <div id="banner"><span id="bannerText"></span><span class="spacer"></span><button class="btn small primary" id="bannerBtn">Download</button><button class="iconbtn" id="bannerX"><svg><use href="#i-x"/></svg></button></div>
@@ -294,6 +323,30 @@ body.dragging #dropHint { display: grid; }
   <div id="scroll"><div class="col"><div id="log"></div></div></div>
   <div id="dock"><details id="todos" open><summary><svg><use href="#i-list"/></svg><span id="todoSum">Tasks</span></summary><ul id="todoList"></ul></details></div>
 </main>
+
+<section id="panel">
+  <div id="resizer"></div>
+  <div class="ptabs">
+    <button class="tab" data-v="term"><svg><use href="#i-term"/></svg>Terminal</button>
+    <button class="tab" data-v="browser"><svg><use href="#i-globe"/></svg>Browser</button>
+    <span class="spacer"></span>
+    <button class="iconbtn" id="closePanel" title="Close panel"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <div class="pview" data-v="term">
+    <div class="termbar"><span id="termInfo">Terminal</span><span class="spacer"></span><button class="btn small" id="termRestart">New terminal</button></div>
+    <div id="termBox"></div>
+  </div>
+  <div class="pview" data-v="browser">
+    <div class="bbar">
+      <button class="iconbtn" data-b="back" title="Back"><svg><use href="#i-undo"/></svg></button>
+      <button class="iconbtn" data-b="forward" title="Forward" style="transform:scaleX(-1)"><svg><use href="#i-undo"/></svg></button>
+      <button class="iconbtn" data-b="reload" title="Reload"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+      <input id="burl" spellcheck="false" placeholder="Enter a URL or localhost:3000">
+    </div>
+    <div id="bview" tabindex="0"><span class="agentbadge">Agent is browsing</span><img id="bimg" alt="Browser view" draggable="false">
+      <div id="bempty"><b>Herness browser</b>Type a URL above, or ask the agent to open a page. You can click and type here too.<div id="bstatus" style="margin-top:10px"></div></div></div>
+  </div>
+</section>
 
 <dialog id="settings">
   <div class="dlg-head"><h2 class="serif">Settings</h2><button class="iconbtn" id="closeSettings"><svg><use href="#i-x"/></svg></button></div>
@@ -470,6 +523,7 @@ function toolResult(ev) {
   const lines = ev.output.trim().split("\n");
   const pre = el("pre"); pre.textContent = lines.slice(0, 80).join("\n") + (lines.length > 80 ? `\n… ${lines.length - 80} more lines` : "");
   card.querySelector(".toolbody").appendChild(pre);
+  if (ev.image) { const im = el("img", "shot"); im.src = "data:image/jpeg;base64," + ev.image; card.querySelector(".toolbody").appendChild(im); card.open = true; }
   if (!ev.error) card.open = false;
 }
 function notice(text) { endBlock(); const n = add(el("div", "notice", icon("warn"))); n.appendChild(document.createTextNode(text)); }
@@ -531,10 +585,16 @@ function handle(ev) {
     case "preview": endBlock(); { const s = add(el("div", "srv", icon("eye"))); s.appendChild(document.createTextNode("Opened preview: " + ev.target)); } break;
     case "plan_ready": planReady(); break;
     case "usage": setCost(ev.cost, ev.tokens, ev.priced); break;
-    case "status": setBusy(ev.busy); if (!ev.busy) loadChats(); break;
+    case "status": setBusy(ev.busy); if (!ev.busy) { loadChats(); document.body.classList.remove("agent-browsing"); } break;
     case "config": showConfig(ev.config); break;
     case "setup": openSettings(); $("dlgError").textContent = ev.text; break;
     case "replay": replay(ev); break;
+    case "term": termWrite(ev); break;
+    case "term_exit": if (ev.id === termId) { term?.write("\r\n\x1b[2m[process exited — click New terminal]\x1b[0m\r\n"); termId = null; } break;
+    case "browser_open": if (!replaying) { openPanel("browser"); document.body.classList.add("agent-browsing"); } break;
+    case "browser_frame": showFrame(ev); break;
+    case "browser_state": if (document.activeElement !== $("burl")) $("burl").value = ev.url === "about:blank" ? "" : ev.url; break;
+    case "browser_status": browserStatus(ev); break;
   }
 }
 function replay(ev) {
@@ -688,8 +748,75 @@ $("newchat").onclick = async () => { if (busy) await api("/api/stop").catch(() =
 document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key === ",") { e.preventDefault(); openSettings(); } if (e.key === "Escape" && busy && !$("settings").open) api("/api/stop"); });
 const h = new Date().getHours(); $("greet").textContent = (h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening") + ". What are we building?";
 window.addEventListener("pywebviewready", () => { $("pick").hidden = false; $("pick").onclick = async () => { const p = await window.pywebview.api.pick_folder(); if (p) $("cwd").value = p; }; });
+// ---------- Side panel ----------
+let panelTab = null, term = null, termId = null, fit = null, browserViewing = false;
+function openPanel(tab) {
+  document.body.classList.add("panel-open"); panelTab = tab;
+  document.querySelectorAll(".ptabs .tab").forEach(b => b.classList.toggle("on", b.dataset.v === tab));
+  document.querySelectorAll(".pview").forEach(v => v.classList.toggle("on", v.dataset.v === tab));
+  if (tab === "term") startTerm(); setViewing(tab === "browser");
+  if (tab === "term") setTimeout(() => { fit?.fit(); term?.focus(); }, 30);
+}
+function closePanel() { document.body.classList.remove("panel-open"); panelTab = null; setViewing(false); }
+function setViewing(on) { if (on !== browserViewing) { browserViewing = on; api("/api/browser/view", { on }).catch(() => {}); } }
+document.querySelectorAll(".ptabs .tab").forEach(b => b.onclick = () => openPanel(b.dataset.v));
+$("closePanel").onclick = closePanel;
+$("termToggle").onclick = () => panelTab === "term" ? closePanel() : openPanel("term");
+$("browserToggle").onclick = () => panelTab === "browser" ? closePanel() : openPanel("browser");
+$("resizer").onmousedown = e => {
+  e.preventDefault();
+  const move = ev => { const w = Math.min(Math.max(window.innerWidth - ev.clientX, 340), window.innerWidth * .75); document.documentElement.style.setProperty("--pw", w + "px"); fit?.fit(); };
+  const up = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); fit?.fit(); };
+  window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+};
+new ResizeObserver(() => { if (panelTab === "term") fit?.fit(); }).observe($("termBox"));
+
+// Terminal
+async function startTerm() {
+  if (!window.Terminal) { $("termInfo").textContent = "Terminal component failed to load."; return; }
+  if (!term) {
+    term = new Terminal({ fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace', fontSize: 13, cursorBlink: true,
+      theme: { background: "#1c1b1a", foreground: "#e8e6df", cursor: "#d97757", selectionBackground: "#d9775755" } });
+    fit = new FitAddon.FitAddon(); term.loadAddon(fit); term.open($("termBox")); fit.fit();
+    term.onData(d => { if (termId) api("/api/term/input", { id: termId, data: d }).catch(() => {}); });
+    term.onResize(({ cols, rows }) => { if (termId) api("/api/term/resize", { id: termId, cols, rows }).catch(() => {}); });
+  }
+  if (!termId) {
+    try { fit.fit(); const r = await api("/api/term/open", { cols: term.cols, rows: term.rows }); termId = r.id; $("termInfo").textContent = config.cwd || "Terminal"; }
+    catch (e) { term.write("\r\nCould not start a terminal: " + e.message + "\r\n"); }
+  }
+}
+function termWrite(ev) { if (term && ev.id === termId) term.write(ev.data); }
+$("termRestart").onclick = async () => { if (termId) await api("/api/term/close", { id: termId }).catch(() => {}); termId = null; term?.reset(); startTerm(); term?.focus(); };
+document.addEventListener("keydown", e => { if (e.ctrlKey && e.key === "`") { e.preventDefault(); $("termToggle").click(); } });
+
+// Browser
+function showFrame(ev) { const img = $("bimg"); img.src = "data:image/jpeg;base64," + ev.data; img.style.display = "block"; $("bempty").style.display = "none"; img.dataset.w = ev.w; img.dataset.h = ev.h; }
+function browserStatus(ev) {
+  const box = $("bstatus"); box.textContent = ev.text;
+  if (ev.install) { const b = el("button", "btn small primary", "Install browser engine"); b.onclick = () => { b.remove(); api("/api/browser/install"); }; box.append(" ", b); }
+  if (!$("bimg").src) $("bempty").style.display = "block";
+}
+const binput = (d) => api("/api/browser/input", d).catch(e => browserStatus({ text: e.message }));
+$("burl").addEventListener("keydown", e => { if (e.key === "Enter" && $("burl").value.trim()) { binput({ type: "navigate", url: $("burl").value.trim() }); $("bview").focus(); } });
+document.querySelectorAll("[data-b]").forEach(b => b.onclick = () => binput({ type: b.dataset.b }));
+$("bimg").addEventListener("click", e => {
+  const img = $("bimg"), r = img.getBoundingClientRect(); $("bview").focus();
+  binput({ type: "click", x: Math.round((e.clientX - r.left) * img.dataset.w / r.width), y: Math.round((e.clientY - r.top) * img.dataset.h / r.height) });
+});
+$("bview").addEventListener("wheel", e => { if ($("bimg").style.display === "block") { e.preventDefault(); binput({ type: "scroll", dy: Math.round(e.deltaY) }); } }, { passive: false });
+$("bview").addEventListener("keydown", e => {
+  if (e.isComposing) return;
+  const mods = [e.ctrlKey && "Control", e.metaKey && "Meta", e.altKey && "Alt"].filter(Boolean);
+  if (e.key.length === 1 && !mods.length) binput({ type: "text", text: e.key });
+  else if (!["Shift", "Control", "Meta", "Alt"].includes(e.key)) binput({ type: "key", key: [...mods, e.shiftKey && e.key.length > 1 ? "Shift" : null, e.key].filter(Boolean).join("+") });
+  else return;
+  e.preventDefault();
+});
+$("bview").addEventListener("paste", e => { const t = e.clipboardData?.getData("text"); if (t) { e.preventDefault(); binput({ type: "text", text: t }); } });
+
 loadChats(); $("input").focus();
-setTimeout(() => api("/api/update").then(r => { if (r.update) showUpdate(r); }).catch(() => {}), 4000);
+setTimeout(() => { if (config.build > 0) api("/api/update").then(r => { if (r.update) showUpdate(r); }).catch(() => {}); }, 4000);
 </script>
 </body>
 </html>

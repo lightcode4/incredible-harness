@@ -50,6 +50,10 @@ def cost_of(model: str, u: dict) -> float | None:
             + u.get("cache_write", 0) * p[0] * 1.25) / 1_000_000
 
 
+def _result_text(content) -> str:
+    return content if isinstance(content, str) else "\n".join(p.get("text", "") for p in content if p["type"] == "text")
+
+
 def _text_of(parts) -> str:
     if isinstance(parts, str):
         return parts
@@ -193,8 +197,12 @@ class ClaudeProvider:
                 return
             results = []
             for tu in tool_uses:
-                text, is_error = run_tool(tu.name, tu.input)
-                results.append({"type": "tool_result", "tool_use_id": tu.id, "content": text, "is_error": is_error})
+                out, is_error = run_tool(tu.name, tu.input)
+                if not isinstance(out, str):  # text + screenshot parts
+                    out = [{"type": "text", "text": p["text"]} if p["type"] == "text" else
+                           {"type": "image", "source": {"type": "base64", "media_type": p["media_type"], "data": p["data"]}}
+                           for p in out]
+                results.append({"type": "tool_result", "tool_use_id": tu.id, "content": out, "is_error": is_error})
             self.messages.append({"role": "user", "content": results})
         ui.notice(f"Stopped after {MAX_STEPS} tool rounds. Say 'continue' to keep going.")
 
@@ -358,6 +366,7 @@ class OpenAIProvider:
                 if finish == "length":
                     ui.notice("Reply hit the output limit.")
                 return
+            images = []
             for c in calls:
                 if finish == "length":
                     out, err = "Not run: output hit the length limit mid tool call. Retry in smaller steps.", True
@@ -366,7 +375,13 @@ class OpenAIProvider:
                         out, err = run_tool(c["name"], json.loads(c["arguments"] or "{}"))
                     except json.JSONDecodeError:
                         out, err = json.dumps({"INVALID_JSON": c["arguments"][:2000]}), True
+                if not isinstance(out, str):  # tool messages are text-only here; images follow as a user message
+                    images += [p for p in out if p["type"] == "image"]
+                    out = _result_text(out)
                 self.messages.append({"role": "tool", "tool_call_id": c["id"], "content": f"ERROR: {out}" if err else out})
+            if images:
+                self.messages.append({"role": "user", "content": [{"type": "text", "text": "Screenshot from the browser tool:"}] + [
+                    {"type": "image_url", "image_url": {"url": f"data:{p['media_type']};base64,{p['data']}"}} for p in images]})
         ui.notice(f"Stopped after {MAX_STEPS} tool rounds. Say 'continue' to keep going.")
 
     def close_interrupted(self) -> None:

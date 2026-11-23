@@ -32,9 +32,19 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install
-        run: python -m pip install anthropic openai pywebview pyinstaller
+        run: |
+          python -m pip install anthropic openai pywebview pyinstaller playwright
+          if [ "${{ matrix.name }}" = "windows" ]; then python -m pip install pywinpty; fi
+
+      # Herness's own browser engine, installed inside the playwright package so PyInstaller bundles it.
+      - name: Install built-in browser engine
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: "0"
+        run: python -m playwright install chromium-headless-shell
 
       - name: Offline tests (no API calls)
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: "0"
         run: python test_loop.py
 
       - name: Stamp build number (used by "Check for updates")
@@ -44,7 +54,7 @@ jobs:
         if: matrix.name == 'mac'
         run: |
           pyinstaller --noconfirm --windowed --name "Incredible Herness" \
-            --osx-bundle-identifier com.incrediblehernes.app \
+            --osx-bundle-identifier com.incrediblehernes.app --collect-all playwright \
             --add-data "myagent/static:myagent/static" run_app.py
           # Optional signing + notarization: runs only when the Apple secrets are added to the repository.
           if [ -n "$MACOS_CERT_P12" ]; then
@@ -73,7 +83,7 @@ jobs:
       - name: Build app (Windows)
         if: matrix.name == 'windows'
         run: |
-          pyinstaller --noconfirm --windowed --name "Incredible Herness" \
+          pyinstaller --noconfirm --windowed --name "Incredible Herness" --collect-all playwright --collect-all winpty \
             --add-data "myagent/static;myagent/static" run_app.py
           choco install innosetup -y --no-progress
           "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" installer.iss

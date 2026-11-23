@@ -17,6 +17,9 @@ reads and edits files, searches the web, and asks before every change.
   (dev servers, long builds), **sub-agents** for research, **previews** of pages and local servers.
 - **Project instructions:** put notes in `HERNESS.md` (or `CLAUDE.md` / `AGENTS.md`) in your folder.
 - **Connectors:** remote MCP servers (Claude provider).
+- **Terminal panel:** a real terminal in your working folder (zsh on Mac, PowerShell on Windows). Ctrl+` toggles it.
+- **Built-in browser:** Herness's own Chromium, shown live in a side panel. The agent navigates, reads, clicks, types and
+  takes screenshots to check its work; you can browse and click in it too. Clicks and typing by the agent ask first.
 - **Update check** from Settings → Updates.
 
 ## Install
@@ -31,7 +34,8 @@ Add these repository secrets and the build signs automatically:
 - Windows: `WINDOWS_CERT_PFX` (base64 .pfx), `WINDOWS_CERT_PASSWORD`.
 
 ## Develop
-    pip install anthropic openai pywebview
+    pip install anthropic openai pywebview playwright   # + pywinpty on Windows
+    python -m playwright install chromium-headless-shell
     python run_app.py          # desktop window
     python -m myagent          # terminal version
     python test_loop.py        # offline tests: fake API server, no tokens used

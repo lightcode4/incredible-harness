@@ -27,7 +27,9 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from ._build import BUILD, REPO
+from .browser import Browser, NeedsBrowser, install_chromium
 from .providers import ClaudeProvider, OpenAIProvider, cost_of
+from .terminal import Terminal
 from .tools import (MUTATING, READONLY_TOOLS, TOOLS, ToolError, Workspace, describe,
                     project_instructions, validate)
 
@@ -70,6 +72,8 @@ class Stop(Exception):
 
 
 def _rule_kind(name: str) -> str:
+    if name.startswith("browser_"):
+        return "browser"
     return {"bash": "bash", "kill_shell": "bash", "write_file": "write", "edit_file": "edit", "multi_edit": "edit"}.get(name, name)
 
 
@@ -94,6 +98,9 @@ class Session:
         self.ws: Workspace | None = None
         self.instruction_files: list[str] = []
         self.preview_opener = webbrowser.open
+        self.browser = Browser(HOME / "browser", self._browser_frame, self._browser_state)
+        self.browser_url = ""
+        self.terminals: dict[str, Terminal] = {}
         self._new_chat_state()
 
     # ------------------------------------------------------------------ chat state
@@ -260,6 +267,8 @@ class Session:
 
     # ------------------------------------------------------------------ permissions
     def _target(self, name: str, args: dict) -> str:
+        if name.startswith("browser_"):
+            return self.browser_url
         if name == "bash":
             return args["command"]
         if "path" in args:
@@ -276,6 +285,9 @@ class Session:
             except ValueError:
                 words = args["command"].split()[:2]
             return f"bash({' '.join(words)}*)" if words else "bash"
+        if name.startswith("browser_"):
+            host = urlparse(self.browser_url).netloc
+            return f"browser(*{host}*)" if host else "browser"
         return f"{_rule_kind(name)}(*)"
 
     def decide(self, name: str, args: dict) -> str:
@@ -308,6 +320,8 @@ class Session:
             return self._subagent(args)
         if name == "open_preview":
             return self._preview(args["target"])
+        if name.startswith("browser_"):
+            return self._browser_tool(name, args)
 
         call_id = secrets.token_hex(6)
         info = {"id": call_id, "name": name, "summary": describe(name, args)}
@@ -345,6 +359,109 @@ class Session:
             out, err = f"{type(e).__name__}: {e}", True
         self.emit("tool_result", id=call_id, output=out[:8000], error=err)
         return out, err
+
+    # ------------------------------------------------------------------ built-in browser
+    BROWSER_ACTS = {"browser_click", "browser_type", "browser_press"}
+
+    def _browser_frame(self, data, w, h):
+        self.events.put({"kind": "browser_frame", "data": data, "w": w, "h": h})
+
+    def _browser_state(self, st):
+        self.browser_url = st.get("url", "")
+        self.events.put({"kind": "browser_state", **st})
+
+    def _browser_tool(self, name: str, args: dict):
+        call_id = secrets.token_hex(6)
+        info = {"id": call_id, "name": name, "summary": describe(name, args)}
+        self.emit("browser_open")
+        if name in self.BROWSER_ACTS:
+            if self.config["plan"]:
+                self.emit("tool", **info, blocked="Plan mode")
+                return "Plan mode is on: you may look at pages but not click or type yet.", True
+            verdict = self.decide(name, args)
+            if verdict == "deny":
+                self.emit("tool", **info, blocked="Blocked by a rule")
+                return "Blocked by the user's permission rules.", True
+            if verdict == "ask":
+                rule = self._suggest_rule(name, args)
+                answer = self._ask(info, rule)
+                if answer.get("decision") == "always":
+                    self.add_rule(rule)
+                    self.emit("config", config=self.public_config())
+                elif answer.get("decision") != "allow":
+                    fb = answer.get("feedback") or "The user declined."
+                    self.emit("tool_result", id=call_id, output=f"Declined. {fb}", error=True)
+                    return f"The user did not allow this. Their reply: {fb}", True
+            else:
+                self.emit("tool", **info)
+        else:
+            self.emit("tool", **info)
+        b = self.browser
+        try:
+            if name == "browser_navigate":
+                out = b.navigate(args["url"])
+            elif name == "browser_read":
+                out = b.read()
+            elif name == "browser_screenshot":
+                img = b.screenshot()
+                self.emit("tool_result", id=call_id, output=f"Screenshot of {self.browser_url}", error=False, image=img)
+                return [{"type": "text", "text": f"Screenshot of {self.browser_url} (1280x800):"},
+                        {"type": "image", "media_type": "image/jpeg", "data": img}], False
+            elif name == "browser_click":
+                out = b.click(args.get("x"), args.get("y"), args.get("text"), args.get("selector"))
+            elif name == "browser_type":
+                out = b.type(args["text"], args.get("selector"), bool(args.get("submit")))
+            elif name == "browser_press":
+                out = b.press(args["key"])
+            else:
+                out = b.scroll(args["dy"])
+            err = False
+        except NeedsBrowser as e:
+            self.emit("browser_status", text=str(e), install=True)
+            out, err = f"{e} Ask the user to click 'Install browser engine' in the Browser panel.", True
+        except Exception as e:
+            out, err = f"{type(e).__name__}: {e}"[:2000], True
+        self.emit("tool_result", id=call_id, output=out[:8000], error=err)
+        return out, err
+
+    def install_browser(self):
+        def run():
+            try:
+                self.emit("browser_status", text="Downloading the browser engine (about 100 MB)…")
+                install_chromium(lambda line: self.events.put({"kind": "browser_status", "text": line}))
+                self.emit("browser_status", text="Browser engine installed.", done=True)
+            except Exception as e:
+                self.emit("browser_status", text=f"Install failed: {e}", install=True)
+        threading.Thread(target=run, daemon=True).start()
+
+    def browser_input(self, d: dict):
+        b, kind = self.browser, d.get("type")
+        if kind == "navigate":
+            b.navigate(str(d.get("url", "")))
+        elif kind in ("back", "forward", "reload"):
+            b.history(kind)
+        elif kind == "click":
+            b.click(int(d["x"]), int(d["y"]))
+        elif kind == "text":
+            b.type(str(d.get("text", "")))
+        elif kind == "key":
+            b.press(str(d.get("key", "")))
+        elif kind == "scroll":
+            b.scroll(int(d.get("dy", 0)))
+
+    # ------------------------------------------------------------------ terminals
+    def open_terminal(self, cols: int, rows: int) -> str:
+        t = Terminal(self.config["cwd"], lambda tid, data: self.events.put({"kind": "term", "id": tid, "data": data}),
+                     lambda tid: self.events.put({"kind": "term_exit", "id": tid}), cols, rows)
+        self.terminals[t.id] = t
+        return t.id
+
+    def shutdown(self):
+        for t in self.terminals.values():
+            t.close()
+        self.browser.close()
+        if self.ws:
+            self.ws.stop_all_jobs()
 
     def _ask(self, info: dict, rule: str) -> dict:
         done, answer = threading.Event(), {}
@@ -571,6 +688,18 @@ def make_handler(session: Session, token: str):
 
         def do_GET(self):
             path = urlparse(self.path).path
+            if path.startswith("/vendor/"):
+                f = Path(__file__).parent / "static" / "vendor" / Path(path).name
+                if f.is_file():
+                    body = f.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/css" if f.suffix == ".css" else "application/javascript")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                else:
+                    self.send_error(404)
+                return
             if not self._authed():
                 return
             if path == "/":
@@ -652,6 +781,31 @@ def make_handler(session: Session, token: str):
                         session.apply_config({}, keep_history=True)
                         session.emit("config", config=session.public_config())
                     result = {"file": f.name, "text": f.read_text(errors="replace") if f.is_file() else ""}
+                elif path == "/api/term/open":
+                    result = {"id": session.open_terminal(data.get("cols", 100), data.get("rows", 30))}
+                elif path == "/api/term/input":
+                    t = session.terminals.get(data.get("id"))
+                    if t:
+                        t.write(str(data.get("data", "")))
+                elif path == "/api/term/resize":
+                    t = session.terminals.get(data.get("id"))
+                    if t:
+                        t.resize(data.get("cols", 100), data.get("rows", 30))
+                elif path == "/api/term/close":
+                    t = session.terminals.pop(data.get("id"), None)
+                    if t:
+                        t.close()
+                elif path == "/api/browser/view":
+                    session.browser.viewers = max(0, session.browser.viewers + (1 if data.get("on") else -1))
+                    if data.get("on") and session.browser.thread and session.browser.thread.is_alive():
+                        session.browser.call(lambda page: None)  # push a fresh frame
+                elif path == "/api/browser/input":
+                    try:
+                        session.browser_input(data)
+                    except NeedsBrowser as e:
+                        session.emit("browser_status", text=str(e), install=True)
+                elif path == "/api/browser/install":
+                    session.install_browser()
                 elif path == "/api/update":
                     result = session.check_update()
                 elif path == "/api/open-url":
@@ -696,6 +850,7 @@ def main(argv=None):
     try:
         threading.Event().wait()
     except KeyboardInterrupt:
+        _.shutdown()
         server.shutdown()
 
 

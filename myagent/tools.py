@@ -85,10 +85,32 @@ TOOLS = [
     {"name": "open_preview", "kind": "session",
      "description": "Open a web page, local dev server URL or HTML file in a preview window so the user can see it.",
      "schema": _schema({"target": {"type": "string", "description": "URL or file path."}}, ["target"])},
+    # Built-in browser (handled in gui.py). Clicking/typing/key presses ask for approval like file changes.
+    {"name": "browser_navigate", "kind": "browser",
+     "description": "Open a URL in your built-in browser (also local dev servers like http://localhost:3000). "
+                    "The user sees it live in the Browser panel.",
+     "schema": _schema({"url": _S}, ["url"])},
+    {"name": "browser_read", "kind": "browser",
+     "description": "Get the current page's URL, title, visible text and its interactive elements with click coordinates.",
+     "schema": _schema({}, [])},
+    {"name": "browser_screenshot", "kind": "browser",
+     "description": "Take a screenshot of the current page (1280x800) to see layout and visuals. Use it to check pages you built.",
+     "schema": _schema({}, [])},
+    {"name": "browser_click", "kind": "browser",
+     "description": "Click in the page: by x/y coordinates (from a screenshot or browser_read), by visible text, or by CSS selector.",
+     "schema": _schema({"x": {"type": "integer"}, "y": {"type": "integer"}, "text": _S, "selector": _S}, [])},
+    {"name": "browser_type", "kind": "browser",
+     "description": "Type text into the focused field, or fill the field matching a CSS selector. submit=true presses Enter after.",
+     "schema": _schema({"text": _S, "selector": _S, "submit": {"type": "boolean"}}, ["text"])},
+    {"name": "browser_press", "kind": "browser",
+     "description": "Press a key or shortcut in the page, e.g. Enter, Escape, Tab, ArrowDown, Meta+A.",
+     "schema": _schema({"key": _S}, ["key"])},
+    {"name": "browser_scroll", "kind": "browser", "description": "Scroll the page by dy pixels (negative scrolls up).",
+     "schema": _schema({"dy": {"type": "integer"}}, ["dy"])},
 ]
 
 TOOLS_BY_NAME = {t["name"]: t for t in TOOLS}
-WORKSPACE_TOOLS = [t for t in TOOLS if t["kind"] != "session"]
+WORKSPACE_TOOLS = [t for t in TOOLS if t["kind"] not in ("session", "browser")]
 READONLY_TOOLS = [t for t in TOOLS if t["kind"] == "readonly"]
 MUTATING = {t["name"] for t in TOOLS if t["kind"] == "mutating"}
 FILE_CHANGING = {"write_file", "edit_file", "multi_edit"}
@@ -143,6 +165,10 @@ def describe(name: str, args: dict) -> str:
         return f"read {args.get('path')}"
     if name == "fetch_url":
         return f"fetch {args.get('url')}"
+    if name.startswith("browser_"):
+        detail = args.get("url") or args.get("text") or args.get("selector") or args.get("key") or (
+            f"({args['x']}, {args['y']})" if "x" in args else args.get("dy", ""))
+        return f"browser {name[8:]} {detail}".strip()
     if name in ("bash_output", "kill_shell"):
         return f"{name} {args.get('job_id')}"
     return f"{name} {args.get('pattern', '')} {args.get('path', '')}".strip()

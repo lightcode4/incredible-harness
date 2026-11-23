@@ -13,6 +13,18 @@ const { chromium } = require('playwright');
   await pg.screenshot({ path: 'shot-3-done.png' });
   await pg.emulateMedia({ colorScheme: 'dark' }); await pg.screenshot({ path: 'shot-4-dark.png' });
   await pg.emulateMedia({ colorScheme: 'light' });
+  // Terminal panel
+  await pg.click('#termToggle'); await pg.waitForSelector('#termBox .xterm');
+  await pg.waitForTimeout(1500); await pg.keyboard.type('echo hello from the herness terminal'); await pg.keyboard.press('Enter');
+  await pg.waitForFunction(() => document.querySelector('#termBox').innerText.includes('hello from the herness terminal\n') || document.querySelector('#termBox .xterm-rows').innerText.split('hello from the herness terminal').length > 2, null, { timeout: 15000 });
+  await pg.screenshot({ path: 'shot-6-terminal.png' });
+  // Browser panel: navigate with the URL bar, click inside the page
+  await pg.click('.ptabs .tab[data-v="browser"]'); await pg.fill('#burl', process.argv[3]); await pg.press('#burl', 'Enter');
+  await pg.waitForSelector('#bimg[src^="data:"]', { timeout: 30000 }); await pg.waitForTimeout(800);
+  const box = await pg.locator('#bimg').boundingBox();
+  await pg.mouse.click(box.x + box.width * 0.1, box.y + box.height * 0.27); await pg.waitForTimeout(1500);
+  await pg.screenshot({ path: 'shot-7-browser.png' });
+  await pg.click('#closePanel');
   await pg.click('#openSettings'); await pg.waitForSelector('dialog[open]'); await pg.click('#tabs button[data-p="perms"]');
   await pg.waitForTimeout(200); await pg.screenshot({ path: 'shot-5-settings.png' });
   await pg.click('#cancelSettings');

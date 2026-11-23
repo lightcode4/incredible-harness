@@ -253,6 +253,48 @@ def main():
     app.provider.turn("hi", app.run_tool, app.ui)
     assert "cli-ok" in json.dumps(REQUESTS[-1][2]["messages"][-1]["content"])
     print("14 terminal version OK")
+
+    # 15. interactive terminal panel (pseudo-terminal running the user's shell)
+    tid = s.open_terminal(80, 24)
+    time.sleep(1.0)
+    s.terminals[tid].write("echo term-$((40+2))\r")
+    deadline = time.time() + 15
+    while time.time() < deadline and not any(e["kind"] == "term" and "term-42" in e["data"] for e in d.events):
+        time.sleep(0.1)
+    assert any(e["kind"] == "term" and "term-42" in e["data"] for e in d.events), "terminal produced no output"
+    s.terminals.pop(tid).close()
+    print("15 terminal panel OK")
+
+    # 16. built-in browser: navigate, read, click (with approval), screenshot reaches Claude as an image
+    from http.server import SimpleHTTPRequestHandler
+    site = Path(tempfile.mkdtemp())
+    (site / "index.html").write_text("<title>Start</title><h1>Hello page</h1>"
+                                     "<button onclick=\"document.title='Clicked';this.innerText='Done!'\">Press me</button>")
+
+    class Quiet(SimpleHTTPRequestHandler):
+        def __init__(self, *a, **k):
+            super().__init__(*a, directory=str(site), **k)
+
+        def log_message(self, *a):
+            pass
+    web = ThreadingHTTPServer(("127.0.0.1", 0), Quiet)
+    threading.Thread(target=web.serve_forever, daemon=True).start()
+    page = f"http://127.0.0.1:{web.server_port}/"
+    s.apply_config({"provider": "claude", "model": "claude-opus-5-5"})
+    evs = d.run("check the page", script=[("tool", "browser_navigate", {"url": page}), ("tool", "browser_read", {}),
+                                          ("tool", "browser_click", {"text": "Press me"}), ("tool", "browser_screenshot", {}),
+                                          ("tool", "browser_read", {}), ("text", "The button works.")])
+    results = d.kinds(evs, "tool_result")
+    if any("not installed" in r["output"] for r in results):
+        print("16 browser SKIPPED (no browser engine on this machine)")
+    else:
+        assert "Hello page" in results[1]["output"] and "Press me" in results[1]["output"], results[1]["output"][:500]
+        assert d.kinds(evs, "approve") and d.kinds(evs, "approve")[0]["name"] == "browser_click"
+        shot_result = REQUESTS[-2][2]["messages"][-1]["content"][0]["content"]
+        assert any(b["type"] == "image" for b in shot_result), shot_result
+        assert "Clicked" in results[-1]["output"] and "Done!" in results[-1]["output"]
+        s.browser.close()
+        print("16 built-in browser OK")
     print("ALL TESTS PASSED")
 
 
