@@ -67,7 +67,9 @@ jobs:
             security unlock-keychain -p ci build.keychain
             security import cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k ci build.keychain
-            codesign --force --deep --options runtime --timestamp --sign "$MACOS_SIGN_IDENTITY" "dist/LightCode4.app"
+            codesign --force --deep --options runtime --timestamp --entitlements assets/entitlements.plist \
+              --sign "$MACOS_SIGN_IDENTITY" "dist/LightCode4.app"
+            codesign --verify --deep --strict "dist/LightCode4.app"
           fi
           hdiutil create -volname "LightCode4" -srcfolder "dist/LightCode4.app" \
             -ov -format UDZO "dist/LightCode4-mac.dmg"
@@ -89,14 +91,20 @@ jobs:
         run: |
           pyinstaller --noconfirm --windowed --name "LightCode4" --icon assets/icon.ico --collect-all playwright --collect-all winpty \
             --add-data "myagent/static;myagent/static" run_app.py
-          choco install innosetup -y --no-progress
-          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" installer.iss
           # Optional code signing: runs only when the Windows certificate secrets are added.
+          # The app itself is signed before packaging, then the installer.
           if [ -n "$WINDOWS_CERT_PFX" ]; then
             echo "$WINDOWS_CERT_PFX" | base64 --decode > cert.pfx
             SIGNTOOL=$(ls "/c/Program Files (x86)/Windows Kits/10/bin/"*/x64/signtool.exe | tail -1)
             "$SIGNTOOL" sign /f cert.pfx /p "$WINDOWS_CERT_PASSWORD" /fd sha256 /tr http://timestamp.digicert.com /td sha256 \
+              dist/LightCode4/LightCode4.exe
+          fi
+          choco install innosetup -y --no-progress
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" installer.iss
+          if [ -n "$WINDOWS_CERT_PFX" ]; then
+            "$SIGNTOOL" sign /f cert.pfx /p "$WINDOWS_CERT_PASSWORD" /fd sha256 /tr http://timestamp.digicert.com /td sha256 \
               dist/LightCode4-Setup.exe
+            rm -f cert.pfx
           fi
         env:
           WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}

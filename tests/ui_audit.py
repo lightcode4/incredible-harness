@@ -13,7 +13,7 @@ SCRIPT[:] = [("tool", "todo_write", {"todos": [{"content": "Read app.py", "statu
              ("tool", "edit_file", {"path": "app.py", "old_text": "    return sum(xs)", "new_text": "    return sum(xs or [])"}), ("text", "Done."),
              ("tool", "multi_edit", {"path": "app.py", "edits": [{"old_text": "def total(xs):", "new_text": "def total(xs=()):"},
                                                                 {"old_text": "/ len(xs)", "new_text": "/ max(len(xs), 1)"}]}),
-             ("text", "Reviewed."), ("text", "Edited answer."), ("text", "SUMMARY: total and avg were tidied.")]
+             ("text", "Reviewed."), ("text", "Edited answer."), ("text", "SUMMARY: total and avg were tidied."), ("text", "Side answer: it sums the list.")]
 import os
 server, url, session = start_server(str(work))
 lang = os.environ.get("HERNESS_UI_LANG", "")

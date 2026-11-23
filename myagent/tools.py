@@ -86,6 +86,15 @@ TOOLS = [
                     "where a name is defined across the project (go to definition). Python is exact; other languages use patterns.",
      "schema": _schema({"name": {"type": "string", "description": "Name to find the definition of (optional)."},
                         "path": {"type": "string", "description": "File or folder (default: whole project)."}}, [])},
+    {"name": "code_intel", "kind": "readonly",
+     "description": "Exact code intelligence from the language server installed for this file's language (Pyright, "
+                    "TypeScript, gopls, rust-analyzer, clangd, sourcekit-lsp...): go to definition, find references, hover "
+                    "(type and docs) or diagnostics (errors and warnings). Give line and column (1-based) or a symbol name. "
+                    "If no server is installed it says so; then use code_symbols / find_references.",
+     "schema": _schema({"action": {"type": "string", "enum": ["definition", "references", "hover", "diagnostics"]},
+                        "path": _S, "line": {"type": "integer"}, "column": {"type": "integer"},
+                        "symbol": {"type": "string", "description": "Name to look up in the file instead of line/column."}},
+                       ["action", "path"])},
     {"name": "find_references", "kind": "readonly",
      "description": "Code navigation: find every place a name is used (whole-word matches, definitions marked).",
      "schema": _schema({"name": _S, "path": {"type": "string", "description": "Folder or file (default: whole project)."}}, ["name"])},
@@ -231,6 +240,9 @@ def describe(name: str, args: dict) -> str:
         return f"symbols {args.get('name') or ''} {args.get('path') or ''}".strip()
     if name == "find_references":
         return f"references to {args.get('name')}"
+    if name == "code_intel":
+        where = args.get("symbol") or (f"line {args.get('line')}" if args.get("line") else "")
+        return f"{args.get('action')} {args.get('path')} {where}".strip()
     if name == "notebook_run":
         return f"run notebook {args.get('path')}"
     if name == "use_skill":
@@ -487,7 +499,21 @@ class Workspace:
         raw = p.read_bytes()[:400_000]
         if b"\0" in raw[:8000]:
             return {"binary": True, "size": p.stat().st_size}
-        return {"text": raw.decode(errors="replace"), "truncated": p.stat().st_size > 400_000, "size": p.stat().st_size}
+        st = p.stat()
+        return {"text": raw.decode(errors="replace"), "truncated": st.st_size > 400_000, "size": st.st_size, "mtime": str(st.st_mtime_ns)}  # text: too precise for JS numbers
+
+    def write_from_view(self, rel: str, text: str, mtime: int | None) -> dict:
+        """Save a file the user edited in the Files tab; refuses if it changed on disk since it was opened."""
+        p = self.path(rel)
+        self._inside(p)
+        if not p.is_file():
+            raise ToolError(f"No such file: {rel}")
+        if mtime and str(p.stat().st_mtime_ns) != str(mtime):
+            raise ToolError("This file changed since you opened it (maybe the agent edited it). Reopen it to see the latest version.")
+        if p.stat().st_size > 400_000:
+            raise ToolError("This file is too large to edit here.")
+        p.write_text(text, encoding="utf-8")
+        return {"size": p.stat().st_size, "mtime": str(p.stat().st_mtime_ns)}
 
     def _inside(self, p: Path):
         try:
@@ -686,6 +712,16 @@ class Workspace:
                 break
         return "\n".join(out) or f"No uses of {name} found."
 
+    def _code_intel(self, action: str, path: str, line: int | None = None, column: int | None = None,
+                    symbol: str | None = None) -> str:
+        from .lsp import MANAGER, LspError
+        try:
+            return MANAGER.run(self.cwd, self.path(path), action, line, column, symbol)
+        except LspError as e:
+            raise ToolError(str(e))
+        except OSError as e:
+            raise ToolError(f"The language server could not start: {e}")
+
     # ---- notebooks ----
     def _notebook_run(self, path: str, upto: int | None = None) -> str:
         import json as _json
@@ -819,7 +855,7 @@ print(json.dumps({"cells": cells, "failed": failed, "notebook": json.dumps(nb, i
 def project_instructions(cwd: str) -> tuple[str, list[str]]:
     """Text of the folder's instruction files (HERNESS.md, CLAUDE.md, AGENTS.md) and their names."""
     names, parts = [], []
-    for name in ("HERNESS.md", "CLAUDE.md", "AGENTS.md", ".herness/instructions.md"):
+    for name in ("LIGHTCODE.md", "HERNESS.md", "CLAUDE.md", "AGENTS.md", ".herness/instructions.md"):
         p = Path(cwd) / name
         if p.is_file():
             try:

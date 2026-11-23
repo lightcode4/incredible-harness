@@ -7,7 +7,7 @@ const check = (name, ok, detail = '') => (ok ? passed : problems).push(name + (d
 async function overlaps(pg, label) {
   const found = await pg.evaluate(() => {
     const sel = 'button, a, input, select, textarea, .pill, .card, .status, .badge, h1, .eyebrow, .sub, .navbtn, .chatitem, .modelchip, .sdk, .wsbox, .who, .composer, .ctab, kbd, .rrow, .nums span, .savednote';
-    const modal = document.querySelector('dialog[open]') || document.querySelector('#provMenu:not([hidden])') || document.querySelector('#railDock.open #railPop') || document.querySelector('#activityPop.open');
+    const modal = document.querySelector('dialog[open]') || document.querySelector('#provMenu:not([hidden])') || document.querySelector('#railDock.open #railPop') || document.querySelector('#activityPop.open') || document.querySelector('#sideChat:not([hidden])');
     const clip = el => { // the part of the element that is visible inside scrolling/clipping ancestors
       let r = el.getBoundingClientRect(); r = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
       for (let p = el.parentElement; p; p = p.parentElement) {
@@ -195,6 +195,47 @@ async function overlaps(pg, label) {
       await pg.waitForFunction(() => document.getElementById('log').innerText.includes('Conversation summarized'), null, { timeout: 15000 });
       check('/compact summarizes the chat', true);
       check('Older messages can no longer be rewound after a summary', (await pg.locator('.uacts').count()) === 0);
+      // keyboard shortcuts for the tabs
+      for (const [keys, sel, name] of [['Control+Shift+F', '#fTree', 'Files'], ['Control+j', '#termBox', 'Terminal'], ['Control+Shift+D', '#gitView', 'Changes'], ['Control+Shift+T', '#jobList', 'Tasks'], ['Control+Shift+B', '#bview', 'Browser']]) {
+        await pg.keyboard.press(keys); await pg.waitForTimeout(350); check(`${keys} opens ${name}`, await pg.isVisible(sel));
+      }
+      check('Sidebar stays put with Shift (Ctrl+Shift+B is not Ctrl+B)', await pg.isVisible('#side .brand'));
+      // edit a file in the Files tab
+      await pg.keyboard.press('Control+Shift+F'); await pg.waitForSelector('#fTree .fitem', { timeout: 8000 });
+      await pg.locator('#fTree .fitem', { hasText: 'app.py' }).click(); await pg.waitForTimeout(400);
+      await pg.click('#fEditBtn'); check('Edit turns the file into an editor', await pg.isVisible('#fEdit'));
+      await overlaps(pg, 'file editor');
+      await pg.locator('#fEdit').press('Control+End'); await pg.keyboard.type('\n# edited by hand\n'); await pg.keyboard.press('Control+s'); await pg.waitForTimeout(500);
+      check('Ctrl+S saves the file', !(await pg.isVisible('#fEdit')) && (await pg.innerText('#fBody')).includes('# edited by hand'), await pg.innerText('#fErr'));
+      await pg.click('#fRefresh'); await pg.waitForTimeout(300); await pg.locator('#fTree .fitem', { hasText: 'app.py' }).click(); await pg.waitForTimeout(400);
+      check('The saved change is really on disk', (await pg.innerText('#fBody')).includes('# edited by hand'));
+      await pg.click('.ctab[data-c="chat"]'); await pg.waitForTimeout(200);
+      // side chat
+      await pg.keyboard.press('Control+;'); await pg.waitForTimeout(250);
+      check('Ctrl+; opens the side chat', await pg.isVisible('#sideChat'));
+      await overlaps(pg, 'side chat');
+      await pg.fill('#scInput', 'what does total() do?'); await pg.keyboard.press('Enter');
+      await pg.waitForFunction(() => document.getElementById('scLog').innerText.includes('Side answer'), null, { timeout: 15000 });
+      check('Side chat answers in its own panel', (await pg.innerText('#scLog')).includes('what does total() do?') && !(await pg.innerText('#log')).includes('Side answer'));
+      await pg.keyboard.press('Escape'); await pg.waitForTimeout(200); check('Esc closes the side chat', !(await pg.isVisible('#sideChat')));
+      check('Side chats are not listed as sessions', !(await pg.innerText('#chatList')).includes('Side chat'));
+      // search past chats
+      if (!(await pg.isVisible('#chatSearch'))) { await pg.click('#navSessions'); await pg.waitForTimeout(300); }
+      await pg.fill('#chatSearch', 'None too'); await pg.waitForSelector('.chathit', { timeout: 8000 });
+      check('Search finds chats by what was said', (await pg.innerText('#chatList')).includes('None too'));
+      await pg.fill('#chatSearch', ''); await pg.waitForTimeout(500);
+      // projects
+      await pg.click('#navProjects'); await pg.waitForTimeout(400);
+      check('Projects opens the Projects page', await pg.isVisible('#projectsView') && await pg.isVisible('.pjcard.add'));
+      await pg.click('.pjcard.add'); await pg.fill('#pjName', 'Website'); await pg.fill('#pjInstr', 'Use British spelling.');
+      await pg.click('#pjSave'); await pg.waitForTimeout(600);
+      check('A project can be created', !(await pg.isDisabled('#pjChat')) && (await pg.inputValue('#pjName')) === 'Website', await pg.innerText('#pjErr'));
+      await overlaps(pg, 'project page');
+      await pg.click('#pjChat'); await pg.waitForTimeout(800);
+      check('New chat in this project starts a project chat', (await pg.innerText('#chatSub')).includes('Project · Website') && !(await pg.isVisible('#projectsView')));
+      await pg.click('#navProjects'); await pg.waitForTimeout(400);
+      check('The project card is listed', (await pg.innerText('#pjGrid')).includes('Website'));
+      await pg.click('#pjBack'); await pg.waitForTimeout(200);
       check('Header has no Checkpoints / View code / New session', !(await pg.isVisible('#checkpointsBtn')) && !(await pg.isVisible('#viewCodeBtn')) && !(await pg.isVisible('#newSessionBtn')));
       await overlaps(pg, 'after a turn');
       await pg.screenshot({ path: 'audit-1440.png' });

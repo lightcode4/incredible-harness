@@ -3,7 +3,6 @@ No real API calls, no tokens used.   Run: python test_loop.py
 """
 import base64
 import json
-import shlex
 import os
 import sys
 import tempfile
@@ -775,7 +774,6 @@ def main():
     assert (cw / "rw.txt").exists()
     users = [e for e in chat.transcript if e["kind"] == "user"]
     idx = users[1]["idx"]
-    n_before = len(chat.provider.serialize())
     SCRIPT[:] = [("text", "edited reply")]
     start = len(d.events)
     chat.rewind(idx, "second, but different")
@@ -912,6 +910,109 @@ def main():
     evs = d.run("edit", script=[("tool", "write_file", {"path": "live.txt", "content": "x"}), ("text", "ok")])
     assert any(e["kind"] == "fs_changed" for e in evs), "edits should refresh the Changes and Files tabs live"
     print("51 live Changes / Files / Tasks OK")
+    # 52. side chat: sees the main conversation, read-only, never changes the main chat or appears in the list
+    s.new_chat()
+    main = s.current
+    d.run("remember the code word is PELICAN", script=[("text", "Noted: PELICAN.")])
+    main_len = len(main.provider.serialize())
+    SCRIPT[:] = [("text", "The code word is PELICAN.")]
+    sid = s.side_send("what was the code word?")
+    side = s.side_chats[main.id]
+    t0 = time.time()
+    while (side.busy or not side.transcript or side.transcript[-1]["kind"] != "turn_end") and time.time() - t0 < 10:
+        time.sleep(0.05)
+    req = REQUESTS[-1][2]
+    assert "PELICAN" in json.dumps(req["messages"][0]) and "what was the code word?" in json.dumps(req["messages"][-1])
+    names = {t.get("name") for t in req["tools"]}
+    assert "write_file" not in names and "bash" not in names and "read_file" in names, names
+    assert "SIDE CHAT" in json.dumps(req["system"])
+    assert len(main.provider.serialize()) == main_len, "the main chat must not change"
+    assert sid not in [c["id"] for c in s.list_chats()] and not (CHATS / f"{sid}.json").exists()
+    out, err = side.run_tool("write_file", {"path": "x.txt", "content": "no"})
+    assert err and "Side chats can only look" in out
+    s.side_reset()
+    assert main.id not in s.side_chats
+    print("52 side chat OK")
+
+    # 53. edit files from the Files tab: saved, live refresh, and refuses to overwrite newer changes
+    cw = Path(main.cwd)
+    (cw / "edit_me.txt").write_text("one\n")
+    v = main.ws.read_for_view("edit_me.txt")
+    r = main.ws.write_from_view("edit_me.txt", "one\ntwo\n", v["mtime"])
+    assert (cw / "edit_me.txt").read_text() == "one\ntwo\n" and r["mtime"] != v["mtime"]
+    try:
+        main.ws.write_from_view("edit_me.txt", "stale", v["mtime"])
+        raise AssertionError("a stale save must be refused")
+    except Exception as e:
+        assert "changed since you opened it" in str(e), e
+    try:
+        main.ws.write_from_view("../outside.txt", "x", None)
+        raise AssertionError("saving outside the project must be refused")
+    except Exception as e:
+        assert "outside the project" in str(e) or "No such file" in str(e)
+    print("53 file editing OK")
+
+    # 54. search past chats by what was said
+    hits = s.search_chats("pelican")
+    assert hits and hits[0]["id"] == main.id and "PELICAN" in hits[0]["snippet"], hits
+    assert s.search_chats("zzz-not-there") == [] and s.search_chats("a") == []
+    print("54 chat search OK")
+
+    # 55. projects: shared instructions and reference files reach every chat in the project
+    from myagent import projects as pj
+    pdir = Path(tempfile.mkdtemp())
+    proj = s.save_project({"name": "Website", "folder": str(pdir), "instructions": "Always use British spelling."})
+    pj.add_file(proj["id"], "brand.md", base64.b64encode(b"Primary colour: #8b6c35").decode())
+    pj.add_file(proj["id"], "logo.png", base64.b64encode(b"\x89PNG....").decode())
+    assert [f["name"] for f in pj.list_files(proj["id"])] == ["brand.md", "logo.png"]
+    s.new_project_chat(proj["id"])
+    pc = s.current
+    assert pc.project == proj["id"] and Path(pc.cwd) == pdir.resolve() or Path(pc.cwd) == pdir
+    d.run("hello project", script=[("text", "hi")])
+    sysmsg = json.dumps(REQUESTS[-1][2]["system"])
+    assert "Project: Website" in sysmsg and "British spelling" in sysmsg and "#8b6c35" in sysmsg and "logo.png" in sysmsg
+    assert next(c for c in s.list_chats() if c["id"] == pc.id)["project"] == proj["id"]
+    try:
+        pj.add_file(proj["id"], "../../evil.txt", "eA==")
+        assert not (pj.HOME / "projects" / "evil.txt").exists()
+    except ValueError:
+        pass
+    s.delete_project(proj["id"])
+    assert not s.project_by_id(proj["id"]) and not pj.folder(proj["id"]).exists()
+    print("55 projects OK")
+
+    # 56. code intelligence through a real language-server connection (fake server standing in for Pyright)
+    from myagent import lsp
+    s.select(main)
+    bind = Path(tempfile.mkdtemp())
+    shim = bind / ("pyright-langserver.bat" if os.name == "nt" else "pyright-langserver")
+    srv = Path(__file__).resolve().parent / "tests" / "fake_lsp_server.py"
+    shim.write_text(f'@"{sys.executable}" "{srv}" %*\n' if os.name == "nt" else f'#!/bin/sh\nexec "{sys.executable}" "{srv}" "$@"\n')
+    shim.chmod(0o755)
+    os.environ["PATH"] = str(bind) + os.pathsep + os.environ["PATH"]
+    (cw / "calc.py").write_text("def total(xs):\n    return sum(xs)\n\nprint(total([1, 2]))\n")
+    assert lsp.find_server(cw / "calc.py") and "pyright-langserver" in lsp.available()
+    ws2 = main.ws
+    out = ws2.run("code_intel", {"action": "definition", "path": "calc.py", "symbol": "total"})
+    assert out.startswith("calc.py:1:5"), out
+    out = ws2.run("code_intel", {"action": "references", "path": "calc.py", "line": 4, "column": 7})
+    assert "calc.py:1:5" in out and "calc.py:4:7" in out, out
+    assert "def total(xs: list[int]) -> int" in ws2.run("code_intel", {"action": "hover", "path": "calc.py", "symbol": "total"})
+    assert "No problems" in ws2.run("code_intel", {"action": "diagnostics", "path": "calc.py"})
+    evs = d.run("break it", script=[("tool", "write_file", {"path": "calc.py", "content": "x = oops\n"}), ("text", "ok")])
+    told = json.dumps(REQUESTS[-1][2]["messages"][-1])
+    assert "oops" in told.lower(), told[:300]
+    errs = lsp.MANAGER.errors_after_edit(cw, cw / "calc.py")
+    assert errs and "undefined name 'oops'" in errs, errs
+    try:
+        ws2.run("code_intel", {"action": "definition", "path": "notes.txt", "symbol": "x"}) if (cw / "notes.txt").exists() else None
+        (cw / "a.unknownlang").write_text("x")
+        ws2.run("code_intel", {"action": "definition", "path": "a.unknownlang", "symbol": "x"})
+        raise AssertionError("files without a server should explain how to get one")
+    except Exception as e:
+        assert "No language server" in str(e), e
+    lsp.MANAGER.close_all()
+    print("56 code intelligence (LSP) OK")
     print("ALL TESTS PASSED")
 
 

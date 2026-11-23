@@ -29,7 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, extras, gitops
+from . import __version__, extras, gitops, lsp, projects
 from .catalog import BY_ID as PROVIDER_BY_ID, PROVIDERS, guess_service
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
@@ -90,6 +90,8 @@ def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: 
 
 SUBAGENT_SYSTEM = ("You are a research sub-agent with read-only tools. Investigate exactly what you are asked, "
                    "then reply with a concise, specific report (file paths, line numbers, facts). Do not ask questions.")
+SIDE_NOTE = ("\n\nThis is a SIDE CHAT: the user is asking a quick question next to their main conversation (included "
+             "above as history). Answer briefly. You can only read and search; you cannot change files or run commands here.")
 SUBAGENT_KINDS = {
     "explore": ("You are a fast explore sub-agent with read-only tools. Find the files, symbols and facts asked for "
                 "(use grep, glob, code_symbols, find_references). Reply with a short list of paths, line numbers and facts."),
@@ -240,8 +242,10 @@ class Chat:
     BROWSER_ACTS = {"browser_click", "browser_type", "browser_press"}
 
     def __init__(self, app: "Session", cwd: str, chat_id: str | None = None, worktree: dict | None = None,
-                 unattended: bool = False, title: str = ""):
+                 unattended: bool = False, title: str = "", project: str | None = None, side: bool = False):
         self.app = app
+        self.project = project  # id of the Project this chat belongs to (shared instructions and files)
+        self.side = side  # a side chat: read-only quick questions that never touch the main chat
         self.id = chat_id or time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
         self.cwd = cwd
         self.worktree = worktree  # {"path", "branch", "origin"} for parallel worktree chats
@@ -268,11 +272,15 @@ class Chat:
 
     # ---------------------------------------------------------------- setup
     def build(self, keep_history: bool = False):
-        cfg = {**self.app.config, "cwd": self.cwd}
+        cfg = {**self.app.config, "cwd": self.cwd, "project": self.project}
         old = self.provider.serialize() if (keep_history and self.provider) else None
         old_kind = getattr(self, "_provider_kind", None)
         comp = getattr(self.provider, "compactions", 0)
-        self.provider = self.app.make_provider(cfg)
+        if self.side:
+            self.provider = self.app.make_provider(cfg, tools=[t for t in READONLY_TOOLS],
+                                                   system=self.app.system_for(cfg) + SIDE_NOTE)
+        else:
+            self.provider = self.app.make_provider(cfg)
         self.provider.compactions = comp
         self._provider_kind = cfg["provider"]
         if old and old_kind == cfg["provider"]:
@@ -460,6 +468,8 @@ class Chat:
     # ---------------------------------------------------------------- tools
     def run_tool(self, name: str, args: dict):
         self._check()
+        if self.side and name not in {t["name"] for t in READONLY_TOOLS}:
+            return "Side chats can only look things up; ask in the main chat to make changes.", True
         if name in self.app.mcp.names:
             return self._mcp_tool(name, args)
         problem = validate(name, args)
@@ -543,6 +553,8 @@ class Chat:
         notes = []
         if self.app.config.get("diagnostics", True):
             problems = extras.diagnose(path, self.cwd)
+            if not problems and lsp.find_server(path):
+                problems = lsp.MANAGER.errors_after_edit(self.ws.cwd, path)
             if problems:
                 notes.append(f"Problems found in {path.name} after this edit (fix them):\n{problems}")
         hook = self.app.hooks_for(self.rules_dir).get("after_edit", "").strip()
@@ -861,7 +873,7 @@ class Chat:
             self.busy = False
             self.emit("status", busy=False)
             self.save()
-            if self.app.current is not self or self.unattended:
+            if (self.app.current is not self or self.unattended) and not self.side:
                 extras.notify("LightCode⁴", f"“{self.title}” finished.")
 
     def _finish_hook(self):
@@ -879,7 +891,7 @@ class Chat:
 
     # ---------------------------------------------------------------- persistence
     def save(self):
-        if not self.transcript:
+        if not self.transcript or self.side:
             return
         try:
             CHATS.mkdir(parents=True, exist_ok=True)
@@ -887,7 +899,7 @@ class Chat:
                     "provider": self._provider_kind, "model": self.app.config["model"], "cwd": self.cwd,
                     "worktree": self.worktree, "messages": self.provider.serialize(), "transcript": self.transcript,
                     "checkpoints": self.checkpoints, "cost": self.cost, "tokens": self.tokens, "todos": self.todos,
-                    "turn": self.turn, "context": self.context, "compactions": getattr(self.provider, "compactions", 0)}
+                    "turn": self.turn, "context": self.context, "project": self.project, "compactions": getattr(self.provider, "compactions", 0)}
             path = CHATS / f"{self.id}.json"
             path.write_text(json.dumps(data, default=str))
             os.chmod(path, 0o600)
@@ -895,8 +907,9 @@ class Chat:
             self.notice(f"Could not save chat: {e}")
 
     def replay_event(self) -> dict:
+        proj = self.app.project_by_id(self.project)
         return {"kind": "replay", "chat": {"id": self.id, "title": self.title, "worktree": self.worktree,
-                                           "cwd": self.cwd},
+                                           "cwd": self.cwd, "project": proj["name"] if proj else None},
                 "events": list(self.transcript), "cost": round(self.cost, 4), "tokens": self.tokens, "todos": self.todos,
                 **self.context_info(), "compactions": getattr(self.provider, "compactions", 0),
                 "undoable": list(self.checkpoints), "busy": self.busy, "pending": list(self.pending_info.values())}
@@ -912,7 +925,9 @@ class Session:
                        "mcp": [], "rules": {}, "hooks": {}, "github_token": "", "diagnostics": True,
                        "computer": False, "schedules": [], "phone": False, "voice_key": "", "auto": False, "plan": False,
                        "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
-                       "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {}}
+                       "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
+                       "projects": []}
+        self.side_chats: dict[str, Chat] = {}  # main chat id -> its side chat
         self.mcp = McpManager()
         self._oauth_fresh: dict[str, dict] = {}  # newest tokens per connector (survive settings being re-applied)
         self.quit_app = None  # set by the desktop app: closes the window
@@ -999,14 +1014,23 @@ class Session:
             return cfg["fast_model"]
         return "claude-haiku-5-5" if cfg["provider"] == "claude" else cfg["model"]
 
+    def system_for(self, cfg: dict) -> str:
+        text, _ = project_instructions(cfg["cwd"])
+        proj = self.project_by_id(cfg.get("project"))
+        if proj:
+            text = (projects.context(proj) + ("\n\n" + text if text else ""))
+        return system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")), cfg.get("language", ""),
+                             extras.skills(cfg["cwd"]))
+
+    def project_by_id(self, pid):
+        return next((p for p in self.config.get("projects") or [] if p["id"] == pid), None) if pid else None
+
     def make_provider(self, cfg: dict, tools=None, system: str | None = None, fast: bool = False):
         tools = tools if tools is not None else self.tools_for(cfg)
         if fast:
             cfg = {**cfg, "model": self.fast_model(cfg)}
         if system is None:
-            text, _ = project_instructions(cfg["cwd"])
-            system = system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")), cfg.get("language", ""),
-                                   extras.skills(cfg["cwd"]))
+            system = self.system_for(cfg)
         common = dict(tools=tools, compaction=cfg["compaction"])
         if cfg["provider"] == "claude":
             return ClaudeProvider(cfg["model"], system, effort=cfg["effort"], api_key=cfg["api_key"] or None,
@@ -1088,6 +1112,7 @@ class Session:
         c["hooks"] = self.hooks_for(chat.rules_dir) if chat else {}
         c["instructions"] = chat.instruction_files if chat else []
         c["chat_cwd"] = chat.cwd if chat else c["cwd"]
+        c["chat_project"] = chat.project if chat else None
         c["build"], c["version"], c["phone_url"] = BUILD, __version__, self.phone_url
         c["remote_url"] = self.remote_url
         c["context_window"] = self.config.get("context_window") or 0
@@ -1145,7 +1170,7 @@ class Session:
         if d.get("provider") != self.config["provider"] or d.get("model") != self.config["model"]:
             self.config.update(provider=d["provider"], model=d["model"])
         wt = d.get("worktree") if d.get("worktree") and Path(d["worktree"]["path"]).is_dir() else None
-        chat = Chat(self, cwd, chat_id=d["id"], worktree=wt, title=d.get("title", ""))
+        chat = Chat(self, cwd, chat_id=d["id"], worktree=wt, title=d.get("title", ""), project=d.get("project"))
         chat.provider.restore(d["messages"])
         chat.transcript, chat.checkpoints = d.get("transcript", []), d.get("checkpoints", {})
         chat.cost, chat.tokens, chat.todos, chat.turn = d.get("cost", 0), d.get("tokens", 0), d.get("todos", []), d.get("turn", 0)
@@ -1164,12 +1189,93 @@ class Session:
             self.current = None
             self.new_chat()
 
+    # ---------------------------------------------------------------- side chat
+    def side_send(self, text: str) -> str:
+        main = self.current
+        if not main:
+            raise RuntimeError("Open a chat first.")
+        side = self.side_chats.get(main.id)
+        if side is None:
+            side = Chat(self, main.cwd, chat_id=f"side-{main.id}", title="Side chat", project=main.project, side=True)
+            hist = json.loads(json.dumps(main.provider.serialize(), default=str))
+            if type(side.provider) is type(main.provider):
+                side.provider.restore(hist)
+                side.provider.close_interrupted()
+            self.side_chats[main.id] = side
+        side.send(text)
+        return side.id
+
+    def side_reset(self):
+        main = self.current
+        side = self.side_chats.pop(main.id, None) if main else None
+        if side:
+            side.cancel.set()
+
+    # ---------------------------------------------------------------- search
+    def search_chats(self, q: str, limit: int = 40) -> list[dict]:
+        q = q.strip().lower()
+        if len(q) < 2:
+            return []
+        hits = []
+        for p in sorted(CHATS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:1000]:
+            try:
+                d = json.loads(p.read_text())
+            except (OSError, ValueError):
+                continue
+            live = self.chats.get(d.get("id"))
+            events = live.transcript if live else d.get("transcript", [])
+            title = (live.title if live else d.get("title")) or "Untitled"
+            best = None
+            if q in title.lower():
+                best = ("title", title)
+            for e in events:
+                t = e.get("text") if e.get("kind") in ("user", "text") else None
+                if t and q in t.lower():
+                    i = t.lower().index(q)
+                    best = ("user" if e["kind"] == "user" else "reply", ("…" if i > 50 else "") + t[max(0, i - 50): i + 90].replace("\n", " ") + "…")
+                    break
+            if best:
+                hits.append({"id": d["id"], "title": title, "where": best[0], "snippet": best[1], "updated": d.get("updated", 0),
+                             "project": d.get("project")})
+            if len(hits) >= limit:
+                break
+        return hits
+
+    # ---------------------------------------------------------------- projects
+    def save_project(self, data: dict) -> dict:
+        projs = self.config.setdefault("projects", [])
+        proj = self.project_by_id(data.get("id"))
+        if proj is None:
+            proj = {"id": "p" + secrets.token_hex(4), "created": time.time(), "files": []}
+            projs.append(proj)
+        for k in ("name", "folder", "instructions", "color"):
+            if k in data:
+                proj[k] = str(data[k])[:20000]
+        proj["name"] = proj.get("name", "").strip() or "Untitled project"
+        if proj.get("folder") and not Path(os.path.expanduser(proj["folder"])).is_dir():
+            raise ValueError(f"No such folder: {proj['folder']}")
+        self.save()
+        return proj
+
+    def delete_project(self, pid: str):
+        self.config["projects"] = [p for p in self.config.get("projects") or [] if p["id"] != pid]
+        projects.delete_files(pid)
+        self.save()
+
+    def new_project_chat(self, pid: str, client: str = ""):
+        proj = self.project_by_id(pid)
+        if not proj:
+            raise ValueError("That project no longer exists.")
+        folder = os.path.expanduser(proj.get("folder") or "") or self.config["cwd"]
+        chat = self._new_chat_obj(folder, project=pid)
+        self.select(chat, client)
+
     def list_chats(self) -> list[dict]:
         seen, out = set(), []
         for c in self.chats.values():
             if c.transcript:
                 out.append({"id": c.id, "title": c.title or "Untitled", "updated": time.time(), "running": c.busy,
-                            "approval": bool(c.pending_info), "worktree": bool(c.worktree)})
+                            "approval": bool(c.pending_info), "worktree": bool(c.worktree), "project": c.project})
                 seen.add(c.id)
         for p in sorted(CHATS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:200]:
             if p.stem in seen:
@@ -1177,7 +1283,7 @@ class Session:
             try:
                 d = json.loads(p.read_text())
                 out.append({"id": d["id"], "title": d.get("title", "Untitled"), "updated": d.get("updated", 0),
-                            "running": False, "approval": False, "worktree": bool(d.get("worktree"))})
+                            "running": False, "approval": False, "worktree": bool(d.get("worktree")), "project": d.get("project")})
             except (OSError, ValueError, KeyError):
                 continue
         order = {cid: i for i, cid in enumerate(self.config.get("chat_order") or [])}
@@ -1461,6 +1567,7 @@ class Session:
     def shutdown(self):
         self._sched_stop.set()
         self.mcp.stop()
+        lsp.MANAGER.close_all()
         for t in self.terminals.values():
             t.close()
         self.browser.close()
@@ -1581,6 +1688,34 @@ def make_handler(session: Session, token: str):
                     result = {"items": chat.ws.list_dir(str(data.get("path", ""))), "root": str(chat.ws.cwd)}
                 elif path == "/api/files/read":
                     result = chat.ws.read_for_view(str(data.get("path", "")))
+                elif path == "/api/files/write":
+                    result = chat.ws.write_from_view(str(data.get("path", "")), str(data.get("text", "")), data.get("mtime"))
+                    chat.emit("fs_changed", path=str(data.get("path", "")))
+                elif path == "/api/side/send":
+                    result = {"side": session.side_send(str(data.get("text", "")))}
+                elif path == "/api/side/reset":
+                    session.side_reset()
+                elif path == "/api/side/stop":
+                    side = session.side_chats.get(session.chat_id)
+                    if side:
+                        side.cancel.set()
+                elif path == "/api/chats/search":
+                    result = {"hits": session.search_chats(str(data.get("q", "")))}
+                elif path == "/api/projects":
+                    result = {"projects": [{**p, "files": projects.list_files(p["id"])} for p in session.config.get("projects") or []],
+                              "chats": session.list_chats()}
+                elif path == "/api/project/save":
+                    result = {"project": session.save_project(data.get("project") or {})}
+                elif path == "/api/project/delete":
+                    session.delete_project(str(data.get("id")))
+                elif path == "/api/project/file":
+                    if data.get("remove"):
+                        projects.remove_file(str(data.get("id")), str(data.get("name")))
+                    else:
+                        projects.add_file(str(data.get("id")), str(data.get("name")), str(data.get("data", "")))
+                    result = {"files": projects.list_files(str(data.get("id")))}
+                elif path == "/api/project/chat":
+                    session.new_project_chat(str(data.get("id")), client)
                 elif path == "/api/rewind":
                     result = {"restored": chat.rewind(int(data.get("idx", -1)), str(data.get("text", "")),
                                                       bool(data.get("undo_files", True)))}
