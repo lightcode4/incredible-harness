@@ -19,7 +19,7 @@ class Terminal:
             from winpty import PtyProcess
 
             shell = shutil.which("pwsh") or shutil.which("powershell") or "cmd.exe"
-            self.proc = PtyProcess.spawn(shell, cwd=cwd, dimensions=(rows, cols))
+            self.proc = PtyProcess.spawn([shell], cwd=cwd, dimensions=(rows, cols))  # list: paths with spaces
             threading.Thread(target=self._read_windows, daemon=True).start()
         else:
             import pty
