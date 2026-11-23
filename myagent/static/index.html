@@ -477,6 +477,19 @@ body.models-open #modelsView { display: block !important; }
 .pcard .check { position: absolute; top: 16px; right: 16px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; font-size: 14px; }
 #provDlg { width: min(560px, 94vw); } #provDlg .dlg-head { gap: 12px; } #provDlg .dlg-head h2 { flex: 1; }
 #pdResult { font-size: 12.5px; margin-right: auto; align-self: center; }
+
+/* ---- compact model button: logo only, expands on hover / focus / while its menu is open ---- */
+.modelbar { background: none; border: 0; box-shadow: none; padding: 0; gap: 8px; }
+.modelbar > .spacer { display: none; }
+.modelchip { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 4px; gap: 0; transition: border-color .15s; }
+.modelchip:hover, .modelchip:focus-visible, .modelchip.open { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.modelchip > b, .modelchip > small, .modelchip > svg { max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; margin: 0;
+  transition: max-width .25s ease, opacity .2s ease, margin .25s ease; }
+.modelchip:hover > b, .modelchip:focus-visible > b, .modelchip.open > b { max-width: 320px; opacity: 1; margin-left: 10px; }
+.modelchip:hover > small, .modelchip:focus-visible > small, .modelchip.open > small { max-width: 200px; opacity: 1; margin-left: 8px; }
+.modelchip:hover > svg, .modelchip:focus-visible > svg, .modelchip.open > svg { max-width: 16px; opacity: 1; margin: 0 6px 0 8px; }
+#planBtn { height: 40px; border-radius: 12px; background: var(--panel); }
+#provMenu { left: 0; }
 </style>
 </head>
 <body>
@@ -561,7 +574,7 @@ body.models-open #modelsView { display: block !important; }
         <div class="pmhead">A model for every possibility</div><div id="provList"></div>
         <button class="pmfoot" id="provAll"><svg><use href="#i-list"/></svg>All models &amp; API settings<svg class="arrow"><use href="#i-up"/></svg></button>
       </div>
-      <button class="modelchip" id="modelPill"><span class="mlogo serif">✳</span><b id="modelName">model</b><small id="modelBy">by Anthropic</small><svg><use href="#i-chev"/></svg></button>
+      <button class="modelchip" id="modelPill" title="Model — click to switch" aria-label="Model"><span class="mlogo serif">✳</span><b id="modelName">model</b><small id="modelBy">by Anthropic</small><svg><use href="#i-chev"/></svg></button>
       <span id="sdkName" hidden></span>
       <span id="instrPill" class="sdk" hidden data-keep-hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
       <span class="spacer"></span>
@@ -1744,7 +1757,8 @@ $("pdUse").onclick = async () => {
   catch (e) { pdSay(e.message, false); }
 };
 $("pdClose").onclick = () => $("provDlg").close();
-$("modelPill").onclick = e => { e.stopPropagation(); $("provMenu").hidden = !$("provMenu").hidden; if (!$("provMenu").hidden) loadProviders(); };
+$("modelPill").onclick = e => { e.stopPropagation(); $("provMenu").hidden = !$("provMenu").hidden; $("modelPill").classList.toggle("open", !$("provMenu").hidden); if (!$("provMenu").hidden) loadProviders(); };
+new MutationObserver(() => $("modelPill").classList.toggle("open", !$("provMenu").hidden)).observe($("provMenu"), { attributes: true, attributeFilter: ["hidden"] });
 document.addEventListener("click", e => { if (!$("provMenu").hidden && !e.target.closest("#provMenu, #modelPill")) $("provMenu").hidden = true; });
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("provMenu").hidden = true; });
 function openModelsView() { $("provMenu").hidden = true; closePanel(); document.body.classList.add("models-open"); $("crumbHere").textContent = "Models"; loadProviders(); }

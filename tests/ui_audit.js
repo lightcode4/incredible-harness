@@ -74,6 +74,10 @@ async function overlaps(pg, label) {
       await pg.click('#keysBtn'); check('Help button opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
       // --- header & model bar
       await pg.click('#viewCodeBtn'); check('View code opens Git', await pg.isVisible('#gitView')); await pg.click('.ctab[data-c="chat"]');
+      const narrow = (await pg.locator('#modelPill').boundingBox()).width;
+      await pg.hover('#modelPill'); await pg.waitForTimeout(400);
+      const wide = (await pg.locator('#modelPill').boundingBox()).width;
+      check('Model button is just the logo, and expands on hover', narrow < 60 && wide > narrow + 80, `${Math.round(narrow)} -> ${Math.round(wide)}px`);
       await pg.click('#modelPill'); await pg.waitForTimeout(500);
       check('Model name opens the provider menu', await pg.isVisible('#provMenu'));
       check('Provider menu lists providers with logos', (await pg.locator('#provList .prow').count()) >= 15 && (await pg.locator('#provList .plogo svg').count()) >= 8);
