@@ -34,9 +34,12 @@ def main():
     cwd = str(Path.home())
     if len(sys.argv) > 1 and Path(sys.argv[1]).is_dir():
         cwd = sys.argv[1]
-    server, url = start_server(cwd)
+    server, url, session = start_server(cwd)
+    session.preview_opener = lambda target: webview.create_window(f"Preview — {target}", target, width=1100, height=760)
     webview.create_window(APP_NAME, url, js_api=Bridge(), width=1180, height=820, min_size=(720, 520))
     webview.start()
+    if session.ws:
+        session.ws.stop_all_jobs()
     server.shutdown()
 
 

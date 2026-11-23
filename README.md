@@ -1,36 +1,38 @@
 # Incredible Herness
 
-A desktop AI agent for macOS and Windows. Chat with it, and it runs commands and reads, writes and edits
-files in a folder you choose. It asks before every command or file change (Allow / Always allow / Deny).
+A desktop AI agent for macOS and Windows. Chat with it and it works in a folder you choose: runs commands,
+reads and edits files, searches the web, and asks before every change.
 
-Works with:
-- **Claude** (default model `claude-opus-5-5`), via the official Anthropic SDK
-- **OpenAI** or any OpenAI-compatible API (OpenRouter, Groq, Together, ...) via Base URL
-- **Local models** via Ollama (`http://localhost:11434/v1`) or LM Studio (`http://localhost:1234/v1`): free
+## Features
+- **Models:** Claude (default `claude-opus-5-5`), OpenAI or any OpenAI-compatible API (OpenRouter, Groq, …),
+  or free local models (Ollama, LM Studio).
+- **Approvals:** Allow / Always allow / Deny for every command and file change, with a diff of each edit first.
+- **Permission rules** per folder: e.g. always allow `bash(npm test*)`, never allow `bash(git push*)`.
+- **Undo:** every message that changed files has an Undo button that restores them.
+- **Plan mode:** the agent researches and proposes a plan; nothing changes until you approve it.
+- **Task list:** the agent tracks multi-step work in a live checklist.
+- **Chat history:** chats are saved and can be reopened from the sidebar.
+- **Cost meter and spending limit** per chat; prompt caching and automatic context compaction to keep costs down.
+- **Web search & fetch**, **attachments** (images, PDFs, text files — drag, paste or 📎), **background jobs**
+  (dev servers, long builds), **sub-agents** for research, **previews** of pages and local servers.
+- **Project instructions:** put notes in `HERNESS.md` (or `CLAUDE.md` / `AGENTS.md`) in your folder.
+- **Connectors:** remote MCP servers (Claude provider).
+- **Update check** from Settings → Updates.
 
-## Get the installers
-GitHub → Actions → **Incredible Herness build** → latest run → Artifacts:
-- `Incredible-Herness-mac` → `Incredible-Herness-mac.dmg` (Apple silicon)
-- `Incredible-Herness-windows` → `Incredible-Herness-Setup.exe`
+## Install
+Download from **Releases**: `Incredible-Herness-mac.dmg` (Apple silicon) or `Incredible-Herness-Setup.exe`.
+- Mac: drag to Applications. Unsigned builds: right-click → Open the first time.
+- Windows: if SmartScreen appears, More info → Run anyway.
 
-The apps are not code-signed:
-- **Mac:** open the .dmg, drag the app to Applications. First launch: right-click → Open
-  (or System Settings → Privacy & Security → Open Anyway).
-- **Windows:** if SmartScreen appears, click More info → Run anyway. Needs the Edge WebView2 runtime
-  (built into Windows 10/11).
-
-## Setup in the app
-Pick a provider, paste your API key, choose a folder, press **Apply**. Settings are saved in
-`~/.incredible-herness/settings.json` (readable only by your user account).
-
-## Saving tokens
-- Nothing runs on its own: tokens are only used when you send a message.
-- Lower **Effort** (low/medium) or use a cheaper model for simple tasks.
-- **New chat** when you change topic: the whole conversation is sent with each request.
-- The Local provider costs nothing.
+## Signed installers (optional)
+Add these repository secrets and the build signs automatically:
+- macOS: `MACOS_CERT_P12` (base64 Developer ID Application .p12), `MACOS_CERT_PASSWORD`, `MACOS_SIGN_IDENTITY`,
+  and for notarization `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID`.
+- Windows: `WINDOWS_CERT_PFX` (base64 .pfx), `WINDOWS_CERT_PASSWORD`.
 
 ## Develop
     pip install anthropic openai pywebview
-    python run_app.py            # desktop window
-    python -m myagent            # terminal version
-    python test_loop.py          # offline tests (fake servers, no API calls)
+    python run_app.py          # desktop window
+    python -m myagent          # terminal version
+    python test_loop.py        # offline tests: fake API server, no tokens used
+    python test_gui.py         # interface test (needs Node + Playwright)

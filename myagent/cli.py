@@ -8,7 +8,7 @@ import platform
 import sys
 
 from . import __version__
-from .tools import NEEDS_APPROVAL, ToolError, Workspace, describe, validate
+from .tools import MUTATING, ToolError, Workspace, describe, validate
 
 for _stream in (sys.stdout, sys.stderr):
     # Windows consoles default to cp1252; never crash on symbols. (Packaged desktop apps have no console: None.)
@@ -74,6 +74,16 @@ class TerminalUI:
         self.end_block()
         print(f"{YELLOW}! {msg}{RESET}")
 
+    def server_tool(self, summary):
+        self.end_block()
+        print(f"{CYAN}● {summary}{RESET}")
+
+    def usage(self, model, u):
+        pass
+
+    def before_request(self):
+        pass
+
 
 class App:
     def __init__(self, args):
@@ -108,10 +118,11 @@ class App:
             return f"Invalid input: {problem} Fix the call and try again.", True
         summary = describe(name, args)
         print(f"{CYAN}● {summary}{RESET}")
-        if name == "edit_file":
-            print(f"{RED}- " + args["old_text"].replace("\n", "\n- ")[:1500] + RESET)
-            print(f"{GREEN}+ " + args["new_text"].replace("\n", "\n+ ")[:1500] + RESET)
-        if name in NEEDS_APPROVAL and not self.auto:
+        diff = self.ws.preview_diff(name, args)
+        if diff:
+            for line in diff.splitlines()[:80]:
+                print((GREEN if line.startswith("+") else RED if line.startswith("-") else DIM) + line + RESET)
+        if name in MUTATING and not self.auto:
             ans = input(f"{BOLD}  allow? [y]es / [n]o / [a]lways / or type feedback: {RESET}").strip()
             if ans.lower() in ("a", "always"):
                 self.auto = True

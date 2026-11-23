@@ -1,16 +1,20 @@
-"""Tools the agent can call: run shell commands, read/write/edit files, find files, search text.
+"""Tools the agent can call, described once in a provider-neutral way (name, description, JSON schema).
 
-Each tool is described once in a provider-neutral way (name, description, JSON schema);
-providers.py converts these to the Claude or OpenAI tool format.
+Workspace tools run here (shell, files, search, background jobs, web fetch).
+Session tools (todo list, sub-agents, previews) are handled by the app session in gui.py.
 """
 
 from __future__ import annotations
 
+import difflib
 import fnmatch
+import html
 import os
 import re
 import shutil
 import subprocess
+import tempfile
+import urllib.request
 from pathlib import Path
 
 MAX_OUTPUT = 30_000  # characters returned to the model per tool call
@@ -20,81 +24,101 @@ def _schema(props: dict, required: list[str]) -> dict:
     return {"type": "object", "properties": props, "required": required, "additionalProperties": False}
 
 
+_S = {"type": "string"}
+_EDIT_ITEM = {"type": "object", "properties": {"old_text": _S, "new_text": _S}, "required": ["old_text", "new_text"],
+              "additionalProperties": False}
+
 TOOLS = [
-    {
-        "name": "bash",
-        "description": "Run a shell command in the working directory and return its output (stdout and stderr). "
-        "Use for builds, tests, git, installing packages and anything else a terminal does.",
-        "schema": _schema(
-            {
-                "command": {"type": "string", "description": "The shell command to run."},
-                "timeout": {"type": "integer", "description": "Seconds before the command is stopped (default 120)."},
-            },
-            ["command"],
-        ),
-    },
-    {
-        "name": "read_file",
-        "description": "Read a text file. Returns numbered lines. Use offset/limit for large files.",
-        "schema": _schema(
-            {
-                "path": {"type": "string", "description": "File path, relative to the working directory or absolute."},
-                "offset": {"type": "integer", "description": "First line to return (1-based)."},
-                "limit": {"type": "integer", "description": "Maximum number of lines to return."},
-            },
-            ["path"],
-        ),
-    },
-    {
-        "name": "write_file",
-        "description": "Create a file or overwrite it with the given full contents. Creates parent folders.",
-        "schema": _schema(
-            {
-                "path": {"type": "string", "description": "File path."},
-                "content": {"type": "string", "description": "The complete new file contents."},
-            },
-            ["path", "content"],
-        ),
-    },
-    {
-        "name": "edit_file",
-        "description": "Replace one exact occurrence of old_text with new_text in a file. "
-        "old_text must appear exactly once; include surrounding lines to make it unique.",
-        "schema": _schema(
-            {
-                "path": {"type": "string", "description": "File path."},
-                "old_text": {"type": "string", "description": "Exact text to replace (must be unique in the file)."},
-                "new_text": {"type": "string", "description": "Replacement text."},
-            },
-            ["path", "old_text", "new_text"],
-        ),
-    },
-    {
-        "name": "list_files",
-        "description": "List files matching a glob pattern such as '**/*.py' (skips .git, node_modules, .venv).",
-        "schema": _schema({"pattern": {"type": "string", "description": "Glob pattern, e.g. 'src/**/*.ts'."}}, ["pattern"]),
-    },
-    {
-        "name": "search",
-        "description": "Search file contents with a regular expression. Returns matching lines as path:line:text.",
-        "schema": _schema(
-            {
-                "pattern": {"type": "string", "description": "Regular expression."},
-                "path": {"type": "string", "description": "Folder or file to search (default: working directory)."},
-            },
-            ["pattern"],
-        ),
-    },
+    {"name": "bash", "kind": "mutating",
+     "description": "Run a shell command in the working directory and return its output. Use for builds, tests, git, "
+                    "installing packages. Set run_in_background for servers or long jobs, then read them with bash_output.",
+     "schema": _schema({"command": {"type": "string", "description": "The shell command."},
+                        "timeout": {"type": "integer", "description": "Seconds before it is stopped (default 120)."},
+                        "run_in_background": {"type": "boolean", "description": "Start it and return a job id at once."}},
+                       ["command"])},
+    {"name": "bash_output", "kind": "readonly",
+     "description": "Read new output from a background job started with bash run_in_background, and whether it is still running.",
+     "schema": _schema({"job_id": _S}, ["job_id"])},
+    {"name": "kill_shell", "kind": "mutating", "description": "Stop a background job.",
+     "schema": _schema({"job_id": _S}, ["job_id"])},
+    {"name": "read_file", "kind": "readonly",
+     "description": "Read a text file. Returns numbered lines. Use offset/limit for large files.",
+     "schema": _schema({"path": {"type": "string", "description": "Relative to the working directory, or absolute."},
+                        "offset": {"type": "integer", "description": "First line (1-based)."},
+                        "limit": {"type": "integer", "description": "Maximum lines."}}, ["path"])},
+    {"name": "write_file", "kind": "mutating",
+     "description": "Create a file or overwrite it with the complete new contents. Creates parent folders.",
+     "schema": _schema({"path": _S, "content": {"type": "string", "description": "Complete file contents."}}, ["path", "content"])},
+    {"name": "edit_file", "kind": "mutating",
+     "description": "Replace one exact occurrence of old_text with new_text. old_text must appear exactly once; "
+                    "include surrounding lines to make it unique.",
+     "schema": _schema({"path": _S, "old_text": _S, "new_text": _S}, ["path", "old_text", "new_text"])},
+    {"name": "multi_edit", "kind": "mutating",
+     "description": "Apply several exact replacements to one file in order, all or nothing. Each old_text must be unique "
+                    "in the file at the moment it is applied.",
+     "schema": _schema({"path": _S, "edits": {"type": "array", "items": _EDIT_ITEM}}, ["path", "edits"])},
+    {"name": "list_files", "kind": "readonly",
+     "description": "List files matching a glob such as '**/*.py' (skips .git, node_modules, .venv).",
+     "schema": _schema({"pattern": _S}, ["pattern"])},
+    {"name": "search", "kind": "readonly",
+     "description": "Search file contents with a regular expression. Returns path:line:text.",
+     "schema": _schema({"pattern": _S, "path": {"type": "string", "description": "Folder or file (default: working directory)."}},
+                       ["pattern"])},
+    {"name": "fetch_url", "kind": "readonly", "client_web": True,
+     "description": "Fetch a web page (or a local dev server URL) and return its text content.",
+     "schema": _schema({"url": _S}, ["url"])},
+    # Session tools (handled in gui.py)
+    {"name": "todo_write", "kind": "session",
+     "description": "Create or update your task list for multi-step work. Send the FULL list every time. "
+                    "Use it for any task with 3+ steps; keep exactly one item in_progress while working.",
+     "schema": _schema({"todos": {"type": "array", "items": {
+         "type": "object", "additionalProperties": False, "required": ["content", "status"],
+         "properties": {"content": _S, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}}}},
+         ["todos"])},
+    {"name": "task", "kind": "session",
+     "description": "Hand a self-contained research job to a sub-agent with read-only tools (read, list, search, fetch). "
+                    "Use it to explore a large codebase or look things up without filling this conversation. "
+                    "It returns only its final report, so say exactly what to find and what to report.",
+     "schema": _schema({"description": {"type": "string", "description": "3-6 word label."},
+                        "prompt": {"type": "string", "description": "Full instructions for the sub-agent."}},
+                       ["description", "prompt"])},
+    {"name": "open_preview", "kind": "session",
+     "description": "Open a web page, local dev server URL or HTML file in a preview window so the user can see it.",
+     "schema": _schema({"target": {"type": "string", "description": "URL or file path."}}, ["target"])},
 ]
 
 TOOLS_BY_NAME = {t["name"]: t for t in TOOLS}
-
-# Tools that change something: the user is asked before each one runs (unless auto-approve is on).
-NEEDS_APPROVAL = {"bash", "write_file", "edit_file"}
+WORKSPACE_TOOLS = [t for t in TOOLS if t["kind"] != "session"]
+READONLY_TOOLS = [t for t in TOOLS if t["kind"] == "readonly"]
+MUTATING = {t["name"] for t in TOOLS if t["kind"] == "mutating"}
+FILE_CHANGING = {"write_file", "edit_file", "multi_edit"}
 
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".mypy_cache", "dist", "build"}
+_TYPES = {"string": str, "integer": int, "boolean": bool, "array": list, "object": dict}
 
-_TYPES = {"string": str, "integer": int}
+
+def _check(value, spec: dict, where: str) -> str | None:
+    expected = _TYPES[spec["type"]]
+    if not isinstance(value, expected) or (expected is int and isinstance(value, bool)):
+        return f"'{where}' must be of type {spec['type']}."
+    if "enum" in spec and value not in spec["enum"]:
+        return f"'{where}' must be one of {spec['enum']}."
+    if spec["type"] == "array":
+        for i, item in enumerate(value):
+            err = _check(item, spec["items"], f"{where}[{i}]")
+            if err:
+                return err
+    if spec["type"] == "object" and "properties" in spec:
+        for key in spec.get("required", []):
+            if key not in value:
+                return f"'{where}' is missing '{key}'."
+        for key, v in value.items():
+            if key not in spec["properties"]:
+                return f"'{where}' has unknown field '{key}'."
+            err = _check(v, spec["properties"][key], f"{where}.{key}")
+            if err:
+                return err
+    return None
 
 
 def validate(name: str, args: object) -> str | None:
@@ -104,30 +128,23 @@ def validate(name: str, args: object) -> str | None:
         return f"Unknown tool '{name}'."
     if not isinstance(args, dict):
         return "Tool input must be a JSON object."
-    schema = tool["schema"]
-    for key in schema["required"]:
-        if key not in args:
-            return f"Missing required parameter '{key}'."
-    for key, value in args.items():
-        spec = schema["properties"].get(key)
-        if spec is None:
-            return f"Unknown parameter '{key}'."
-        expected = _TYPES[spec["type"]]
-        if not isinstance(value, expected) or (expected is int and isinstance(value, bool)):
-            return f"Parameter '{key}' must be a {spec['type']}."
-    return None
+    return _check(args, tool["schema"], "input")
 
 
 def describe(name: str, args: dict) -> str:
     """One-line summary of a tool call, shown to the user."""
     if name == "bash":
-        return f"$ {args.get('command', '')}"
-    if name == "edit_file":
+        return f"$ {args.get('command', '')}" + ("  (background)" if args.get("run_in_background") else "")
+    if name in ("edit_file", "multi_edit"):
         return f"edit {args.get('path')}"
     if name == "write_file":
-        return f"write {args.get('path')} ({len(args.get('content', ''))} chars)"
+        return f"write {args.get('path')}"
     if name == "read_file":
         return f"read {args.get('path')}"
+    if name == "fetch_url":
+        return f"fetch {args.get('url')}"
+    if name in ("bash_output", "kill_shell"):
+        return f"{name} {args.get('job_id')}"
     return f"{name} {args.get('pattern', '')} {args.get('path', '')}".strip()
 
 
@@ -142,63 +159,147 @@ class ToolError(Exception):
     pass
 
 
+def _apply_edits(text: str, edits: list[dict]) -> str:
+    for i, e in enumerate(edits, 1):
+        count = text.count(e["old_text"])
+        label = f"Edit {i}: " if len(edits) > 1 else ""
+        if count == 0:
+            raise ToolError(f"{label}old_text was not found. Read the file and copy the text exactly.")
+        if count > 1:
+            raise ToolError(f"{label}old_text appears {count} times. Include more surrounding lines so it is unique.")
+        text = text.replace(e["old_text"], e["new_text"], 1)
+    return text
+
+
 class Workspace:
-    """Runs tools inside one working directory."""
+    """Runs workspace tools inside one working directory."""
 
-    def __init__(self, cwd: str):
+    def __init__(self, cwd: str, on_file_change=None):
         self.cwd = Path(cwd).resolve()
+        self.on_file_change = on_file_change  # called with (Path, old_text_or_None) before a file changes
+        self.jobs: dict[str, dict] = {}
+        self._job_n = 0
 
-    def _path(self, p: str) -> Path:
+    def path(self, p: str) -> Path:
         path = Path(os.path.expanduser(p))
-        return path if path.is_absolute() else (self.cwd / path)
+        return (path if path.is_absolute() else (self.cwd / path)).resolve()
 
     def run(self, name: str, args: dict) -> str:
         return _truncate(getattr(self, f"_{name}")(**args))
 
-    def _bash(self, command: str, timeout: int = 120) -> str:
+    # ---- diff preview (computed before approval; nothing is written) ----
+    def preview_diff(self, name: str, args: dict) -> str | None:
+        if name not in FILE_CHANGING:
+            return None
+        p = self.path(args["path"])
+        old = p.read_text(errors="replace") if p.is_file() else ""
         try:
-            proc = subprocess.run(
-                command, shell=True, cwd=self.cwd, capture_output=True, text=True,
-                encoding="utf-8", errors="replace",
-                timeout=max(1, min(timeout, 1800)), stdin=subprocess.DEVNULL,
-            )
+            if name == "write_file":
+                new = args["content"]
+            elif name == "edit_file":
+                new = _apply_edits(old, [args])
+            else:
+                new = _apply_edits(old, args["edits"])
+        except ToolError as e:
+            return f"(cannot apply: {e})"
+        try:
+            rel = p.relative_to(self.cwd).as_posix()
+        except ValueError:
+            rel = str(p)
+        diff = difflib.unified_diff(old.splitlines(), new.splitlines(), f"a/{rel}" if p.exists() else "/dev/null",
+                                    f"b/{rel}", lineterm="", n=3)
+        return "\n".join(diff)[:12000] or "(no changes)"
+
+    def _before_change(self, p: Path):
+        if self.on_file_change:
+            self.on_file_change(p, p.read_text(errors="replace") if p.is_file() else None)
+
+    # ---- shell ----
+    def _bash(self, command: str, timeout: int = 120, run_in_background: bool = False) -> str:
+        if run_in_background:
+            return self._start_job(command)
+        try:
+            proc = subprocess.run(command, shell=True, cwd=self.cwd, capture_output=True, text=True, encoding="utf-8",
+                                  errors="replace", timeout=max(1, min(timeout, 1800)), stdin=subprocess.DEVNULL)
         except subprocess.TimeoutExpired as e:
-            out = (e.stdout or b"").decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
-            raise ToolError(f"Command timed out after {timeout}s.\n{out}")
+            out = e.stdout.decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
+            raise ToolError(f"Command timed out after {timeout}s. Use run_in_background for long jobs.\n{out}")
         out = proc.stdout + (("\n[stderr]\n" + proc.stderr) if proc.stderr else "")
         if proc.returncode != 0:
             raise ToolError(f"Exit code {proc.returncode}\n{out}")
         return out or "(no output)"
 
+    def _start_job(self, command: str) -> str:
+        self._job_n += 1
+        job_id = f"job{self._job_n}"
+        log = tempfile.NamedTemporaryFile(prefix=f"herness-{job_id}-", suffix=".log", delete=False)
+        proc = subprocess.Popen(command, shell=True, cwd=self.cwd, stdout=log, stderr=subprocess.STDOUT,
+                                stdin=subprocess.DEVNULL, start_new_session=(os.name != "nt"))
+        log.close()
+        self.jobs[job_id] = {"proc": proc, "log": log.name, "pos": 0, "command": command}
+        return f"Started background job {job_id} (pid {proc.pid}). Read its output with bash_output."
+
+    def _bash_output(self, job_id: str) -> str:
+        job = self.jobs.get(job_id)
+        if not job:
+            raise ToolError(f"No job {job_id}. Jobs: {', '.join(self.jobs) or 'none'}")
+        with open(job["log"], "rb") as f:
+            f.seek(job["pos"])
+            data = f.read()
+            job["pos"] = f.tell()
+        code = job["proc"].poll()
+        state = "still running" if code is None else f"finished with exit code {code}"
+        return f"[{job_id} {state}]\n" + (data.decode(errors="replace") or "(no new output)")
+
+    def _kill_shell(self, job_id: str) -> str:
+        job = self.jobs.get(job_id)
+        if not job:
+            raise ToolError(f"No job {job_id}.")
+        if job["proc"].poll() is None:
+            job["proc"].terminate()
+            try:
+                job["proc"].wait(5)
+            except subprocess.TimeoutExpired:
+                job["proc"].kill()
+        return f"Stopped {job_id}."
+
+    def stop_all_jobs(self):
+        for job_id in list(self.jobs):
+            try:
+                self._kill_shell(job_id)
+            except Exception:
+                pass
+
+    # ---- files ----
     def _read_file(self, path: str, offset: int = 1, limit: int = 2000) -> str:
-        p = self._path(path)
+        p = self.path(path)
         if not p.is_file():
             raise ToolError(f"No such file: {p}")
         lines = p.read_text(errors="replace").splitlines()
         start = max(offset, 1)
-        chunk = lines[start - 1 : start - 1 + limit]
+        chunk = lines[start - 1: start - 1 + limit]
         body = "\n".join(f"{i:6}\t{line}" for i, line in enumerate(chunk, start))
         more = len(lines) - (start - 1 + len(chunk))
         return (body or "(empty file)") + (f"\n... {more} more lines (use offset)" if more > 0 else "")
 
     def _write_file(self, path: str, content: str) -> str:
-        p = self._path(path)
+        p = self.path(path)
+        self._before_change(p)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content)
+        p.write_text(content, encoding="utf-8")
         return f"Wrote {len(content)} characters to {p}"
 
     def _edit_file(self, path: str, old_text: str, new_text: str) -> str:
-        p = self._path(path)
+        return self._multi_edit(path, [{"old_text": old_text, "new_text": new_text}])
+
+    def _multi_edit(self, path: str, edits: list[dict]) -> str:
+        p = self.path(path)
         if not p.is_file():
             raise ToolError(f"No such file: {p}")
-        text = p.read_text()
-        count = text.count(old_text)
-        if count == 0:
-            raise ToolError("old_text was not found in the file. Read the file and copy the text exactly.")
-        if count > 1:
-            raise ToolError(f"old_text appears {count} times. Include more surrounding lines so it is unique.")
-        p.write_text(text.replace(old_text, new_text, 1))
-        return f"Edited {p}"
+        new = _apply_edits(p.read_text(errors="replace"), edits)
+        self._before_change(p)
+        p.write_text(new, encoding="utf-8")
+        return f"Applied {len(edits)} edit(s) to {p}"
 
     def _walk(self, root: Path):
         if root.is_file():
@@ -220,10 +321,10 @@ class Workspace:
         return "\n".join(sorted(hits)) or "No files matched."
 
     def _search(self, pattern: str, path: str = ".") -> str:
-        root = self._path(path)
+        root = self.path(path)
         if shutil.which("rg"):
-            proc = subprocess.run(["rg", "-n", "--no-heading", "-m", "50", pattern, str(root)],
-                                  capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=self.cwd)
+            proc = subprocess.run(["rg", "-n", "--no-heading", "-m", "50", pattern, str(root)], capture_output=True,
+                                  text=True, encoding="utf-8", errors="replace", cwd=self.cwd)
             if proc.returncode > 1:
                 raise ToolError(proc.stderr)
             return proc.stdout or "No matches."
@@ -236,9 +337,44 @@ class Workspace:
             try:
                 for i, line in enumerate(f.read_text(errors="strict").splitlines(), 1):
                     if rx.search(line):
-                        hits.append(f"{f.relative_to(self.cwd) if f.is_relative_to(self.cwd) else f}:{i}:{line[:300]}")
+                        rel = f.relative_to(self.cwd) if f.is_relative_to(self.cwd) else f
+                        hits.append(f"{rel}:{i}:{line[:300]}")
             except (UnicodeDecodeError, OSError):
                 continue
             if len(hits) >= 300:
                 break
         return "\n".join(hits) or "No matches."
+
+    # ---- web ----
+    def _fetch_url(self, url: str) -> str:
+        if not re.match(r"^https?://", url):
+            raise ToolError("Only http(s) URLs can be fetched.")
+        req = urllib.request.Request(url, headers={"User-Agent": "IncredibleHerness/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                raw = r.read(3_000_000)
+                ctype = r.headers.get("Content-Type", "")
+        except Exception as e:
+            raise ToolError(f"Could not fetch {url}: {e}")
+        text = raw.decode(errors="replace")
+        if "html" in ctype or "<html" in text[:500].lower():
+            text = re.sub(r"(?is)<(script|style|noscript|svg).*?</\1>", " ", text)
+            text = re.sub(r"(?i)<(br|p|div|li|h[1-6]|tr)[^>]*>", "\n", text)
+            text = html.unescape(re.sub(r"<[^>]+>", " ", text))
+            text = re.sub(r"[ \t]+", " ", text)
+            text = re.sub(r"\n\s*\n+", "\n\n", text).strip()
+        return text
+
+
+def project_instructions(cwd: str) -> tuple[str, list[str]]:
+    """Text of the folder's instruction files (HERNESS.md, CLAUDE.md, AGENTS.md) and their names."""
+    names, parts = [], []
+    for name in ("HERNESS.md", "CLAUDE.md", "AGENTS.md", ".herness/instructions.md"):
+        p = Path(cwd) / name
+        if p.is_file():
+            try:
+                parts.append(f"## {name}\n{p.read_text(errors='replace')[:20000]}")
+                names.append(name)
+            except OSError:
+                pass
+    return "\n\n".join(parts), names

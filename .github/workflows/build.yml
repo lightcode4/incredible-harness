@@ -37,14 +37,38 @@ jobs:
       - name: Offline tests (no API calls)
         run: python test_loop.py
 
+      - name: Stamp build number (used by "Check for updates")
+        run: printf 'BUILD = %s\nREPO = "%s"\n' "${{ github.run_number }}" "${{ github.repository }}" > myagent/_build.py
+
       - name: Build app (macOS)
         if: matrix.name == 'mac'
         run: |
           pyinstaller --noconfirm --windowed --name "Incredible Herness" \
             --osx-bundle-identifier com.incrediblehernes.app \
             --add-data "myagent/static:myagent/static" run_app.py
+          # Optional signing + notarization: runs only when the Apple secrets are added to the repository.
+          if [ -n "$MACOS_CERT_P12" ]; then
+            echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
+            security create-keychain -p ci build.keychain && security default-keychain -s build.keychain
+            security unlock-keychain -p ci build.keychain
+            security import cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k ci build.keychain
+            codesign --force --deep --options runtime --timestamp --sign "$MACOS_SIGN_IDENTITY" "dist/Incredible Herness.app"
+          fi
           hdiutil create -volname "Incredible Herness" -srcfolder "dist/Incredible Herness.app" \
             -ov -format UDZO "dist/Incredible-Herness-mac.dmg"
+          if [ -n "$MACOS_CERT_P12" ] && [ -n "$APPLE_ID" ]; then
+            xcrun notarytool submit dist/Incredible-Herness-mac.dmg --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+            xcrun stapler staple dist/Incredible-Herness-mac.dmg
+          fi
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Build app (Windows)
         if: matrix.name == 'windows'
@@ -53,6 +77,16 @@ jobs:
             --add-data "myagent/static;myagent/static" run_app.py
           choco install innosetup -y --no-progress
           "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" installer.iss
+          # Optional code signing: runs only when the Windows certificate secrets are added.
+          if [ -n "$WINDOWS_CERT_PFX" ]; then
+            echo "$WINDOWS_CERT_PFX" | base64 --decode > cert.pfx
+            SIGNTOOL=$(ls "/c/Program Files (x86)/Windows Kits/10/bin/"*/x64/signtool.exe | tail -1)
+            "$SIGNTOOL" sign /f cert.pfx /p "$WINDOWS_CERT_PASSWORD" /fd sha256 /tr http://timestamp.digicert.com /td sha256 \
+              dist/Incredible-Herness-Setup.exe
+          fi
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
 
       # Published as a GitHub Release (pre-release): releases don't use the Actions artifact storage quota.
       - name: Publish to release
@@ -64,5 +98,5 @@ jobs:
           [ -n "$FILE" ] || { echo "No installer was built"; exit 1; }
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --prerelease \
             --target "$GITHUB_SHA" --title "Incredible Herness (build ${{ github.run_number }})" \
-            --notes "Desktop installers for macOS (Apple silicon) and Windows." || sleep 10
+            --notes "Incredible Herness ${{ github.sha }} desktop installers for macOS (Apple silicon) and Windows." || sleep 10
           gh release upload "$TAG" "$FILE" --clobber

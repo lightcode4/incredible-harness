@@ -1,20 +1,25 @@
-"""Model providers. Each one keeps its own conversation history and runs the agent loop:
+"""Model providers. Each keeps its own conversation history and runs the agent loop:
 ask the model -> run the tools it calls -> send results back -> repeat until it answers.
 
-- ClaudeProvider: the official Anthropic SDK (streaming, adaptive thinking, refusal fallbacks).
-- OpenAIProvider: the OpenAI SDK; also works with any OpenAI-compatible server
-  (OpenRouter, Groq, Together, LM Studio, Ollama, vLLM, ...) via base_url.
+- ClaudeProvider: official Anthropic SDK (streaming, adaptive thinking, refusal fallbacks, prompt caching,
+  server-side compaction, web search/fetch, MCP connectors).
+- OpenAIProvider: OpenAI SDK; works with any OpenAI-compatible server (OpenRouter, Groq, Ollama, LM Studio...).
+
+User messages are lists of neutral parts:
+  {"type": "text", "text"} | {"type": "image", "media_type", "data"} | {"type": "pdf", "name", "data"}
+  | {"type": "file", "name", "text"}
 """
 
 from __future__ import annotations
 
 import json
+import os
 from typing import Callable, Protocol
 
-from .tools import TOOLS
+from .tools import WORKSPACE_TOOLS
 
-# run_tool(name, args) -> (result_text, is_error)
 RunTool = Callable[[str, dict], "tuple[str, bool]"]
+MAX_STEPS = 80  # tool rounds per user message
 
 
 class UI(Protocol):
@@ -22,104 +27,153 @@ class UI(Protocol):
     def thinking(self, chunk: str) -> None: ...
     def end_block(self) -> None: ...
     def notice(self, msg: str) -> None: ...
+    def server_tool(self, summary: str) -> None: ...
+    def usage(self, model: str, usage: dict) -> None: ...
+    def before_request(self) -> None: ...  # may raise to stop (budget reached, Stop pressed)
 
 
-class Provider(Protocol):
-    label: str
-    def turn(self, user_text: str, run_tool: RunTool, ui: UI) -> None: ...
-    def clear(self) -> None: ...
+# $ per million tokens: (input, output, cache read). Cache writes bill at 1.25x input.
+PRICES = {
+    "claude-fable-5-2": (8, 40, 0.20), "claude-fable-5-1": (10, 50, 1.0), "claude-fable-5": (10, 50, 1.0),
+    "claude-opus-5-5": (4, 20, 0.20), "claude-opus-5": (5, 25, 0.50), "claude-opus-4-8": (5, 25, 0.50),
+    "claude-opus-4-7": (5, 25, 0.50), "claude-opus-4-6": (5, 25, 0.50),
+    "claude-sonnet-5-5": (2, 10, 0.10), "claude-sonnet-5": (2, 10, 0.20), "claude-sonnet-4-6": (3, 15, 0.30),
+    "claude-haiku-5-5": (0.10, 0.50, 0.01), "claude-haiku-4-5": (1, 5, 0.10),
+}
 
 
-MAX_STEPS = 60  # tool-call rounds per user message before the loop stops
+def cost_of(model: str, u: dict) -> float | None:
+    p = PRICES.get(model)
+    if not p:
+        return None
+    return (u.get("input", 0) * p[0] + u.get("output", 0) * p[1] + u.get("cache_read", 0) * p[2]
+            + u.get("cache_write", 0) * p[0] * 1.25) / 1_000_000
+
+
+def _text_of(parts) -> str:
+    if isinstance(parts, str):
+        return parts
+    return "\n".join(p["text"] for p in parts if p["type"] == "text")
 
 
 # --------------------------------------------------------------------------- Claude
 
-# Models that accept the server-side refusal fallback ("default" routes to a suitable model).
 _FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-fable-5-2", "claude-fable-5-1", "claude-sonnet-5-5"}
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 
 class ClaudeProvider:
-    def __init__(self, model: str, system: str, effort: str = "high", api_key: str | None = None):
-        import os
-
+    def __init__(self, model: str, system: str, effort: str = "high", api_key: str | None = None,
+                 tools: list[dict] = WORKSPACE_TOOLS, web: bool = True, compaction: bool = True,
+                 mcp_servers: list[dict] | None = None):
         import anthropic
 
         if not (api_key or os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
-            raise ValueError("No Claude API key. Paste it in the API key box and press Apply")
-        self._anthropic = anthropic
+            raise ValueError("No Claude API key. Paste it in Settings")
         self.client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
-        self.model = model
-        self.effort = effort
-        self.system = system
+        self.model, self.effort, self.system = model, effort, system
+        self.web, self.compaction = web, compaction
+        self.mcp_servers = [m for m in (mcp_servers or []) if m.get("name") and m.get("url")]
         self.messages: list = []
         self.label = f"claude:{model}"
-        # eager_input_streaming streams large tool inputs (file bodies) as they are generated;
-        # inputs are validated in run_tool before anything executes.
+        # Claude has built-in web search/fetch, so the client-side fetch tool is left out when web is on.
         self.tools = [
-            {"name": t["name"], "description": t["description"], "input_schema": t["schema"],
-             "eager_input_streaming": True}
-            for t in TOOLS
+            {"name": t["name"], "description": t["description"], "input_schema": t["schema"], "eager_input_streaming": True}
+            for t in tools if not (web and t.get("client_web"))
         ]
 
     def clear(self) -> None:
         self.messages = []
 
     def _request(self) -> dict:
-        req = dict(
-            model=self.model,
-            max_tokens=64000,
-            system=[{"type": "text", "text": self.system}],
-            tools=self.tools,
-            messages=self.messages,
-            thinking={"type": "adaptive", "display": "summarized"},
-            output_config={"effort": self.effort},
-            cache_control={"type": "ephemeral"},  # caches the growing conversation prefix
-        )
+        tools = list(self.tools)
+        betas = []
+        req = dict(model=self.model, max_tokens=64000, system=[{"type": "text", "text": self.system}],
+                   messages=self.messages, thinking={"type": "adaptive", "display": "summarized"},
+                   output_config={"effort": self.effort}, cache_control={"type": "ephemeral"})
+        if self.web:
+            tools += [{"type": "web_search_20260209", "name": "web_search"},
+                      {"type": "web_fetch_20260209", "name": "web_fetch"}]
+        if self.mcp_servers:
+            betas.append("mcp-client-2025-11-20")
+            req["mcp_servers"] = [{"type": "url", "url": m["url"], "name": m["name"],
+                                   **({"authorization_token": m["token"]} if m.get("token") else {})}
+                                  for m in self.mcp_servers]
+            tools += [{"type": "mcp_toolset", "mcp_server_name": m["name"]} for m in self.mcp_servers]
+        if self.compaction:
+            betas.append("compact-2026-01-12")
+            req["context_management"] = {"edits": [{"type": "compact_20260112"}]}
         if self.model in _FALLBACK_MODELS:
-            req["betas"] = [FALLBACK_BETA]
+            betas.append("server-side-fallback-2026-07-01")
             req["fallbacks"] = "default"
+        req["tools"] = tools
+        if betas:
+            req["betas"] = betas
         return req
 
+    @staticmethod
+    def _content(parts) -> list | str:
+        if isinstance(parts, str):
+            return parts
+        blocks = []
+        for p in parts:
+            if p["type"] == "image":
+                blocks.append({"type": "image", "source": {"type": "base64", "media_type": p["media_type"], "data": p["data"]}})
+            elif p["type"] == "pdf":
+                blocks.append({"type": "document", "title": p["name"][:200],
+                               "source": {"type": "base64", "media_type": "application/pdf", "data": p["data"]}})
+            elif p["type"] == "file":
+                blocks.append({"type": "text", "text": f"Attached file {p['name']}:\n```\n{p['text']}\n```"})
+        text = _text_of(parts)
+        if text:
+            blocks.append({"type": "text", "text": text})
+        return blocks
+
     def _stream(self, ui: UI):
-        """One streamed model call. Returns the final message, or None if the stream's JSON was unusable."""
         try:
             with self.client.beta.messages.stream(**self._request()) as stream:
-                current = None
                 for event in stream:
-                    if event.type == "content_block_start":
-                        current = event.content_block.type
-                    elif event.type == "content_block_delta":
+                    if event.type == "content_block_delta":
                         if event.delta.type == "text_delta":
                             ui.text(event.delta.text)
                         elif event.delta.type == "thinking_delta":
                             ui.thinking(event.delta.thinking)
-                    elif event.type == "content_block_stop" and current in ("text", "thinking"):
-                        ui.end_block()
+                    elif event.type == "content_block_stop":
+                        block = getattr(event, "content_block", None)
+                        kind = getattr(block, "type", None)
+                        if kind in ("text", "thinking"):
+                            ui.end_block()
+                        elif kind == "server_tool_use":
+                            inp = block.input if isinstance(block.input, dict) else {}
+                            ui.server_tool(f"{block.name.replace('_', ' ')}: {inp.get('query') or inp.get('url') or ''}")
+                        elif kind == "mcp_tool_use":
+                            ui.server_tool(f"{block.server_name} · {block.name}")
+                        elif kind == "compaction":
+                            ui.notice("Earlier conversation was summarized to save context.")
                 return stream.get_final_message()
         except ValueError as e:  # the SDK could not parse a streamed tool input
             ui.notice(f"Model sent malformed tool input ({e}); retrying.")
             return None
 
-    def turn(self, user_text: str, run_tool: RunTool, ui: UI) -> None:
-        self.messages.append({"role": "user", "content": user_text})
-        bad_json_retries = 0
+    def turn(self, parts, run_tool: RunTool, ui: UI) -> None:
+        self.messages.append({"role": "user", "content": self._content(parts)})
+        bad = 0
         for _ in range(MAX_STEPS):
+            ui.before_request()
             msg = self._stream(ui)
             if msg is None:
-                bad_json_retries += 1
-                if bad_json_retries > 2:
+                bad += 1
+                if bad > 2:
                     ui.notice("Stopped: repeated malformed tool input.")
                     return
                 continue
-
+            u = msg.usage
+            ui.usage(msg.model, {"input": u.input_tokens or 0, "output": u.output_tokens or 0,
+                                 "cache_read": u.cache_read_input_tokens or 0,
+                                 "cache_write": u.cache_creation_input_tokens or 0})
             for block in msg.content:
                 if block.type == "fallback":
                     ui.notice(f"{block.from_.model} declined; continued on {block.to.model}.")
-
-            # Keep the full content (thinking, fallback and tool_use blocks) unchanged in history.
-            self.messages.append({"role": "assistant", "content": msg.content})
+            self.messages.append({"role": "assistant", "content": msg.content})  # keep every block unchanged
             tool_uses = [b for b in msg.content if b.type == "tool_use"]
 
             if msg.stop_reason == "refusal":
@@ -127,46 +181,71 @@ class ClaudeProvider:
                 ui.notice(f"The model declined this request{f' ({d.category})' if d and d.category else ''}.")
                 self._answer_unrun(tool_uses, "Not run: the turn ended in a refusal.")
                 return
-            if msg.stop_reason == "pause_turn":
+            if msg.stop_reason in ("pause_turn", "compaction"):
                 continue
             if msg.stop_reason == "max_tokens":
                 if not tool_uses:
                     ui.notice("Reply hit the output limit.")
                     return
-                # A cut-off tool input can look valid; never run it.
-                self._answer_unrun(tool_uses, "Not run: your output hit max_tokens mid tool call. "
-                                              "Retry with smaller steps (e.g. write the file in parts).")
+                self._answer_unrun(tool_uses, "Not run: output hit max_tokens mid tool call. Retry in smaller steps.")
                 continue
             if not tool_uses:
-                return  # end_turn: the model answered
-
+                return
             results = []
             for tu in tool_uses:
                 text, is_error = run_tool(tu.name, tu.input)
                 results.append({"type": "tool_result", "tool_use_id": tu.id, "content": text, "is_error": is_error})
-            self.messages.append({"role": "user", "content": results})  # all results in ONE message
+            self.messages.append({"role": "user", "content": results})
         ui.notice(f"Stopped after {MAX_STEPS} tool rounds. Say 'continue' to keep going.")
 
     def _answer_unrun(self, tool_uses, reason: str) -> None:
         if tool_uses:
             self.messages.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": t.id, "content": reason, "is_error": True} for t in tool_uses
-            ]})
+                {"type": "tool_result", "tool_use_id": t.id, "content": reason, "is_error": True} for t in tool_uses]})
 
     def close_interrupted(self) -> None:
-        """After Ctrl-C: answer any pending tool calls so the history stays valid."""
-        if self.messages and self.messages[-1]["role"] == "assistant":
-            pending = [b for b in self.messages[-1]["content"] if getattr(b, "type", None) == "tool_use"]
-            self._answer_unrun(pending, "Interrupted by the user before this ran.")
-        elif self.messages and self.messages[-1]["role"] == "user" and isinstance(self.messages[-1]["content"], str):
+        if not self.messages:
+            return
+        last = self.messages[-1]
+        if last["role"] == "assistant":
+            pending = [b for b in last["content"] if getattr(b, "type", None) == "tool_use"
+                       or (isinstance(b, dict) and b.get("type") == "tool_use")]
+            for b in pending:
+                bid = b.id if hasattr(b, "id") else b["id"]
+                self.messages.append({"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": bid, "content": "Interrupted by the user.", "is_error": True}]})
+        elif last["role"] == "user" and not any(
+                isinstance(b, dict) and b.get("type") == "tool_result" for b in (last["content"] if isinstance(last["content"], list) else [])):
             self.messages.pop()  # the model never answered this message
+
+    def last_text(self) -> str:
+        for m in reversed(self.messages):
+            if m["role"] == "assistant":
+                return "\n".join(getattr(b, "text", "") or (b.get("text", "") if isinstance(b, dict) else "")
+                                 for b in m["content"] if (getattr(b, "type", None) or (b.get("type") if isinstance(b, dict) else None)) == "text")
+        return ""
+
+    def serialize(self) -> list:
+        out = []
+        for m in self.messages:
+            c = m["content"]
+            if isinstance(c, list):
+                c = [b.to_dict() if hasattr(b, "to_dict") else b for b in c]
+            out.append({"role": m["role"], "content": c})
+        return out
+
+    def restore(self, messages: list) -> None:
+        self.messages = messages
 
 
 # --------------------------------------------------------------------------- OpenAI / compatible / local
 
+COMPACT_AT = 100_000  # prompt tokens before the history is summarized
+
+
 class OpenAIProvider:
     def __init__(self, model: str, system: str, base_url: str | None = None, api_key: str | None = None,
-                 label_prefix: str = "openai"):
+                 label_prefix: str = "openai", tools: list[dict] = WORKSPACE_TOOLS, compaction: bool = True, **_):
         import openai
 
         kwargs = {}
@@ -175,24 +254,54 @@ class OpenAIProvider:
         if api_key:
             kwargs["api_key"] = api_key
         self.client = openai.OpenAI(**kwargs)
-        self.model = model
-        self.system = system
+        self.model, self.system, self.compaction = model, system, compaction
         self.messages: list[dict] = [{"role": "system", "content": system}]
         self.label = f"{label_prefix}:{model}"
-        self.tools = [
-            {"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["schema"]}}
-            for t in TOOLS
-        ]
+        self.last_prompt_tokens = 0
+        self._usage_ok = True
+        self.tools = [{"type": "function", "function": {"name": t["name"], "description": t["description"],
+                                                        "parameters": t["schema"]}} for t in tools]
 
     def clear(self) -> None:
         self.messages = [{"role": "system", "content": self.system}]
 
-    def _stream(self, ui: UI) -> tuple[str, list[dict], str | None]:
-        stream = self.client.chat.completions.create(
-            model=self.model, messages=self.messages, tools=self.tools, stream=True,
-        )
+    @staticmethod
+    def _content(parts):
+        if isinstance(parts, str):
+            return parts
+        out = []
+        for p in parts:
+            if p["type"] == "image":
+                out.append({"type": "image_url", "image_url": {"url": f"data:{p['media_type']};base64,{p['data']}"}})
+            elif p["type"] == "pdf":
+                out.append({"type": "text", "text": f"(The user attached the PDF '{p['name']}', but this model cannot read PDFs.)"})
+            elif p["type"] == "file":
+                out.append({"type": "text", "text": f"Attached file {p['name']}:\n```\n{p['text']}\n```"})
+        text = _text_of(parts)
+        if text:
+            out.append({"type": "text", "text": text})
+        return text if len(out) == 1 and out[0]["type"] == "text" else out
+
+    def _create(self, **kw):
+        import openai
+
+        if self._usage_ok:
+            try:
+                return self.client.chat.completions.create(stream_options={"include_usage": True}, **kw)
+            except openai.BadRequestError:
+                self._usage_ok = False  # some local servers reject stream_options
+        return self.client.chat.completions.create(**kw)
+
+    def _stream(self, ui: UI):
+        stream = self._create(model=self.model, messages=self.messages, tools=self.tools, stream=True)
         text, calls, finish = [], {}, None
         for chunk in stream:
+            if getattr(chunk, "usage", None):
+                u = chunk.usage
+                cached = getattr(getattr(u, "prompt_tokens_details", None), "cached_tokens", 0) or 0
+                self.last_prompt_tokens = u.prompt_tokens or 0
+                ui.usage(self.model, {"input": (u.prompt_tokens or 0) - cached, "output": u.completion_tokens or 0,
+                                      "cache_read": cached, "cache_write": 0})
             if not chunk.choices:
                 continue
             choice = chunk.choices[0]
@@ -213,23 +322,37 @@ class OpenAIProvider:
                     slot["arguments"] += tc.function.arguments
             if choice.finish_reason:
                 finish = choice.finish_reason
-        if text:
-            ui.end_block()
+        ui.end_block()
         ordered = [calls[i] for i in sorted(calls)]
-        for n, c in enumerate(ordered):  # some local servers omit ids
+        for n, c in enumerate(ordered):
             c["id"] = c["id"] or f"call_{len(self.messages)}_{n}"
         return "".join(text), ordered, finish
 
-    def turn(self, user_text: str, run_tool: RunTool, ui: UI) -> None:
-        self.messages.append({"role": "user", "content": user_text})
+    def _maybe_compact(self, ui: UI) -> None:
+        if not self.compaction or self.last_prompt_tokens < COMPACT_AT or len(self.messages) < 6:
+            return
+        ui.notice("Summarizing earlier conversation to save context…")
+        convo = json.dumps(self.messages[1:], default=str)[-400_000:]
+        r = self.client.chat.completions.create(model=self.model, messages=[
+            {"role": "system", "content": "Summarize this agent conversation so the work can continue: the user's goals, "
+                                          "decisions, files changed, current state and next steps. Be specific and complete."},
+            {"role": "user", "content": convo}])
+        summary = r.choices[0].message.content or ""
+        self.messages = [{"role": "system", "content": self.system},
+                         {"role": "user", "content": f"Summary of our conversation so far:\n{summary}"},
+                         {"role": "assistant", "content": "Understood. I'll continue from there."}]
+        self.last_prompt_tokens = 0
+
+    def turn(self, parts, run_tool: RunTool, ui: UI) -> None:
+        self._maybe_compact(ui)
+        self.messages.append({"role": "user", "content": self._content(parts)})
         for _ in range(MAX_STEPS):
+            ui.before_request()
             text, calls, finish = self._stream(ui)
             assistant: dict = {"role": "assistant", "content": text or None}
             if calls:
-                assistant["tool_calls"] = [
-                    {"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": c["arguments"] or "{}"}}
-                    for c in calls
-                ]
+                assistant["tool_calls"] = [{"id": c["id"], "type": "function",
+                                            "function": {"name": c["name"], "arguments": c["arguments"] or "{}"}} for c in calls]
             self.messages.append(assistant)
             if not calls:
                 if finish == "length":
@@ -240,11 +363,10 @@ class OpenAIProvider:
                     out, err = "Not run: output hit the length limit mid tool call. Retry in smaller steps.", True
                 else:
                     try:
-                        args = json.loads(c["arguments"] or "{}")
-                        out, err = run_tool(c["name"], args)
+                        out, err = run_tool(c["name"], json.loads(c["arguments"] or "{}"))
                     except json.JSONDecodeError:
                         out, err = json.dumps({"INVALID_JSON": c["arguments"][:2000]}), True
-                self.messages.append({"role": "tool", "tool_call_id": c["id"], "content": out if not err else f"ERROR: {out}"})
+                self.messages.append({"role": "tool", "tool_call_id": c["id"], "content": f"ERROR: {out}" if err else out})
         ui.notice(f"Stopped after {MAX_STEPS} tool rounds. Say 'continue' to keep going.")
 
     def close_interrupted(self) -> None:
@@ -253,7 +375,18 @@ class OpenAIProvider:
             answered = {m.get("tool_call_id") for m in self.messages if m["role"] == "tool"}
             for tc in last["tool_calls"]:
                 if tc["id"] not in answered:
-                    self.messages.append({"role": "tool", "tool_call_id": tc["id"],
-                                          "content": "ERROR: interrupted by the user before this ran."})
+                    self.messages.append({"role": "tool", "tool_call_id": tc["id"], "content": "ERROR: interrupted by the user."})
         elif last["role"] == "user":
             self.messages.pop()
+
+    def last_text(self) -> str:
+        for m in reversed(self.messages):
+            if m["role"] == "assistant" and m.get("content"):
+                return m["content"]
+        return ""
+
+    def serialize(self) -> list:
+        return self.messages
+
+    def restore(self, messages: list) -> None:
+        self.messages = messages or [{"role": "system", "content": self.system}]
