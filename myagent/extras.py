@@ -125,7 +125,7 @@ BUILTIN_COMMANDS = {
 UI_COMMANDS = {
     "clear": "Start a new chat", "plan": "Toggle plan mode", "model": "Change model or provider",
     "cost": "Show this chat's cost", "export": "Export this chat", "help": "List commands",
-    "parallel": "Start a parallel chat in its own worktree", "memory": "Edit what Herness remembers",
+    "parallel": "Start a parallel chat in its own worktree", "memory": "Edit what LightCode⁴ remembers",
     "compact": "Summarize the conversation to free up context", "fork": "Copy this chat to try another direction",
 }
 
@@ -287,7 +287,7 @@ def notify(title: str, message: str) -> None:
             ps = ("[Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime]>$null;"
                   "$t=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent(1);"
                   f"$t.GetElementsByTagName('text')[0].AppendChild($t.CreateTextNode({json.dumps(title + ': ' + message[:180])}))>$null;"
-                  "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Incredible Herness')"
+                  "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('LightCode⁴')"
                   ".Show([Windows.UI.Notifications.ToastNotification]::new($t))")
             subprocess.Popen(["powershell", "-NoProfile", "-Command", ps], creationflags=_NOWIN,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

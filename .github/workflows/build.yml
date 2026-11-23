@@ -1,7 +1,7 @@
-# Builds the Incredible Herness desktop app: a .dmg for macOS (Apple silicon) and a Setup .exe for Windows.
+# Builds the LightCode⁴ desktop app: a .dmg for macOS (Apple silicon) and a Setup .exe for Windows.
 # Runs the offline tests first (fake API servers, no API tokens used). Download the installers from the
 # run's "Artifacts" section.
-name: Incredible Herness build
+name: LightCode⁴ build
 
 on:
   workflow_dispatch:
@@ -53,11 +53,12 @@ jobs:
       - name: Build app (macOS)
         if: matrix.name == 'mac'
         run: |
-          pyinstaller --noconfirm --windowed --name "Incredible Herness" \
-            --osx-bundle-identifier com.incrediblehernes.app --collect-all playwright \
+          pyinstaller --noconfirm --windowed --name "LightCode4" --icon assets/icon.icns \
+            --osx-bundle-identifier com.lightcode4.app --collect-all playwright \
             --add-data "myagent/static:myagent/static" run_app.py
-          PLIST="dist/Incredible Herness.app/Contents/Info.plist"
+          PLIST="dist/LightCode4.app/Contents/Info.plist"
           plutil -insert NSMicrophoneUsageDescription -string "Voice typing in the message box." "$PLIST"
+          plutil -insert CFBundleDisplayName -string "LightCode⁴" "$PLIST"
           plutil -insert NSAppleEventsUsageDescription -string "Computer use: controlling apps when you allow it." "$PLIST"
           # Optional signing + notarization: runs only when the Apple secrets are added to the repository.
           if [ -n "$MACOS_CERT_P12" ]; then
@@ -66,14 +67,14 @@ jobs:
             security unlock-keychain -p ci build.keychain
             security import cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k ci build.keychain
-            codesign --force --deep --options runtime --timestamp --sign "$MACOS_SIGN_IDENTITY" "dist/Incredible Herness.app"
+            codesign --force --deep --options runtime --timestamp --sign "$MACOS_SIGN_IDENTITY" "dist/LightCode4.app"
           fi
-          hdiutil create -volname "Incredible Herness" -srcfolder "dist/Incredible Herness.app" \
-            -ov -format UDZO "dist/Incredible-Herness-mac.dmg"
+          hdiutil create -volname "LightCode4" -srcfolder "dist/LightCode4.app" \
+            -ov -format UDZO "dist/LightCode4-mac.dmg"
           if [ -n "$MACOS_CERT_P12" ] && [ -n "$APPLE_ID" ]; then
-            xcrun notarytool submit dist/Incredible-Herness-mac.dmg --apple-id "$APPLE_ID" \
+            xcrun notarytool submit dist/LightCode4-mac.dmg --apple-id "$APPLE_ID" \
               --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
-            xcrun stapler staple dist/Incredible-Herness-mac.dmg
+            xcrun stapler staple dist/LightCode4-mac.dmg
           fi
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
@@ -86,7 +87,7 @@ jobs:
       - name: Build app (Windows)
         if: matrix.name == 'windows'
         run: |
-          pyinstaller --noconfirm --windowed --name "Incredible Herness" --collect-all playwright --collect-all winpty \
+          pyinstaller --noconfirm --windowed --name "LightCode4" --icon assets/icon.ico --collect-all playwright --collect-all winpty \
             --add-data "myagent/static;myagent/static" run_app.py
           choco install innosetup -y --no-progress
           "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" installer.iss
@@ -95,7 +96,7 @@ jobs:
             echo "$WINDOWS_CERT_PFX" | base64 --decode > cert.pfx
             SIGNTOOL=$(ls "/c/Program Files (x86)/Windows Kits/10/bin/"*/x64/signtool.exe | tail -1)
             "$SIGNTOOL" sign /f cert.pfx /p "$WINDOWS_CERT_PASSWORD" /fd sha256 /tr http://timestamp.digicert.com /td sha256 \
-              dist/Incredible-Herness-Setup.exe
+              dist/LightCode4-Setup.exe
           fi
         env:
           WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
@@ -110,6 +111,6 @@ jobs:
           FILE=$(ls dist/*.dmg dist/*Setup.exe 2>/dev/null || true)
           [ -n "$FILE" ] || { echo "No installer was built"; exit 1; }
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --prerelease \
-            --target "$GITHUB_SHA" --title "Incredible Herness (build ${{ github.run_number }})" \
-            --notes "Incredible Herness ${{ github.sha }} desktop installers for macOS (Apple silicon) and Windows." || sleep 10
+            --target "$GITHUB_SHA" --title "LightCode⁴ (build ${{ github.run_number }})" \
+            --notes "LightCode⁴ ${{ github.sha }} desktop installers for macOS (Apple silicon) and Windows." || sleep 10
           gh release upload "$TAG" "$FILE" --clobber

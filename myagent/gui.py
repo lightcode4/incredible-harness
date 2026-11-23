@@ -55,7 +55,7 @@ IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: bool = False, language: str = "",
                   skills: dict | None = None) -> str:
     s = (
-        "You are Incredible Herness, a capable software and computer agent working on the user's machine. "
+        "You are LightCode⁴, a capable software and computer agent working on the user's machine. "
         "You can run shell commands, read, write and edit files (including PDFs and Jupyter notebooks), search, "
         "fetch web pages, use your own built-in browser (navigate, read, click, type, screenshot), keep a task list, "
         "start read-only research sub-agents, open previews and remember the user's lasting preferences. "
@@ -447,7 +447,7 @@ class Chat:
         self.pending_info[info["id"]] = ev
         self.emit("approve", **ev)
         if self.app.current is not self:
-            extras.notify("Incredible Herness", f"“{self.title or 'A chat'}” needs your approval.")
+            extras.notify("LightCode⁴", f"“{self.title or 'A chat'}” needs your approval.")
         try:
             while not done.wait(0.25):
                 self._check()
@@ -692,7 +692,7 @@ class Chat:
         except ComputerError as e:
             out, err = str(e), True
         except Exception as e:
-            out, err = (f"{type(e).__name__}: {e}. On macOS, allow Incredible Herness under System Settings > Privacy & "
+            out, err = (f"{type(e).__name__}: {e}. On macOS, allow LightCode⁴ under System Settings > Privacy & "
                         "Security > Screen Recording and Accessibility.")[:1500], True
         self.emit("tool_result", id=call_id, output=out, error=err)
         return out, err
@@ -859,7 +859,7 @@ class Chat:
             self.emit("status", busy=False)
             self.save()
             if self.app.current is not self or self.unattended:
-                extras.notify("Incredible Herness", f"“{self.title}” finished.")
+                extras.notify("LightCode⁴", f"“{self.title}” finished.")
 
     def _finish_hook(self):
         hook = self.app.hooks_for(self.rules_dir).get("before_finish", "").strip()
@@ -1007,7 +1007,7 @@ class Session:
         common = dict(tools=tools, compaction=cfg["compaction"])
         if cfg["provider"] == "claude":
             return ClaudeProvider(cfg["model"], system, effort=cfg["effort"], api_key=cfg["api_key"] or None,
-                                  web=cfg["web"], mcp_servers=[], **common)  # connectors run in Herness for every provider
+                                  web=cfg["web"], mcp_servers=[], **common)  # connectors run in LightCode⁴ for every provider
         if cfg["provider"] == "openai":
             return OpenAIProvider(cfg["model"], system, base_url=cfg["base_url"] or os.environ.get("OPENAI_BASE_URL"),
                                   api_key=cfg["api_key"] or None, label_prefix="openai", **common)
@@ -1286,7 +1286,7 @@ class Session:
 
     def check_update(self) -> dict:
         req = urllib.request.Request(f"https://api.github.com/repos/{REPO}/releases?per_page=5",
-                                     headers={"Accept": "application/vnd.github+json", "User-Agent": "IncredibleHerness"})
+                                     headers={"Accept": "application/vnd.github+json", "User-Agent": "LightCode4"})
         if self.config["github_token"]:
             req.add_header("Authorization", f"Bearer {self.config['github_token']}")
         try:
@@ -1384,7 +1384,7 @@ class Session:
             raise ValueError("Nothing to share yet.")
         md = extras.export_markdown(chat.title or "Chat", chat.transcript)
         return px.publish_gist(self.config["github_token"], re.sub(r"[^\w\-]+", "-", chat.title or "chat")[:60] + ".md",
-                               md, f"Incredible Herness: {chat.title}")
+                               md, f"LightCode⁴: {chat.title}")
 
     # ---------------------------------------------------------------- scheduled tasks
     def start_scheduler(self):
@@ -1781,13 +1781,13 @@ def start_server(cwd: str | None = None, port: int = 0, session: Session | None 
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(prog="herness-web", description="Incredible Herness in a browser tab.")
+    p = argparse.ArgumentParser(prog="herness-web", description="LightCode⁴ in a browser tab.")
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--cwd", default=None)
     p.add_argument("--no-browser", action="store_true")
     args = p.parse_args(argv)
     server, url, session = start_server(args.cwd, args.port)
-    print(f"Incredible Herness {__version__} at {url}\nCtrl-C to quit.")
+    print(f"LightCode⁴ {__version__} at {url}\nCtrl-C to quit.")
     if not args.no_browser:
         threading.Timer(0.5, webbrowser.open, args=(url,)).start()
     try:

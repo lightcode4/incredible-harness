@@ -1,4 +1,4 @@
-# Incredible Herness
+# LightCode⁴
 
 A desktop AI agent for macOS and Windows. Chat with it and it works in a folder you choose: runs commands,
 reads and edits files, searches the web, and asks before every change.
@@ -45,7 +45,7 @@ reads and edits files, searches the web, and asks before every change.
 - **Update check** from Settings → Updates.
 
 ## Install
-Download from **Releases**: `Incredible-Herness-mac.dmg` (Apple silicon) or `Incredible-Herness-Setup.exe`.
+Download from **Releases**: `LightCode4-mac.dmg` (Apple silicon) or `LightCode4-Setup.exe`.
 - Mac: drag to Applications. Unsigned builds: right-click → Open the first time.
 - Windows: if SmartScreen appears, More info → Run anyway.
 

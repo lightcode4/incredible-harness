@@ -1,6 +1,6 @@
 """Real end-to-end check against a real model (costs a little: the run stops at $0.50 for Claude).
 
-Uses the provider, model, base URL and API key saved in Incredible Herness (Settings > Model), stored in
+Uses the provider, model, base URL and API key saved in LightCode⁴ (Settings > Model), stored in
 ~/.incredible-herness/settings.json. Works with Claude, OpenAI and OpenAI-compatible services (e.g. OpenCode).
 The key is never printed.   Run:  python e2e_real.py
 """
@@ -39,7 +39,7 @@ def main():
     settings = Path.home() / ".incredible-herness" / "settings.json"
     saved = json.loads(settings.read_text()) if settings.exists() else {}
     if not (saved.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")):
-        sys.exit("No API key saved: enter it in Incredible Herness > Settings > Model, press Save, then run this again.")
+        sys.exit("No API key saved: enter it in LightCode⁴ > Settings > Model, press Save, then run this again.")
 
     from myagent.gui import Session
 

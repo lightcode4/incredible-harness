@@ -1,4 +1,4 @@
-"""Offline tests for Incredible Herness: a scripted fake Claude / OpenAI server drives the real engine.
+"""Offline tests for LightCode⁴: a scripted fake Claude / OpenAI server drives the real engine.
 No real API calls, no tokens used.   Run: python test_loop.py
 """
 import base64
@@ -469,7 +469,7 @@ def main():
     try:
         import urllib.request as ur
         phone = s.phone_url.replace(s.phone_url.split("/")[2].split(":")[0], "127.0.0.1")
-        assert "Incredible Herness" in ur.urlopen(phone, timeout=5).read().decode()
+        assert "LightCode⁴" in ur.urlopen(phone, timeout=5).read().decode()
         try:
             ur.urlopen(phone.split("?")[0], timeout=5)
             raise AssertionError("phone server must require the token")

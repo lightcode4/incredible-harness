@@ -122,7 +122,7 @@ def open_path(path: Path):
 
 # ---------------------------------------------------------------- auto-install updates
 def asset_name() -> str:
-    return "Incredible-Herness-mac.dmg" if sys.platform == "darwin" else "Incredible-Herness-Setup.exe"
+    return "LightCode4-mac.dmg" if sys.platform == "darwin" else "LightCode4-Setup.exe"
 
 
 def app_bundle() -> Path | None:
@@ -139,14 +139,14 @@ def app_bundle() -> Path | None:
 def updater_script(downloaded: str, pid: int) -> tuple[list[str], str]:
     """A small script that waits for this app to quit, installs the new version, and starts it again."""
     if sys.platform == "darwin":
-        bundle = app_bundle() or Path("/Applications/Incredible Herness.app")
+        bundle = app_bundle() or Path("/Applications/LightCode4.app")
         script = f"""#!/bin/sh
 while kill -0 {pid} 2>/dev/null; do sleep 0.5; done
 MNT=$(mktemp -d)
 hdiutil attach -nobrowse -quiet -mountpoint "$MNT" {shlex.quote(downloaded)} || exit 1
 rm -rf {shlex.quote(str(bundle))}.old
 mv {shlex.quote(str(bundle))} {shlex.quote(str(bundle))}.old 2>/dev/null
-cp -R "$MNT/Incredible Herness.app" {shlex.quote(str(bundle))} && rm -rf {shlex.quote(str(bundle))}.old || mv {shlex.quote(str(bundle))}.old {shlex.quote(str(bundle))}
+cp -R "$MNT/LightCode4.app" {shlex.quote(str(bundle))} && rm -rf {shlex.quote(str(bundle))}.old || mv {shlex.quote(str(bundle))}.old {shlex.quote(str(bundle))}
 hdiutil detach -quiet "$MNT"
 open {shlex.quote(str(bundle))}
 """
@@ -162,7 +162,7 @@ open {shlex.quote(str(bundle))}
 
 
 def download_update(release_api_url: str, token: str = "", progress=None) -> str:
-    headers = {"Accept": "application/vnd.github+json", "User-Agent": "IncredibleHerness"}
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "LightCode4"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     with urllib.request.urlopen(urllib.request.Request(release_api_url, headers=headers), timeout=30) as r:
@@ -171,7 +171,7 @@ def download_update(release_api_url: str, token: str = "", progress=None) -> str
     if not asset:
         raise RuntimeError(f"The new release has no {asset_name()}.")
     dest = Path(tempfile.gettempdir()) / asset["name"]
-    req = urllib.request.Request(asset["browser_download_url"], headers={"User-Agent": "IncredibleHerness"})
+    req = urllib.request.Request(asset["browser_download_url"], headers={"User-Agent": "LightCode4"})
     with urllib.request.urlopen(req, timeout=600) as r, open(dest, "wb") as f:
         total, done = int(r.headers.get("Content-Length") or 0), 0
         while chunk := r.read(1 << 20):
@@ -198,7 +198,7 @@ def publish_gist(token: str, filename: str, content: str, description: str, publ
     body = json.dumps({"description": description, "public": public, "files": {filename: {"content": content}}}).encode()
     req = urllib.request.Request(f"{GITHUB_API}/gists", data=body, method="POST",
                                  headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
-                                          "User-Agent": "IncredibleHerness", "Content-Type": "application/json"})
+                                          "User-Agent": "LightCode4", "Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             return json.loads(r.read())["html_url"]
@@ -222,7 +222,7 @@ def export_settings(config: dict, include_keys: bool) -> dict:
 
 def import_settings(data: dict, config: dict) -> dict:
     if not isinstance(data, dict) or data.get("incredible_herness_settings") != 1:
-        raise ValueError("That file is not an Incredible Herness settings export.")
+        raise ValueError("That file is not an LightCode⁴ settings export.")
     incoming = {k: v for k, v in data["settings"].items() if k in config and k not in ("auto", "plan")}
     for k in SECRET_KEYS:  # an export without keys must not wipe the keys already here
         if not incoming.get(k):

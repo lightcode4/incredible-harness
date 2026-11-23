@@ -1,4 +1,4 @@
-"""The built-in browser: Herness's own Chromium engine (bundled with the app), driven by Playwright.
+"""The built-in browser: LightCode⁴'s own Chromium engine (bundled with the app), driven by Playwright.
 
 The agent controls it with browser_* tools (navigate, click, type, read, screenshot). The side panel shows a
 live view (a screenshot stream) and forwards the user's clicks and typing. It has its own profile

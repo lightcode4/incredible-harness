@@ -684,7 +684,7 @@ class Workspace:
         return "\n".join(results) or "No results (the search service may be busy). Try different words, or fetch a known page."
 
     def _download(self, url: str) -> tuple[bytes, str]:
-        req = urllib.request.Request(url, headers={"User-Agent": "IncredibleHerness/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "LightCode4/1.0"})
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 return r.read(50_000_000), r.headers.get("Content-Type", "")

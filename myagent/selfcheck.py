@@ -1,5 +1,5 @@
-"""Self-check: tests each part of Herness for real inside the installed app (no API spend except an optional
-one-line model test). Run from Settings > Updates > Run self-check, or: "Incredible Herness" --self-test
+"""Self-check: tests each part of LightCode⁴ for real inside the installed app (no API spend except an optional
+one-line model test). Run from Settings > Updates > Run self-check, or: "LightCode4" --self-test
 """
 
 from __future__ import annotations

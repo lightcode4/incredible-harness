@@ -1,7 +1,7 @@
 """Remote MCP servers (Streamable HTTP) for every provider, with one-click OAuth sign-in.
 
 Sign-in follows the MCP authorization spec: discover the authorization server from the server's protected-resource
-metadata, register Herness automatically (dynamic client registration), then open the provider's sign-in page in the
+metadata, register LightCode⁴ automatically (dynamic client registration), then open the provider's sign-in page in the
 browser with PKCE and receive the code on a temporary 127.0.0.1 address. Tokens are refreshed automatically.
 """
 
@@ -20,7 +20,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PROTOCOL = "2025-06-18"
-UA = {"User-Agent": "IncredibleHerness/1.0"}
+UA = {"User-Agent": "LightCode4/1.0"}
 
 
 class McpRemoteError(Exception):
@@ -103,7 +103,7 @@ def sign_in(server_url: str, open_browser=webbrowser.open, timeout: float = 300)
                 result.update(code=q.get("code", [""])[0], error=q.get("error_description", q.get("error", [""]))[0])
                 done.set()
             body = ("<html><body style='font:16px sans-serif;padding:40px'>Signed in. You can close this tab and "
-                    "return to Incredible Herness.</body></html>").encode()
+                    "return to LightCode⁴.</body></html>").encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.end_headers()
@@ -114,7 +114,7 @@ def sign_in(server_url: str, open_browser=webbrowser.open, timeout: float = 300)
     redirect = f"http://127.0.0.1:{srv.server_port}/callback"
     try:
         reg = _json(meta["registration_endpoint"], {
-            "client_name": "Incredible Herness", "redirect_uris": [redirect], "grant_types": ["authorization_code", "refresh_token"],
+            "client_name": "LightCode⁴", "redirect_uris": [redirect], "grant_types": ["authorization_code", "refresh_token"],
             "response_types": ["code"], "token_endpoint_auth_method": "none"})
         verifier = secrets.token_urlsafe(48)
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")

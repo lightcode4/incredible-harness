@@ -1,4 +1,4 @@
-"""Incredible Herness desktop app: a native window (macOS WebKit / Windows Edge WebView2)
+"""LightCode⁴ desktop app: a native window (macOS WebKit / Windows Edge WebView2)
 around the local engine. This is the entry point PyInstaller packages."""
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import webview
 
 from .gui import start_server
 
-APP_NAME = "Incredible Herness"
+APP_NAME = "LightCode⁴"
 
 
 class Bridge:
