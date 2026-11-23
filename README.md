@@ -13,6 +13,8 @@ reads and edits files, searches the web, and asks before every change.
 - **Task list:** the agent tracks multi-step work in a live checklist.
 - **Chat history:** chats are saved and can be reopened from the sidebar.
 - **Cost meter and spending limit** per chat; prompt caching and automatic context compaction to keep costs down.
+- **PDFs:** attach them, or let the agent read PDFs in your folder or from links (`read_pdf`). With Claude it sees
+  the real pages — tables, charts and scanned pages; other providers get the extracted text.
 - **Web search & fetch**, **attachments** (images, PDFs, text files — drag, paste or 📎), **background jobs**
   (dev servers, long builds), **sub-agents** for research, **previews** of pages and local servers.
 - **Project instructions:** put notes in `HERNESS.md` (or `CLAUDE.md` / `AGENTS.md`) in your folder.
@@ -34,7 +36,7 @@ Add these repository secrets and the build signs automatically:
 - Windows: `WINDOWS_CERT_PFX` (base64 .pfx), `WINDOWS_CERT_PASSWORD`.
 
 ## Develop
-    pip install anthropic openai pywebview playwright   # + pywinpty on Windows
+    pip install anthropic openai pywebview playwright pypdf   # + pywinpty on Windows
     python -m playwright install chromium-headless-shell
     python run_app.py          # desktop window
     python -m myagent          # terminal version

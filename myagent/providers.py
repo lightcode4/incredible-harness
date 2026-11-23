@@ -50,8 +50,23 @@ def cost_of(model: str, u: dict) -> float | None:
             + u.get("cache_write", 0) * p[0] * 1.25) / 1_000_000
 
 
+def _pdf_text(p: dict) -> str:
+    if p.get("text"):
+        return p["text"]
+    import base64
+
+    from .tools import ToolError, pdf_extract
+    try:
+        return pdf_extract(base64.b64decode(p["data"]))[0][:200_000]
+    except ToolError as e:
+        return f"(could not read this PDF: {e})"
+
+
 def _result_text(content) -> str:
-    return content if isinstance(content, str) else "\n".join(p.get("text", "") for p in content if p["type"] == "text")
+    """Text-only form of a tool result (for providers without native image/PDF support in tool results)."""
+    if isinstance(content, str):
+        return content
+    return "\n".join(p["text"] if p["type"] in ("text", "pdf") else "" for p in content)
 
 
 def _text_of(parts) -> str:
@@ -132,6 +147,15 @@ class ClaudeProvider:
             blocks.append({"type": "text", "text": text})
         return blocks
 
+    @staticmethod
+    def _result_block(p: dict) -> dict:
+        if p["type"] == "text":
+            return {"type": "text", "text": p["text"]}
+        if p["type"] == "pdf":  # Claude reads the real pages (layout, tables, scans)
+            return {"type": "document", "title": p["name"][:200],
+                    "source": {"type": "base64", "media_type": "application/pdf", "data": p["data"]}}
+        return {"type": "image", "source": {"type": "base64", "media_type": p["media_type"], "data": p["data"]}}
+
     def _stream(self, ui: UI):
         try:
             with self.client.beta.messages.stream(**self._request()) as stream:
@@ -199,9 +223,7 @@ class ClaudeProvider:
             for tu in tool_uses:
                 out, is_error = run_tool(tu.name, tu.input)
                 if not isinstance(out, str):  # text + screenshot parts
-                    out = [{"type": "text", "text": p["text"]} if p["type"] == "text" else
-                           {"type": "image", "source": {"type": "base64", "media_type": p["media_type"], "data": p["data"]}}
-                           for p in out]
+                    out = [self._result_block(p) for p in out]
                 results.append({"type": "tool_result", "tool_use_id": tu.id, "content": out, "is_error": is_error})
             self.messages.append({"role": "user", "content": results})
         ui.notice(f"Stopped after {MAX_STEPS} tool rounds. Say 'continue' to keep going.")
@@ -282,7 +304,7 @@ class OpenAIProvider:
             if p["type"] == "image":
                 out.append({"type": "image_url", "image_url": {"url": f"data:{p['media_type']};base64,{p['data']}"}})
             elif p["type"] == "pdf":
-                out.append({"type": "text", "text": f"(The user attached the PDF '{p['name']}', but this model cannot read PDFs.)"})
+                out.append({"type": "text", "text": f"Attached PDF {p['name']}:\n{_pdf_text(p)}"})
             elif p["type"] == "file":
                 out.append({"type": "text", "text": f"Attached file {p['name']}:\n```\n{p['text']}\n```"})
         text = _text_of(parts)

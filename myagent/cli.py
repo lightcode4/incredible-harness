@@ -136,7 +136,7 @@ class App:
             out, err = str(e), True
         except Exception as e:  # keep the session alive on any tool crash
             out, err = f"{type(e).__name__}: {e}", True
-        preview = out.strip().splitlines()
+        preview = (out if isinstance(out, str) else "\n".join(x.get("text", "") for x in out)).strip().splitlines()
         shown = "\n".join(preview[:8]) + (f"\n… ({len(preview) - 8} more lines)" if len(preview) > 8 else "")
         print(f"{RED if err else DIM}{shown}{RESET}")
         return out, err

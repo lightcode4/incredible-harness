@@ -6,6 +6,7 @@ Session tools (todo list, sub-agents, previews) are handled by the app session i
 
 from __future__ import annotations
 
+import base64
 import difflib
 import fnmatch
 import html
@@ -64,6 +65,12 @@ TOOLS = [
      "description": "Search file contents with a regular expression. Returns path:line:text.",
      "schema": _schema({"pattern": _S, "path": {"type": "string", "description": "Folder or file (default: working directory)."}},
                        ["pattern"])},
+    {"name": "read_pdf", "kind": "readonly",
+     "description": "Read a PDF file (path in the folder, or an http(s) URL). With Claude you see the real pages: text, "
+                    "tables, charts and scanned pages. Use pages like '1-5' or '2,7' for long documents (default: first 100).",
+     "schema": _schema({"source": {"type": "string", "description": "File path or URL of the PDF."},
+                        "pages": {"type": "string", "description": "Optional page selection, e.g. '1-10' or '3,5,8-9'."}},
+                       ["source"])},
     {"name": "fetch_url", "kind": "readonly", "client_web": True,
      "description": "Fetch a web page (or a local dev server URL) and return its text content.",
      "schema": _schema({"url": _S}, ["url"])},
@@ -163,6 +170,8 @@ def describe(name: str, args: dict) -> str:
         return f"write {args.get('path')}"
     if name == "read_file":
         return f"read {args.get('path')}"
+    if name == "read_pdf":
+        return f"read pdf {args.get('source')}" + (f" (pages {args['pages']})" if args.get("pages") else "")
     if name == "fetch_url":
         return f"fetch {args.get('url')}"
     if name.startswith("browser_"):
@@ -172,6 +181,62 @@ def describe(name: str, args: dict) -> str:
     if name in ("bash_output", "kill_shell"):
         return f"{name} {args.get('job_id')}"
     return f"{name} {args.get('pattern', '')} {args.get('path', '')}".strip()
+
+
+def _parse_pages(spec: str | None, total: int, default_max: int = 100) -> list[int]:
+    """'1-5,8' -> [0,1,2,3,4,7] (0-based, within range)."""
+    if not spec:
+        return list(range(min(total, default_max)))
+    pages: list[int] = []
+    for part in spec.replace(" ", "").split(","):
+        if not part:
+            continue
+        a, _, b = part.partition("-")
+        try:
+            lo, hi = int(a), int(b) if b else int(a)
+        except ValueError:
+            raise ToolError(f"Bad page selection '{spec}'. Use e.g. '1-5' or '2,7'.")
+        pages += [i - 1 for i in range(lo, hi + 1) if 1 <= i <= total]
+    if not pages:
+        raise ToolError(f"No pages selected; the PDF has {total} pages.")
+    return sorted(set(pages))[:600]
+
+
+def pdf_extract(data: bytes, pages: str | None = None) -> tuple[str, bytes, int]:
+    """Returns (text with page markers, PDF bytes of just the selected pages, total page count)."""
+    import io
+
+    from pypdf import PdfReader, PdfWriter
+
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        if reader.is_encrypted:
+            reader.decrypt("")
+        total = len(reader.pages)
+    except Exception as e:
+        raise ToolError(f"Could not open the PDF: {e}")
+    chosen = _parse_pages(pages, total)
+    texts = []
+    for i in chosen:
+        try:
+            t = reader.pages[i].extract_text() or ""
+        except Exception:
+            t = ""
+        texts.append(f"--- Page {i + 1} ---\n{t.strip()}")
+    text = "\n\n".join(texts)
+    if not any(t.split("\n", 1)[1:] and t.split("\n", 1)[1].strip() for t in texts):
+        text += "\n\n(No text layer found: this looks like a scanned PDF. Claude can still read the page images.)"
+    if len(chosen) == total:
+        subset = data
+    else:
+        w = PdfWriter()
+        for i in chosen:
+            w.add_page(reader.pages[i])
+        buf = io.BytesIO()
+        w.write(buf)
+        subset = buf.getvalue()
+    note = f"PDF with {total} pages; showing {'all' if len(chosen) == total else f'{len(chosen)} selected'} pages."
+    return note + "\n\n" + text, subset, total
 
 
 def _truncate(text: str) -> str:
@@ -210,8 +275,9 @@ class Workspace:
         path = Path(os.path.expanduser(p))
         return (path if path.is_absolute() else (self.cwd / path)).resolve()
 
-    def run(self, name: str, args: dict) -> str:
-        return _truncate(getattr(self, f"_{name}")(**args))
+    def run(self, name: str, args: dict):
+        out = getattr(self, f"_{name}")(**args)
+        return _truncate(out) if isinstance(out, str) else out  # lists are text+document parts
 
     # ---- diff preview (computed before approval; nothing is written) ----
     def preview_diff(self, name: str, args: dict) -> str | None:
@@ -301,6 +367,8 @@ class Workspace:
         p = self.path(path)
         if not p.is_file():
             raise ToolError(f"No such file: {p}")
+        if p.suffix.lower() == ".pdf":
+            return pdf_extract(p.read_bytes())[0] + "\n\n(Tip: read_pdf shows the real pages, including tables and images.)"
         lines = p.read_text(errors="replace").splitlines()
         start = max(offset, 1)
         chunk = lines[start - 1: start - 1 + limit]
@@ -371,18 +439,39 @@ class Workspace:
                 break
         return "\n".join(hits) or "No matches."
 
+    # ---- PDFs ----
+    def _read_pdf(self, source: str, pages: str | None = None):
+        if re.match(r"^https?://", source):
+            data, _ = self._download(source)
+            name = source.rstrip("/").rsplit("/", 1)[-1] or "document.pdf"
+        else:
+            p = self.path(source)
+            if not p.is_file():
+                raise ToolError(f"No such file: {p}")
+            data, name = p.read_bytes(), p.name
+        if not data.startswith(b"%PDF"):
+            raise ToolError(f"{name} is not a PDF file.")
+        text, subset, _ = pdf_extract(data, pages)
+        if len(subset) > 30_000_000:
+            return _truncate(text + "\n\n(Too large to send as pages; text only. Select fewer pages to see them.)")
+        return [{"type": "pdf", "name": name, "data": base64.b64encode(subset).decode(), "text": _truncate(text)}]
+
     # ---- web ----
+    def _download(self, url: str) -> tuple[bytes, str]:
+        req = urllib.request.Request(url, headers={"User-Agent": "IncredibleHerness/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return r.read(50_000_000), r.headers.get("Content-Type", "")
+        except Exception as e:
+            raise ToolError(f"Could not fetch {url}: {e}")
+
     def _fetch_url(self, url: str) -> str:
         if not re.match(r"^https?://", url):
             raise ToolError("Only http(s) URLs can be fetched.")
-        req = urllib.request.Request(url, headers={"User-Agent": "IncredibleHerness/1.0"})
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                raw = r.read(3_000_000)
-                ctype = r.headers.get("Content-Type", "")
-        except Exception as e:
-            raise ToolError(f"Could not fetch {url}: {e}")
-        text = raw.decode(errors="replace")
+        raw, ctype = self._download(url)
+        if "pdf" in ctype or raw.startswith(b"%PDF"):
+            return pdf_extract(raw)[0]
+        text = raw[:3_000_000].decode(errors="replace")
         if "html" in ctype or "<html" in text[:500].lower():
             text = re.sub(r"(?is)<(script|style|noscript|svg).*?</\1>", " ", text)
             text = re.sub(r"(?i)<(br|p|div|li|h[1-6]|tr)[^>]*>", "\n", text)

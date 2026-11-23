@@ -295,6 +295,38 @@ def main():
         assert "Clicked" in results[-1]["output"] and "Done!" in results[-1]["output"]
         s.browser.close()
         print("16 built-in browser OK")
+    # 17. PDFs: Claude gets the real pages, read_file and other providers get the text
+    def make_pdf(pages):
+        objs = ["<< /Type /Catalog /Pages 2 0 R >>",
+                "<< /Type /Pages /Kids [" + " ".join(f"{3 + 2 * i} 0 R" for i in range(len(pages))) + f"] /Count {len(pages)} >>"]
+        for i, text in enumerate(pages):
+            stream = f"BT /F1 24 Tf 72 700 Td ({text}) Tj ET"
+            objs.append(f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents {4 + 2 * i} 0 R "
+                        f"/Resources << /Font << /F1 {3 + 2 * len(pages)} 0 R >> >> >>")
+            objs.append(f"<< /Length {len(stream)} >>\nstream\n{stream}\nendstream")
+        objs.append("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+        out, offsets = "%PDF-1.4\n", []
+        for n, o in enumerate(objs, 1):
+            offsets.append(len(out))
+            out += f"{n} 0 obj\n{o}\nendobj\n"
+        xref = len(out)
+        out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n" + "".join(f"{o:010d} 00000 n \n" for o in offsets)
+        out += f"trailer << /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF"
+        return out.encode()
+    (work / "report.pdf").write_bytes(make_pdf(["Quarterly revenue 42", "Profit grew 7 percent"]))
+    d.run("read the report", script=[("tool", "read_pdf", {"source": "report.pdf", "pages": "2"}), ("text", "Profit grew.")])
+    tr = REQUESTS[-1][2]["messages"][-1]["content"][0]["content"]
+    doc = [b for b in tr if b["type"] == "document"]
+    assert doc and doc[0]["source"]["media_type"] == "application/pdf", tr
+    sub = base64.b64decode(doc[0]["source"]["data"])
+    assert sub.startswith(b"%PDF") and b"Quarterly" not in sub  # only page 2 was sent
+    assert "Profit grew 7 percent" in s.ws.run("read_file", {"path": "report.pdf"})
+    s.apply_config({"provider": "local", "base_url": os.environ["ANTHROPIC_BASE_URL"] + "/v1"})
+    d.run("summarize", attachments=[{"name": "report.pdf", "mime": "application/pdf",
+                                     "data": base64.b64encode((work / "report.pdf").read_bytes()).decode()}],
+          script=[("text", "It says revenue 42.")])
+    assert "Quarterly revenue 42" in json.dumps(REQUESTS[-1][2]["messages"][-1]["content"])
+    print("17 PDFs OK")
     print("ALL TESTS PASSED")
 
 

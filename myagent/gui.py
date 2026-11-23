@@ -357,7 +357,8 @@ class Session:
             out, err = str(e), True
         except Exception as e:
             out, err = f"{type(e).__name__}: {e}", True
-        self.emit("tool_result", id=call_id, output=out[:8000], error=err)
+        shown = out if isinstance(out, str) else "\n".join(x.get("text", "") for x in out)
+        self.emit("tool_result", id=call_id, output=shown[:8000], error=err)
         return out, err
 
     # ------------------------------------------------------------------ built-in browser
@@ -421,7 +422,8 @@ class Session:
             out, err = f"{e} Ask the user to click 'Install browser engine' in the Browser panel.", True
         except Exception as e:
             out, err = f"{type(e).__name__}: {e}"[:2000], True
-        self.emit("tool_result", id=call_id, output=out[:8000], error=err)
+        shown = out if isinstance(out, str) else "\n".join(x.get("text", "") for x in out)
+        self.emit("tool_result", id=call_id, output=shown[:8000], error=err)
         return out, err
 
     def install_browser(self):
