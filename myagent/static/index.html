@@ -447,6 +447,36 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
 #fpChoose { width: 100%; justify-content: center; }
 @media (max-height: 860px) { .page { gap: 12px; padding-top: 16px; } .pagehead h1 { font-size: 34px; margin: 2px 0 0; } .pagehead .sub, .eyebrow { display: none; } .grid { min-height: 420px; } }
 @media (max-width: 900px) { .jump kbd { display: none; } }
+/* ---- providers ---- */
+.plogo { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; flex: none; font-weight: 700; font-size: 15px; }
+.plogo svg { width: 22px; height: 22px; }
+.plogo.sm { width: 30px; height: 30px; border-radius: 8px; font-size: 12px; } .plogo.sm svg { width: 17px; height: 17px; }
+.plogo.lg { width: 56px; height: 56px; border-radius: 14px; font-size: 20px; } .plogo.lg svg { width: 30px; height: 30px; }
+.modelbar { position: relative; }
+#provMenu { position: absolute; top: calc(100% + 6px); left: 8px; width: 380px; z-index: 30; padding: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.14); }
+.pmhead { text-transform: uppercase; letter-spacing: .14em; font-size: 10px; color: var(--faint); padding: 6px 10px 8px; }
+#provList { max-height: 420px; overflow-y: auto; display: grid; gap: 2px; }
+.prow { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 11px; border: 0; background: none; text-align: left; width: 100%; }
+.prow:hover { background: var(--hover); } .prow.cur { background: var(--soft); }
+.prow b { display: block; font-size: 14px; font-weight: 600; } .prow small { display: block; font-size: 11.5px; color: var(--muted); }
+.prow .tag { margin-left: auto; font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; white-space: nowrap; }
+.prow.cur .tag { color: var(--accent); border-color: transparent; font-size: 15px; }
+.pmsep { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); padding: 10px 10px 4px; }
+.pmfoot { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; border-top: 1px solid var(--line); background: none; padding: 12px 10px 4px; margin-top: 6px; color: var(--body); font-size: 13.5px; }
+.pmfoot svg { width: 16px; height: 16px; color: var(--muted); } .pmfoot .arrow { margin-left: auto; transform: rotate(45deg); }
+body.models-open .page > .pagehead, body.models-open .page > .modelbar, body.models-open .page > .grid { display: none; }
+body.models-open #modelsView { display: block !important; }
+#mvGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-top: 18px; padding-bottom: 20px; }
+.pcard { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; text-align: left; display: flex; flex-direction: column; gap: 10px; min-height: 196px; cursor: pointer; box-shadow: var(--shadow); }
+.pcard:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.pcard.cur { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--soft) 55%, var(--panel)); }
+.pcard h3 { margin: 4px 0 0; font-size: 20px; font-weight: 500; color: var(--text); }
+.pcard p { margin: 0; font-size: 13px; color: var(--body); line-height: 1.5; flex: 1; }
+.pcard .pfoot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line-soft); padding-top: 10px; font-size: 11.5px; color: var(--muted); }
+.pcard .pfoot .ok { color: var(--accent); font-weight: 600; }
+.pcard .check { position: absolute; top: 16px; right: 16px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; font-size: 14px; }
+#provDlg { width: min(560px, 94vw); } #provDlg .dlg-head { gap: 12px; } #provDlg .dlg-head h2 { flex: 1; }
+#pdResult { font-size: 12.5px; margin-right: auto; align-self: center; }
 </style>
 </head>
 <body>
@@ -527,6 +557,10 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
       <button class="btn primary" id="newSessionBtn"><svg><use href="#i-plus"/></svg>New session</button>
     </div>
     <div class="modelbar">
+      <div id="provMenu" class="card" hidden role="menu" aria-label="Choose a provider">
+        <div class="pmhead">A model for every possibility</div><div id="provList"></div>
+        <button class="pmfoot" id="provAll"><svg><use href="#i-list"/></svg>All models &amp; API settings<svg class="arrow"><use href="#i-up"/></svg></button>
+      </div>
       <button class="modelchip" id="modelPill"><span class="mlogo serif">✳</span><b id="modelName">model</b><small id="modelBy">by Anthropic</small><svg><use href="#i-chev"/></svg></button>
       <span class="sdk"><i class="dot"></i><span id="sdkName">Anthropic SDK</span></span>
       <span id="instrPill" class="sdk" hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
@@ -535,6 +569,12 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
       <button class="tagbtn" id="browserToggle" title="Built-in browser"><i class="dot"></i>Browser preview</button>
       <button class="ghost" id="termToggle" title="Terminal (Ctrl+`)"><svg><use href="#i-term"/></svg>Terminal</button>
     </div>
+    <section id="modelsView" hidden>
+      <div class="pagehead"><div><div class="eyebrow">Your model. Your choice</div><h1 class="serif">A mind for every task.</h1>
+        <p class="sub">Claude, OpenAI, every major provider, or a model that lives on your machine. Paste a key once; switch any time.</p></div>
+        <span class="spacer"></span><button class="btn" id="mvBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+      <div id="mvGrid"></div>
+    </section>
     <div class="grid">
       <section class="card chatcard">
         <div class="cardhead"><span class="chaticon"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
@@ -627,6 +667,18 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
 
 
 
+<dialog id="provDlg" aria-label="Provider settings">
+  <div class="dlg-head"><span id="pdLogo"></span><h2 class="serif" id="pdName"></h2><button class="iconbtn" id="pdClose" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
+  <div class="dlg-body pane on" style="display:grid">
+    <p class="fpnote" id="pdBlurb"></p>
+    <div class="field" id="pdKeyField"><label>API key</label><div class="fprow"><input id="pdKey" type="password" autocomplete="off"><a class="btn" id="pdGet" target="_blank">Get a key ↗</a></div>
+      <small>Saved only on this computer, readable only by your user account.</small></div>
+    <div class="field" id="pdBaseField"><label>Address (Base URL)</label><input id="pdBase" spellcheck="false"></div>
+    <div class="field"><label>Model</label><div class="fprow"><input id="pdModel" list="pdModels" spellcheck="false"><datalist id="pdModels"></datalist><button class="btn" id="pdLoad">Load models</button></div>
+      <small id="pdInfo"></small></div>
+  </div>
+  <div class="dlg-foot"><span id="pdResult"></span><button class="btn" id="pdTest">Test</button><button class="btn primary" id="pdUse">Use</button></div>
+</dialog>
 <dialog id="folderPicker" aria-label="Choose a project folder">
   <div class="dlg-head"><h2 class="serif">Project folder</h2><button class="iconbtn" id="fpClose" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
   <div class="dlg-body"><p class="fpnote">The agent works inside this folder: it reads and changes files only here (unless you allow more). Picking a folder starts a new session.</p>
@@ -1414,7 +1466,7 @@ closePanel = function () { _closePanel(); setTab("chat"); };
 function setTab(t) { document.querySelectorAll(".ctab").forEach(b => b.classList.toggle("on", b.dataset.c === t)); $("crumbHere").textContent = { chat: "Agent playground", git: "Source control", term: "Run logs", browser: "Preview" }[t] || "Agent playground"; }
 document.querySelectorAll(".ctab").forEach(b => b.onclick = () => b.dataset.c === "chat" ? closePanel() : openPanel(b.dataset.c));
 $("greet").textContent = "Good things start here.";
-const navSet = (id) => { document.querySelectorAll("aside .navbtn").forEach(b => b.classList.toggle("on", b.id === id)); };
+const navSet = (id) => { document.querySelectorAll("aside .navbtn").forEach(b => b.classList.toggle("on", !!id && b.id === id)); };
 $("navPlay").onclick = () => { navSet("navPlay"); closePanel(); };
 $("navSessions").onclick = () => { $("sessBox").classList.toggle("open"); loadChats(); };
 $("navFiles").onclick = () => { navSet("navFiles"); openPanel("term"); };
@@ -1486,7 +1538,7 @@ function palRender() {
     ["Source control", () => openPanel("git"), "git commit branch push diff files"], ["Run logs (terminal)", () => openPanel("term"), "shell console command"],
     ["Preview (browser)", () => openPanel("browser"), "web page localhost"], ["Project folder", () => openFolderPicker(), "workspace directory open"],
     ["Choose model", () => openModelPicker(), "model gpt claude switch"], ["Settings", () => openSettings(), "preferences options"],
-    ["Models & API key", () => openSettings("model"), "provider key base url"], ["Connectors", () => openSettings("mcp"), "mcp tools integrations"],
+    ["Models & API keys", () => openModelsView(), "provider key base url claude openai openrouter deepseek grok gemini opencode"], ["Connectors", () => openSettings("mcp"), "mcp tools integrations"],
     ["Automations", () => openSettings("sched"), "schedule cron tasks"], ["Context & rules", () => openSettings("instr"), "instructions herness.md permissions"],
     ["Memory", () => openSettings("memory"), "remember preferences"], ["Keyboard shortcuts", () => $("keys").showModal(), "keys help"]]
     .map(([t, f, w]) => ({ t, k: "Go to", f, w }));
@@ -1627,6 +1679,81 @@ async function selfCheck(model) {
     + `<div style="margin-top:4px;color:var(--muted)">${r.results.filter(x => x.ok).length}/${r.results.length} passed</div>`;
 }
 $("selfCheck").onclick = () => selfCheck(false); $("selfCheckModel").onclick = () => selfCheck(true);
+
+// ---------- Providers: menu, Models page, provider dialog ----------
+let LOGOS = {}, PROVS = [], provCurrent = "";
+fetch("/vendor/provider-logos.json").then(r => r.json()).then(j => { LOGOS = j; renderProviders(); }).catch(() => {});
+const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light";
+function logo(p, size = "") {
+  const hex = "#" + (LOGOS[p.logo]?.hex || p.color || "777777");
+  const dark = isDark(), neutral = /^#(000000|111111|191919|211e1e)$/i.test(hex);
+  const fg = neutral ? (dark ? "#f1f1ea" : "#1a1a1a") : hex;
+  const bg = `color-mix(in srgb, ${neutral ? (dark ? "#ffffff" : "#000000") : hex} ${dark ? 18 : 11}%, transparent)`;
+  const inner = LOGOS[p.logo] ? `<svg viewBox="0 0 24 24" style="fill:${fg};stroke:none"><path d="${LOGOS[p.logo].path}"/></svg>` : `<span style="color:${fg}">${esc(p.letter || p.name[0])}</span>`;
+  return `<span class="plogo ${size}" style="background:${bg}" aria-hidden="true">${inner}</span>`;
+}
+async function loadProviders() {
+  const r = await api("/api/providers").catch(() => null); if (!r) return;
+  PROVS = r.providers; provCurrent = r.current; renderProviders();
+}
+function renderProviders() {
+  if (!PROVS.length) return;
+  const cur = PROVS.find(p => p.id === provCurrent);
+  if (cur) { const m = document.querySelector("#modelPill .mlogo"); if (m) m.outerHTML = logo(cur, "sm").replace('class="plogo sm"', 'class="plogo sm mlogo"'); const r = document.querySelector("#railModelBtn .mlogo"); if (r) r.outerHTML = logo(cur, "sm").replace('class="plogo sm"', 'class="plogo sm mlogo"');
+    $("modelBy").textContent = cur.by; $("sdkName").textContent = cur.kind === "claude" ? "Anthropic SDK" : cur.kind === "local" ? "Local server" : "OpenAI-compatible SDK"; $("railProv").textContent = cur.name + (cur.kind === "claude" ? " · effort " + (config.effort || "") : ""); }
+  // menu: connected first
+  const ready = PROVS.filter(p => p.has_key), rest = PROVS.filter(p => !p.has_key);
+  const row = p => `<button class="prow${p.id === provCurrent ? " cur" : ""}" data-id="${p.id}">${logo(p, "sm")}<span><b>${esc(p.name)}</b><small>${esc(p.by)}</small></span><span class="tag">${p.id === provCurrent ? "✓" : p.has_key ? "Ready" : "Add key"}</span></button>`;
+  $("provList").innerHTML = ready.map(row).join("") + (rest.length ? `<div class="pmsep">Add a provider</div>` + rest.map(row).join("") : "");
+  $("provList").querySelectorAll(".prow").forEach(b => b.onclick = () => chooseProvider(b.dataset.id));
+  // Models page cards
+  $("mvGrid").innerHTML = PROVS.map(p => `<button class="pcard${p.id === provCurrent ? " cur" : ""}" data-id="${p.id}">${p.id === provCurrent ? '<span class="check">✓</span>' : ""}${logo(p, "lg")}
+    <h3 class="serif">${esc(p.name)}</h3><p>${esc(p.blurb)}</p><span class="pfoot"><span class="${p.has_key ? "ok" : ""}">${p.id === provCurrent ? "In use · " + esc(config.model || "") : p.nokey ? "No key needed" : p.has_key ? "Connected" : "Add API key"}</span><span>${esc(p.by)}</span></span></button>`).join("");
+  $("mvGrid").querySelectorAll(".pcard").forEach(b => b.onclick = () => openProvider(b.dataset.id));
+}
+async function chooseProvider(id) {
+  const p = PROVS.find(x => x.id === id); $("provMenu").hidden = true;
+  if (!p.has_key || p.custom) return openProvider(id);
+  try { if (id !== provCurrent) await api("/api/config", { service: id }); await loadProviders(); openModelPicker(); }
+  catch (e) { openProvider(id); $("pdResult").textContent = e.message; $("pdResult").style.color = "var(--bad)"; }
+}
+function openProvider(id) {
+  const p = PROVS.find(x => x.id === id); if (!p) return;
+  $("provDlg").dataset.id = id; $("pdLogo").innerHTML = logo(p, ""); $("pdName").textContent = p.name; $("pdBlurb").textContent = p.blurb;
+  $("pdKeyField").hidden = !!p.nokey; $("pdKey").value = ""; $("pdKey").placeholder = p.has_key && !p.nokey ? "Saved — paste a new key to replace it" : "Paste your " + p.name + " API key";
+  $("pdGet").hidden = !p.keys; $("pdGet").href = p.keys || "#"; $("pdGet").onclick = e => { e.preventDefault(); api("/api/open-url", { url: p.keys }).catch(() => window.open(p.keys)); };
+  $("pdBaseField").hidden = !(p.custom || p.kind === "local"); $("pdBase").value = id === provCurrent && config.base_url ? config.base_url : p.base;
+  $("pdModel").value = id === provCurrent ? config.model : (p.model_saved || p.model); $("pdModels").innerHTML = ""; $("pdInfo").textContent = p.base ? "Address: " + p.base : "";
+  $("pdResult").textContent = ""; $("pdUse").textContent = id === provCurrent ? "Save" : "Use " + p.name;
+  $("provDlg").showModal(); (p.has_key || p.nokey ? $("pdModel") : $("pdKey")).focus();
+}
+function pdBody(what) { const id = $("provDlg").dataset.id; const b = { service: id, what, model: $("pdModel").value.trim() };
+  if ($("pdKey").value.trim()) b.key = $("pdKey").value.trim(); if (!$("pdBaseField").hidden && $("pdBase").value.trim()) b.base_url = $("pdBase").value.trim(); return b; }
+function pdSay(t, ok) { $("pdResult").textContent = t; $("pdResult").style.color = ok === undefined ? "var(--muted)" : ok ? "var(--ok)" : "var(--bad)"; }
+$("pdLoad").onclick = async () => { pdSay("Loading models…"); const r = await api("/api/provider/check", pdBody("models")).catch(e => ({ error: e.message }));
+  if (!r.ok) return pdSay(r.error, false); $("pdModels").innerHTML = r.models.map(m => `<option value="${esc(m)}">`).join(""); pdSay(`${r.models.length} models — click the Model box to pick one.`, true); $("pdModel").focus(); };
+$("pdTest").onclick = async () => { pdSay("Testing…"); const r = await api("/api/provider/check", pdBody("test")).catch(e => ({ error: e.message }));
+  pdSay(r.ok ? `✓ Works — the model replied “${r.reply}”.` : r.error, !!r.ok); };
+$("pdUse").onclick = async () => {
+  const id = $("provDlg").dataset.id, body = { service: id };
+  if ($("pdKey").value.trim()) await api("/api/provider/key", { service: id, key: $("pdKey").value.trim() }).catch(e => pdSay(e.message, false));
+  if ($("pdModel").value.trim()) body.model = $("pdModel").value.trim();
+  if (!$("pdBaseField").hidden && $("pdBase").value.trim()) body.base_url = $("pdBase").value.trim();
+  try { await api("/api/config", body); $("provDlg").close(); await loadProviders(); mpLoaded = ""; startChatting(); notice(`Using ${PROVS.find(p => p.id === id)?.name} · ${config.model}.`); }
+  catch (e) { pdSay(e.message, false); }
+};
+$("pdClose").onclick = () => $("provDlg").close();
+$("modelPill").onclick = e => { e.stopPropagation(); $("provMenu").hidden = !$("provMenu").hidden; if (!$("provMenu").hidden) loadProviders(); };
+document.addEventListener("click", e => { if (!$("provMenu").hidden && !e.target.closest("#provMenu, #modelPill")) $("provMenu").hidden = true; });
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("provMenu").hidden = true; });
+function openModelsView() { $("provMenu").hidden = true; closePanel(); document.body.classList.add("models-open"); $("crumbHere").textContent = "Models"; loadProviders(); }
+function closeModelsView() { document.body.classList.remove("models-open"); setTab("chat"); }
+$("provAll").onclick = openModelsView; $("mvBack").onclick = closeModelsView;
+document.querySelector('aside [data-set="model"]').onclick = () => { navSet(""); document.querySelector('aside [data-set="model"]').classList.add("on"); openModelsView(); };
+const _navPlayClick = $("navPlay").onclick; $("navPlay").onclick = () => { closeModelsView(); _navPlayClick(); };
+const _showConfigP = showConfig; showConfig = function (c) { _showConfigP(c); if (c.service !== provCurrent) { provCurrent = c.service; loadProviders(); } else renderProviders(); };
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderProviders);
+loadProviders();
 
 loadChats(); $("input").focus();
 setTimeout(() => { if (config.build > 0) api("/api/update").then(r => { if (r.update) showUpdate(r); }).catch(() => {}); }, 4000);

@@ -657,6 +657,23 @@ def main():
     assert pub["signed_in"] and pub["token"] == "" and "oauth" not in pub  # tokens never sent to the page
     s.apply_config({"mcp": []})
     print("38 one-click connector sign-in OK")
+
+    # 39. built-in providers: each keeps its own key and model; switching fills in address and key
+    s.config["keys"]["openrouter"] = "sk-or-test"
+    s.apply_config({"service": "openrouter"})
+    assert s.config["provider"] == "openai" and s.config["base_url"] == "https://openrouter.ai/api/v1" and s.config["api_key"] == "sk-or-test"
+    assert s.config["model"] == "openai/gpt-5"
+    s.apply_config({"model": "anthropic/claude-sonnet-5"})
+    s.apply_config({"service": "deepseek", "api_key": "sk-ds"})
+    assert s.config["base_url"] == "https://api.deepseek.com/v1" and s.config["keys"]["deepseek"] == "sk-ds" and s.config["model"] == "deepseek-chat"
+    s.apply_config({"service": "openrouter"})
+    assert s.config["model"] == "anthropic/claude-sonnet-5" and s.config["api_key"] == "sk-or-test", "per-provider model/key not remembered"
+    pub = s.public_config()
+    assert "keys" not in pub and "sk-or-test" not in json.dumps(pub) and set(pub["keys_set"]) >= {"openrouter", "deepseek"}
+    from myagent.catalog import guess_service
+    assert guess_service("openai", "https://api.haimaker.ai/v1") == "haimaker" and guess_service("claude", "") == "claude"
+    s.apply_config({"service": "claude"})
+    print("39 built-in providers OK")
     print("ALL TESTS PASSED")
 
 

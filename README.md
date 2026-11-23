@@ -4,8 +4,9 @@ A desktop AI agent for macOS and Windows. Chat with it and it works in a folder 
 reads and edits files, searches the web, and asks before every change.
 
 ## Features
-- **Models:** Claude (default `claude-opus-5-5`), OpenAI or any OpenAI-compatible API (OpenRouter, Groq, …),
-  or free local models (Ollama, LM Studio).
+- **Models:** 21 built-in providers with logos and addresses already set: Claude, OpenAI, OpenCode Zen & Go, OpenRouter,
+  DeepSeek, Grok, Gemini, Mistral, Groq, Kimi, Qwen, Perplexity, Together, Fireworks, Cerebras, Hugging Face, haimaker,
+  Ollama, LM Studio and any compatible API. Paste a key once per provider; switch from the model menu.
 - **Approvals:** Allow / Always allow / Deny for every command and file change, with a diff of each edit first.
 - **Permission rules** per folder: e.g. always allow `bash(npm test*)`, never allow `bash(git push*)`.
 - **Undo:** every message that changed files has an Undo button that restores them.
@@ -67,3 +68,6 @@ MIT. See [LICENSE](LICENSE).
 
 ## Interface audit
     python tests/ui_audit.py   # clicks through every section at 3 window sizes, light+dark; reports overlaps and errors
+
+## Credits
+Provider logos from [Simple Icons](https://simpleicons.org) (CC0). Brand names and logos belong to their owners.

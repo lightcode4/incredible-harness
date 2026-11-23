@@ -30,6 +30,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import __version__, extras, gitops
+from .catalog import BY_ID as PROVIDER_BY_ID, PROVIDERS, guess_service
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
 from .mcp_remote import McpRemoteError, sign_in as mcp_sign_in
@@ -725,7 +726,7 @@ class Session:
                        "mcp": [], "rules": {}, "hooks": {}, "github_token": "", "diagnostics": True,
                        "computer": False, "schedules": [], "phone": False, "voice_key": "", "auto": False, "plan": False,
                        "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
-                       "recent_folders": [], "ui_language": "en"}
+                       "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {}}
         self.mcp = McpManager()
         self._oauth_fresh: dict[str, dict] = {}  # newest tokens per connector (survive settings being re-applied)
         self.quit_app = None  # set by the desktop app: closes the window
@@ -783,6 +784,14 @@ class Session:
             self.config.update({k: v for k, v in saved.items() if k in self.config and k not in ("auto", "plan")})
         except (OSError, ValueError):
             pass
+        c = self.config
+        if not c.get("service"):  # older settings: one key for one provider -> remember it under its service
+            c["service"] = guess_service(c["provider"], c.get("base_url", ""))
+            if c.get("api_key"):
+                c["keys"].setdefault(c["service"], c["api_key"])
+            if c["service"] == "custom":
+                c.setdefault("custom_base", c.get("base_url", ""))
+            c["service_models"].setdefault(c["service"], c.get("model", ""))
 
     def save(self):
         try:
@@ -820,11 +829,36 @@ class Session:
         return OpenAIProvider(cfg["model"], system, base_url=cfg["base_url"] or LOCAL_URL,
                               api_key=cfg["api_key"] or "local", label_prefix="local", **common)
 
+    def resolve_service(self, cfg: dict, new: dict) -> dict:
+        """Fill provider kind, address and key from the chosen catalog service."""
+        cfg = {**cfg, "keys": dict(cfg.get("keys") or {}), "service_models": dict(cfg.get("service_models") or {})}
+        if "service" not in new and ("provider" in new or "base_url" in new):  # older Settings fields
+            cfg["service"] = guess_service(cfg["provider"], fix_base_url(cfg.get("base_url", "")))
+        svc = PROVIDER_BY_ID.get(cfg.get("service") or "") or PROVIDER_BY_ID["claude"]
+        cfg["service"] = svc["id"]
+        if new.get("api_key"):
+            cfg["keys"][svc["id"]] = new["api_key"]
+        cfg["provider"] = svc["kind"]
+        if svc.get("custom") or svc["kind"] == "local":
+            cfg["base_url"] = cfg.get("base_url") if ("base_url" in new and new["base_url"]) else (
+                cfg.get("base_url") if self.config.get("service") == svc["id"] and cfg.get("base_url") else svc["base"])
+        else:
+            cfg["base_url"] = svc["base"]
+        cfg["api_key"] = cfg["keys"].get(svc["id"], "")
+        if new.get("model"):
+            cfg["service_models"][svc["id"]] = new["model"]
+        elif "service" in new and new["service"] != self.config.get("service"):
+            cfg["model"] = cfg["service_models"].get(svc["id"]) or svc["model"]
+        if not cfg.get("model"):
+            cfg["model"] = svc["model"]
+        return cfg
+
     def apply_config(self, new: dict, keep_history: bool = False) -> None:
         cfg = {**self.config, **{k: v for k, v in new.items() if k in self.config}}
+        cfg = self.resolve_service(cfg, new)
         if cfg["provider"] not in DEFAULT_MODELS:
             raise ValueError(f"Unknown provider {cfg['provider']}")
-        if not cfg["model"] or (new.get("provider") not in (None, self.config["provider"]) and not new.get("model")):
+        if not cfg["model"]:
             cfg["model"] = DEFAULT_MODELS[cfg["provider"]]
         cwd = Path(os.path.expanduser(cfg["cwd"] or str(Path.home())))
         if not cwd.is_dir():
@@ -856,7 +890,7 @@ class Session:
         return chat
 
     def public_config(self) -> dict:
-        hidden = ("api_key", "github_token", "rules", "hooks", "voice_key", "mcp_local")
+        hidden = ("api_key", "github_token", "rules", "hooks", "voice_key", "mcp_local", "keys")
         c = {k: v for k, v in self.config.items() if k not in hidden}
         c["api_key"] = bool(self.config["api_key"])
         c["github_token"] = bool(self.config["github_token"])
@@ -873,6 +907,7 @@ class Session:
                      "signed_in": bool(m.get("oauth"))} for m in self.config["mcp"]]
         c["mcp_status"] = self.mcp.status()
         c["fast_model_default"] = self.fast_model(self.config)
+        c["keys_set"] = sorted(k for k, v in (self.config.get("keys") or {}).items() if v)
         c["sandbox_available"] = px.sandbox_available()
         return c
 
@@ -1429,6 +1464,35 @@ def make_handler(session: Session, token: str):
                             result = {"ok": True, "reply": session.test_connection(cfg)}
                     except Exception as e:
                         result = {"ok": False, "error": explain_error(e, cfg)}
+                elif path == "/api/providers":
+                    keys = session.config.get("keys") or {}
+                    result = {"providers": [{**{k: v for k, v in p.items()}, "has_key": bool(keys.get(p["id"])) or bool(p.get("nokey")),
+                                             "model_saved": (session.config.get("service_models") or {}).get(p["id"], "")} for p in PROVIDERS],
+                              "current": session.config.get("service")}
+                elif path == "/api/provider/key":
+                    sid = str(data.get("service", ""))
+                    if sid not in PROVIDER_BY_ID:
+                        raise ValueError("Unknown provider")
+                    session.config["keys"][sid] = str(data.get("key", "")).strip()
+                    if not session.config["keys"][sid]:
+                        session.config["keys"].pop(sid)
+                    if sid == session.config.get("service"):
+                        session.apply_config({"service": sid}, keep_history=True)
+                    session.save()
+                    session.events.put({"kind": "config", "config": session.public_config()})
+                elif path == "/api/provider/check":  # test a provider (key, address, model) without switching to it
+                    sid = str(data.get("service", ""))
+                    tmp = session.resolve_service({**session.config, "service": sid, "model": data.get("model") or ""},
+                                                  {"service": sid, **({"api_key": data["key"]} if data.get("key") else {}),
+                                                   **({"base_url": data["base_url"]} if data.get("base_url") else {}),
+                                                   **({"model": data["model"]} if data.get("model") else {})})
+                    try:
+                        if data.get("what") == "models":
+                            result = {"ok": True, "models": session.list_models(tmp)}
+                        else:
+                            result = {"ok": True, "reply": session.test_connection(tmp)}
+                    except Exception as e:
+                        result = {"ok": False, "error": explain_error(e, tmp)}
                 elif path == "/api/mcp/login":
                     session.mcp_login(str(data.get("name", "")))
                 elif path == "/api/selfcheck":
