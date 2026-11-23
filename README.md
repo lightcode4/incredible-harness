@@ -36,7 +36,7 @@ reads and edits files, searches the web, and asks before every change.
 - **Command sandbox** (macOS, Linux): commands can only change the project folder; strict mode also blocks the internet.
 - **Model routing:** sub-agents use a cheaper model (Claude Haiku 5.5 by default) while the main agent uses yours.
 - **Share** a chat as a secret GitHub gist, open **several windows**, drag to **reorder chats**, **keyboard shortcuts**
-  (Ctrl/⌘+/), a **reply language** setting, and **import/export of settings** between computers.
+  (Ctrl/⌘+/), the app in **English, Spanish, French, Portuguese or German**, a **reply language** setting, and **import/export of settings** between computers.
 - **Updates install themselves:** "Install & restart" downloads the new version and relaunches.
 - **Problem reports:** logs in `~/.incredible-herness/logs` (secrets removed) and a "Report a problem" button.
 - **Update check** from Settings → Updates.

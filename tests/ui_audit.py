@@ -11,6 +11,10 @@ for c in (["init", "-q", "-b", "main"], ["config", "user.email", "t@e.com"], ["c
 from myagent.gui import start_server
 SCRIPT[:] = [("tool", "todo_write", {"todos": [{"content": "Read app.py", "status": "completed"}, {"content": "Handle empty input", "status": "in_progress"}]}),
              ("tool", "edit_file", {"path": "app.py", "old_text": "    return sum(xs)", "new_text": "    return sum(xs or [])"}), ("text", "Done.")]
+import os
 server, url, session = start_server(str(work))
-r = subprocess.run(["node", str(Path(__file__).with_name("ui_audit.js")), url], capture_output=True, text=True, timeout=300, cwd=Path(__file__).parent.parent)
+lang = os.environ.get("HERNESS_UI_LANG", "")
+if lang:
+    session.config["ui_language"] = lang
+r = subprocess.run(["node", str(Path(__file__).with_name("ui_audit.js")), url] + ([lang] if lang else []), capture_output=True, text=True, timeout=300, cwd=Path(__file__).parent.parent)
 print(r.stdout[-6000:], r.stderr[-2000:])

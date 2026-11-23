@@ -724,7 +724,7 @@ class Session:
                        "mcp": [], "rules": {}, "hooks": {}, "github_token": "", "diagnostics": True,
                        "computer": False, "schedules": [], "phone": False, "voice_key": "", "auto": False, "plan": False,
                        "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
-                       "recent_folders": []}
+                       "recent_folders": [], "ui_language": "en"}
         self.mcp = McpManager()
         self.quit_app = None  # set by the desktop app: closes the window
         self.new_window = None  # set by the desktop app: opens another window

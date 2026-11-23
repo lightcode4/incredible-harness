@@ -37,7 +37,14 @@ async function overlaps(pg, label) {
     await pg.waitForTimeout(500);
     const L = `${w}px ${scheme}`;
     await overlaps(pg, L + ' start');
-    if (w === 1440) {
+    if (process.argv[3]) {  // translated interface: check the words changed and nothing overflows
+      const text = await pg.innerText('aside');
+      check(`[${L}] sidebar is translated`, text.includes('Control de versiones') && text.includes('Ajustes'), text.slice(0, 80));
+      await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
+      for (const t of ['model', 'tools', 'perms']) { await pg.click(`#tabs button[data-p="${t}"]`); await pg.waitForTimeout(120); await overlaps(pg, `${L} settings ${t}`); }
+      await pg.click('#cancelSettings');
+      await pg.screenshot({ path: `audit-es-${w}.png` });
+    } else if (w === 1440) {
       // --- sidebar
       await pg.click('#navSessions'); check('Sessions opens the session list', await pg.isVisible('#sessBox'));
       await pg.click('#navGit'); check('Source control opens Git', await pg.isVisible('#gitView'));
