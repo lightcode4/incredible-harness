@@ -32,13 +32,15 @@ reads and edits files, searches the web, and asks before every change.
 - **Phone access** on your Wi-Fi (scan a QR code), **voice typing**, and optional **computer use** (screen control,
   every action asks first).
 - **Connectors:** local MCP servers (programs on your computer: files, SQLite, Postgres, Slack, …) for every provider,
-  plus remote MCP servers for Claude, with quick-connect presets. Every connector tool call asks for approval.
+  plus online MCP servers (Linear, Notion, Sentry, GitHub, …) with **one-click Sign in** (OAuth) or a token — all for every
+  provider. Every connector tool call asks for approval.
 - **Command sandbox** (macOS, Linux): commands can only change the project folder; strict mode also blocks the internet.
 - **Model routing:** sub-agents use a cheaper model (Claude Haiku 5.5 by default) while the main agent uses yours.
 - **Share** a chat as a secret GitHub gist, open **several windows**, drag to **reorder chats**, **keyboard shortcuts**
   (Ctrl/⌘+/), the app in **English, Spanish, French, Portuguese or German**, a **reply language** setting, and **import/export of settings** between computers.
 - **Updates install themselves:** "Install & restart" downloads the new version and relaunches.
 - **Problem reports:** logs in `~/.incredible-herness/logs` (secrets removed) and a "Report a problem" button.
+- **Self-check:** Settings → Updates → Run self-check (or `--self-test`) tests every part on your computer.
 - **Update check** from Settings → Updates.
 
 ## Install

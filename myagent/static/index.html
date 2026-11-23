@@ -719,7 +719,7 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
       <div class="field"><label>Quick connect</label><div class="presets" id="presets"></div>
         <small>Local connectors run programs on this computer and need <b>Node.js</b> (npx) or <b>uv</b> (uvx) installed. They work with every provider.</small></div>
       <div class="field"><label>Local connectors (programs on this computer)</label><div id="lmcpRows"></div><button class="btn small" id="addLmcp">+ Add local connector</button></div>
-      <div class="field"><label>Remote connectors (Claude only)</label><div id="mcpRows"></div><button class="btn small" id="addMcp">+ Add remote connector</button></div>
+      <div class="field"><label>Online connectors (web addresses) — Sign in or paste a token</label><div id="mcpRows"></div><button class="btn small" id="addMcp">+ Add remote connector</button></div>
     </div>
     <div class="pane" data-p="about">
       <div class="note" id="aboutText">Incredible Herness</div>
@@ -1014,9 +1014,19 @@ function showConfig(c) {
   setPlan(!!c.plan);
 }
 function mcpRow(m = {}) {
-  const r = el("div", "mcprow", `<input placeholder="name" class="n"><input placeholder="https://server/mcp" class="u"><input placeholder="token (optional)" type="password" class="t"><button class="iconbtn" title="Remove">${icon("x")}</button>`);
+  const st = (config.mcp_status || []).find(x => x.name === m.name && x.remote);
+  const r = el("div", "lmcp", `<div class="row"><input placeholder="name" class="n"><input placeholder="https://server/mcp" class="u"></div>
+    <div class="row"><input placeholder="${m.has_token ? "token saved — leave empty to keep" : "token (or use Sign in)"}" type="password" class="t">
+    <button class="btn small signin">${m.signed_in ? "Signed in ✓ — sign in again" : "Sign in"}</button><button class="btn small rm">Remove</button></div>
+    <span class="mstat ${st ? (st.error ? "bad" : st.tools ? "ok" : "") : ""}"></span>`);
   r.querySelector(".n").value = m.name || ""; r.querySelector(".u").value = m.url || ""; r.querySelector(".t").value = m.token || "";
-  r.querySelector("button").onclick = () => r.remove(); $("mcpRows").appendChild(r);
+  r.querySelector(".mstat").textContent = st ? (st.error ? "Error: " + st.error.slice(0, 160) : st.tools ? `Connected · ${st.tools} tools` : "") : "";
+  r.querySelector(".rm").onclick = () => r.remove();
+  r.querySelector(".signin").onclick = async () => {
+    const name = r.querySelector(".n").value.trim(); if (!name || !r.querySelector(".u").value.trim()) { $("dlgError").textContent = "Enter a name and address first."; return; }
+    await $("saveSettings").onclick(); await api("/api/mcp/login", { name }).catch(e => notice(e.message));
+  };
+  $("mcpRows").appendChild(r);
 }
 function showTab(p) { document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.p === p)); document.querySelectorAll(".pane").forEach(x => x.classList.toggle("on", x.dataset.p === p)); }
 let instrLoaded = "";
@@ -1048,7 +1058,7 @@ document.querySelectorAll("#seg button").forEach(b => b.onclick = () => { if (b.
 $("addMcp").onclick = () => mcpRow();
 $("saveSettings").onclick = async () => {
   const lines = id => $(id).value.split("\n").map(s => s.trim()).filter(Boolean);
-  const mcp = [...document.querySelectorAll(".mcprow")].map(r => ({ name: r.querySelector(".n").value.trim(), url: r.querySelector(".u").value.trim(), token: r.querySelector(".t").value.trim() })).filter(m => m.name && m.url);
+  const mcp = [...document.querySelectorAll("#mcpRows .lmcp")].map(r => ({ name: r.querySelector(".n").value.trim(), url: r.querySelector(".u").value.trim(), token: r.querySelector(".t").value.trim() })).filter(m => m.name && m.url);
   const body = { provider, model: $("model").value.trim(), effort: $("effort").value, base_url: $("baseurl").value.trim(), cwd: $("cwd").value.trim(),
     auto: $("auto").checked, web: $("web").checked, compaction: $("compaction").checked, budget: parseFloat($("budget").value) || 0, mcp,
     rules: { allow: lines("allow"), deny: lines("deny") }, diagnostics: $("diagnostics").checked, computer: $("computer").checked,
@@ -1267,7 +1277,10 @@ function showPhone() {
 
 // ---------- Connectors ----------
 const PRESETS = [
-  { label: "GitHub", remote: { name: "github", url: "https://api.githubcopilot.com/mcp/" }, tokenUrl: "https://github.com/settings/personal-access-tokens/new", tip: "Paste a GitHub token in the token box (Claude provider)." },
+  { label: "Linear", remote: { name: "linear", url: "https://mcp.linear.app/mcp" }, tip: "Click Sign in on the Linear row." },
+  { label: "Notion", remote: { name: "notion", url: "https://mcp.notion.com/mcp" }, tip: "Click Sign in on the Notion row." },
+  { label: "Sentry", remote: { name: "sentry", url: "https://mcp.sentry.dev/mcp" }, tip: "Click Sign in on the Sentry row." },
+  { label: "GitHub", remote: { name: "github", url: "https://api.githubcopilot.com/mcp/" }, tokenUrl: "https://github.com/settings/personal-access-tokens/new", tip: "GitHub needs a token: paste it in the token box." },
   { label: "Files (another folder)", local: { name: "files", command: "npx", args: "-y @modelcontextprotocol/server-filesystem ~/Documents" }, tip: "Change the folder at the end of the arguments." },
   { label: "SQLite database", local: { name: "sqlite", command: "uvx", args: "mcp-server-sqlite --db-path ~/data.db" }, tip: "Point --db-path at your database file." },
   { label: "Postgres", local: { name: "postgres", command: "npx", args: "-y @modelcontextprotocol/server-postgres postgresql://localhost/mydb" }, tip: "Replace the connection URL." },

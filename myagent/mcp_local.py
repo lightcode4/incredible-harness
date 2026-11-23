@@ -102,7 +102,10 @@ class McpServer:
             self.stderr_tail = (self.stderr_tail + [line.strip()])[-20:]
 
     def call(self, tool: str, args: dict):
-        res = self.request("tools/call", {"name": tool, "arguments": args}, timeout=300)
+        return self._parse_call(self.request("tools/call", {"name": tool, "arguments": args}, timeout=300))
+
+    @staticmethod
+    def _parse_call(res: dict):
         parts = []
         for c in res.get("content", []):
             if c.get("type") == "text":
@@ -125,17 +128,30 @@ class McpManager:
     """Starts configured servers on first use and maps exposed tool names back to (server, tool)."""
 
     def __init__(self):
-        self.servers: dict[str, McpServer] = {}
+        self.servers: dict = {}
         self.config_key = ""
         self.names: dict[str, tuple[str, str]] = {}
+        self.started: set[str] = set()
+        self.on_oauth_update = None  # (name, oauth) -> None: persist refreshed tokens
 
-    def configure(self, entries: list[dict]):
+    def configure(self, entries: list[dict], remote: list[dict] | None = None):
         entries = [e for e in entries if e.get("name") and e.get("command") and e.get("enabled", True)]
-        key = json.dumps(entries, sort_keys=True)
+        remote = [r for r in (remote or []) if r.get("name") and r.get("url")]
+        key = json.dumps([entries, [{k: v for k, v in r.items() if k != "oauth"} | {"signed": bool(r.get("oauth"))} for r in remote]],
+                         sort_keys=True)
         if key == self.config_key:
+            for r in remote:  # keep refreshed tokens current without restarting
+                srv = self.servers.get(r["name"])
+                if (srv is not None and hasattr(srv, "oauth") and r.get("oauth")
+                        and r["oauth"].get("expires_at", 0) > (srv.oauth or {}).get("expires_at", 0)):
+                    srv.oauth = r["oauth"]
             return
         self.stop()
-        self.config_key, self.names = key, {}
+        self.config_key, self.names, self.started = key, {}, set()
+        from .mcp_remote import RemoteServer
+        for r in remote:
+            self.servers[r["name"]] = RemoteServer(r["name"], r["url"], r.get("token", ""), r.get("oauth"),
+                                                   lambda n, o: self.on_oauth_update and self.on_oauth_update(n, o))
         for e in entries:
             args = e.get("args") or []
             if isinstance(args, str):
@@ -147,11 +163,13 @@ class McpManager:
     def tool_specs(self) -> list[dict]:
         specs = []
         for srv in self.servers.values():
-            if srv.proc is None and not srv.error:
+            if srv.name not in self.started:
+                self.started.add(srv.name)
                 try:
                     srv.start()
+                    srv.error = ""
                 except Exception as e:
-                    srv.error = f"{e} {' '.join(srv.stderr_tail[-3:])}".strip()
+                    srv.error = f"{e} {' '.join(getattr(srv, 'stderr_tail', [])[-3:])}".strip()
             for t in srv.tools:
                 n = tool_name(srv.name, t["name"])
                 self.names[n] = (srv.name, t["name"])
@@ -162,8 +180,12 @@ class McpManager:
         return specs
 
     def status(self) -> list[dict]:
-        return [{"name": s.name, "running": bool(s.proc and s.proc.poll() is None), "tools": len(s.tools), "error": s.error}
-                for s in self.servers.values()]
+        out = []
+        for s in self.servers.values():
+            running = bool(s.tools) if not hasattr(s, "stderr_tail") else bool(s.proc and s.proc.poll() is None)
+            out.append({"name": s.name, "running": running, "tools": len(s.tools), "error": s.error,
+                        "remote": not hasattr(s, "stderr_tail")})
+        return out
 
     def call(self, name: str, args: dict):
         if name not in self.names:

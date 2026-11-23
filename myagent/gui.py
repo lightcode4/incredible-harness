@@ -32,6 +32,7 @@ from urllib.parse import parse_qs, urlparse
 from . import __version__, extras, gitops
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
+from .mcp_remote import McpRemoteError, sign_in as mcp_sign_in
 from ._build import BUILD, REPO
 from .browser import Browser, NeedsBrowser, install_chromium
 from .computer import Computer, ComputerError
@@ -571,7 +572,7 @@ class Chat:
             return refusal
         try:
             out, err = self.app.mcp.call(name, args)
-        except McpError as e:
+        except (McpError, McpRemoteError) as e:
             out, err = [{"type": "text", "text": str(e)}], True
         shown = "\n".join(p.get("text", "[image]") for p in out)
         self.emit("tool_result", id=call_id, output=shown[:8000], error=err)
@@ -726,6 +727,7 @@ class Session:
                        "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
                        "recent_folders": [], "ui_language": "en"}
         self.mcp = McpManager()
+        self._oauth_fresh: dict[str, dict] = {}  # newest tokens per connector (survive settings being re-applied)
         self.quit_app = None  # set by the desktop app: closes the window
         self.new_window = None  # set by the desktop app: opens another window
         self.pending: dict[str, tuple[threading.Event, dict]] = {}
@@ -791,7 +793,8 @@ class Session:
             pass
 
     def tools_for(self, cfg: dict) -> list[dict]:
-        self.mcp.configure(cfg.get("mcp_local") or [])
+        self.mcp.on_oauth_update = self._save_oauth
+        self.mcp.configure(cfg.get("mcp_local") or [], cfg.get("mcp") or [])
         return [t for t in TOOLS if t["kind"] != "desktop" or cfg.get("computer")] + self.mcp.tool_specs()
 
     def fast_model(self, cfg: dict) -> str:
@@ -810,7 +813,7 @@ class Session:
         common = dict(tools=tools, compaction=cfg["compaction"])
         if cfg["provider"] == "claude":
             return ClaudeProvider(cfg["model"], system, effort=cfg["effort"], api_key=cfg["api_key"] or None,
-                                  web=cfg["web"], mcp_servers=cfg["mcp"], **common)
+                                  web=cfg["web"], mcp_servers=[], **common)  # connectors run in Herness for every provider
         if cfg["provider"] == "openai":
             return OpenAIProvider(cfg["model"], system, base_url=cfg["base_url"] or os.environ.get("OPENAI_BASE_URL"),
                                   api_key=cfg["api_key"] or None, label_prefix="openai", **common)
@@ -832,6 +835,10 @@ class Session:
         cfg["recent_folders"] = ([cfg["cwd"]] + [f for f in cfg.get("recent_folders", []) if f != cfg["cwd"] and Path(f).is_dir()])[:10]
         self.make_provider(cfg)  # validate (e.g. API key present) before changing anything
         old = self.config
+        for m in cfg.get("mcp") or []:  # never replace a refreshed token with an older copy
+            fresh = self._oauth_fresh.get(m.get("name"))
+            if fresh and m.get("oauth") and fresh.get("expires_at", 0) > m["oauth"].get("expires_at", 0):
+                m["oauth"] = fresh
         self.config = cfg
         if self.current is None or (self.current.busy is False and self.current.transcript == [] and not keep_history):
             self.current = self._new_chat_obj(cfg["cwd"])
@@ -862,6 +869,8 @@ class Session:
         c["build"], c["version"], c["phone_url"] = BUILD, __version__, self.phone_url
         c["commands"] = self.command_list()
         c["mcp_local"] = [{**m, "env": {k: "" for k in (m.get("env") or {})}} for m in self.config["mcp_local"]]
+        c["mcp"] = [{"name": m.get("name"), "url": m.get("url"), "token": "", "has_token": bool(m.get("token")),
+                     "signed_in": bool(m.get("oauth"))} for m in self.config["mcp"]]
         c["mcp_status"] = self.mcp.status()
         c["fast_model_default"] = self.fast_model(self.config)
         c["sandbox_available"] = px.sandbox_available()
@@ -1098,6 +1107,33 @@ class Session:
         r = c.chat.completions.create(model=cfg["model"], max_tokens=16, messages=[{"role": "user", "content": "Reply with: ok"}])
         return (r.choices[0].message.content or "ok").strip()
 
+    def _save_oauth(self, name: str, oauth: dict):
+        self._oauth_fresh[name] = oauth
+        for m in self.config["mcp"]:
+            if m.get("name") == name:
+                m["oauth"] = oauth
+        self.save()
+
+    def mcp_login(self, name: str):
+        entry = next((m for m in self.config["mcp"] if m.get("name") == name), None)
+        if not entry:
+            raise ValueError("Save the connector first, then click Sign in.")
+
+        def run():
+            try:
+                self.events.put({"kind": "toast", "text": f"Opening the {name} sign-in page in your browser…"})
+                entry["oauth"] = mcp_sign_in(entry["url"])
+                self.save()
+                self.mcp.config_key = ""  # restart connectors with the new sign-in
+                if self.current and not self.current.busy:
+                    self.current.build(keep_history=True)
+                self.events.put({"kind": "toast", "text": f"Signed in to {name}. Its tools are ready."})
+                self.events.put({"kind": "config", "config": self.public_config()})
+            except Exception as e:
+                px.log.warning("MCP sign-in failed for %s: %s", name, e)
+                self.events.put({"kind": "toast", "text": f"{name} sign-in failed: {e}"})
+        threading.Thread(target=run, daemon=True).start()
+
     def install_update(self):
         def run():
             try:
@@ -1304,6 +1340,15 @@ def make_handler(session: Session, token: str):
                         if "hooks" in data:
                             h = data.pop("hooks")
                             session.config["hooks"][folder] = {k: str(h.get(k, "")).strip() for k in ("after_edit", "before_finish")}
+                        if "mcp" in data:  # remote connectors: blank token keeps the saved one; keep sign-ins
+                            old = {m["name"]: m for m in session.config["mcp"]}
+                            for m in data["mcp"]:
+                                prev = old.get(m.get("name")) or {}
+                                m["token"] = m.get("token") or prev.get("token", "")
+                                if prev.get("oauth") and prev.get("url") == m.get("url"):
+                                    m["oauth"] = prev["oauth"]
+                                m.pop("has_token", None)
+                                m.pop("signed_in", None)
                         if "mcp_local" in data:  # blank env values mean "keep the saved secret"
                             old = {m["name"]: m for m in session.config["mcp_local"]}
                             for m in data["mcp_local"]:
@@ -1384,6 +1429,8 @@ def make_handler(session: Session, token: str):
                             result = {"ok": True, "reply": session.test_connection(cfg)}
                     except Exception as e:
                         result = {"ok": False, "error": explain_error(e, cfg)}
+                elif path == "/api/mcp/login":
+                    session.mcp_login(str(data.get("name", "")))
                 elif path == "/api/selfcheck":
                     from .selfcheck import run as selfcheck_run
                     result = {"results": selfcheck_run(session, model_test=bool(data.get("model")))}

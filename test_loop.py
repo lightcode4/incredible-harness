@@ -126,7 +126,7 @@ def main():
 
     work = Path(tempfile.mkdtemp())
     s = Session()
-    s.apply_config({"cwd": str(work), "mcp": [{"name": "gh", "url": "https://mcp.example/mcp"}]})
+    s.apply_config({"cwd": str(work)})
     d = Driver(s)
 
     # 1. bash with approval; request shape (fallbacks, compaction, web, MCP, eager streaming)
@@ -135,10 +135,10 @@ def main():
     assert res and "hello-from-tool" in res[0]["output"] and not res[0]["error"], res
     _, hdr, body = REQUESTS[-2]
     betas = hdr.get("anthropic-beta", "")
-    for b in ("server-side-fallback-2026-07-01", "compact-2026-01-12", "mcp-client-2025-11-20"):
+    for b in ("server-side-fallback-2026-07-01", "compact-2026-01-12"):
         assert b in betas, betas
     names = [t.get("name") or t.get("type") for t in body["tools"]]
-    assert "web_search" in names and "web_fetch" in names and "mcp_toolset" in names and "fetch_url" not in names, names
+    assert "web_search" in names and "web_fetch" in names and "mcp_toolset" not in names and "fetch_url" not in names, names
     assert body["context_management"] == {"edits": [{"type": "compact_20260112"}]} and body["fallbacks"] == "default"
     assert all(t.get("eager_input_streaming") for t in body["tools"] if "input_schema" in t)
     tr = REQUESTS[-1][2]["messages"][-1]["content"]
@@ -584,6 +584,79 @@ def main():
     assert fix_base_url("https://opencode.ai/") == "https://opencode.ai/inference/openai/v1"
     assert fix_base_url("https://api.x.com/v1/chat/completions") == "https://api.x.com/v1"
     print("37 plain-language errors + address fixes OK")
+
+    # 38. online connector with one-click sign-in (OAuth: discovery, registration, PKCE, token, refresh) for any provider
+    import urllib.request as ur2
+    from urllib.parse import urlparse as _up, parse_qs as _pq, urlencode as _ue
+    TOK = {"n": 0}
+
+    class Remote(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def _send(self, code, body=b"", ctype="application/json", extra=None):
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            for k, v in (extra or {}).items():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            base = f"http://127.0.0.1:{self.server.server_port}"
+            u = _up(self.path)
+            if u.path == "/.well-known/oauth-protected-resource/mcp":
+                return self._send(200, json.dumps({"authorization_servers": [base]}).encode())
+            if u.path == "/.well-known/oauth-authorization-server":
+                return self._send(200, json.dumps({"authorization_endpoint": base + "/authorize", "token_endpoint": base + "/token",
+                                                   "registration_endpoint": base + "/register"}).encode())
+            if u.path == "/authorize":
+                q = _pq(u.query)
+                assert q["code_challenge_method"] == ["S256"] and q["client_id"] == ["cid-1"]
+                return self._send(302, extra={"Location": q["redirect_uri"][0] + "?" + _ue({"code": "abc", "state": q["state"][0]})})
+            self._send(404)
+
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            if self.path == "/register":
+                return self._send(201, json.dumps({"client_id": "cid-1"}).encode())
+            if self.path == "/token":
+                form = _pq(body.decode())
+                TOK["n"] += 1
+                assert form["grant_type"][0] in ("authorization_code", "refresh_token")
+                return self._send(200, json.dumps({"access_token": f"tok{TOK['n']}", "refresh_token": "r1", "expires_in": 3600}).encode())
+            if self.path == "/mcp":
+                if not (self.headers.get("Authorization") or "").startswith("Bearer tok"):
+                    base = f"http://127.0.0.1:{self.server.server_port}"
+                    return self._send(401, b"{}", extra={"WWW-Authenticate": f'Bearer resource_metadata="{base}/.well-known/oauth-protected-resource/mcp"'})
+                msg = json.loads(body)
+                if "id" not in msg:
+                    return self._send(202)
+                m = msg["method"]
+                res = ({"protocolVersion": "2025-06-18", "capabilities": {}} if m == "initialize" else
+                       {"tools": [{"name": "echo_upper", "description": "Upper-case", "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}}}]}
+                       if m == "tools/list" else {"content": [{"type": "text", "text": msg["params"]["arguments"]["text"].upper()}]})
+                out = json.dumps({"jsonrpc": "2.0", "id": msg["id"], "result": res})
+                if m == "tools/call":  # reply as an event stream, like many real servers
+                    return self._send(200, f"event: message\ndata: {out}\n\n".encode(), "text/event-stream")
+                return self._send(200, out.encode(), extra={"Mcp-Session-Id": "sess-1"} if m == "initialize" else None)
+            self._send(404)
+    rsrv = ThreadingHTTPServer(("127.0.0.1", 0), Remote)
+    threading.Thread(target=rsrv.serve_forever, daemon=True).start()
+    murl = f"http://127.0.0.1:{rsrv.server_port}/mcp"
+    from myagent.mcp_remote import sign_in
+    oauth = sign_in(murl, open_browser=lambda u: ur2.urlopen(u, timeout=10).read())
+    assert oauth["access_token"] == "tok1" and oauth["client_id"] == "cid-1"
+    oauth["expires_at"] = 0  # force a refresh on first use
+    s.apply_config({"provider": "claude", "model": "claude-opus-5-5", "mcp": [{"name": "remote", "url": murl, "token": "", "oauth": oauth}]})
+    s.new_chat()
+    evs = d.run("shout remotely", script=[("tool", "mcp_remote_echo_upper", {"text": "signed in"}), ("text", "done")])
+    assert d.kinds(evs, "approve") and "SIGNED IN" in json.dumps(REQUESTS[-1][2]["messages"][-1]), "remote tool result missing"
+    assert TOK["n"] == 2 and s.config["mcp"][0]["oauth"]["access_token"] == "tok2", f"token refresh not saved ({TOK['n']} token requests)"
+    pub = s.public_config()["mcp"][0]
+    assert pub["signed_in"] and pub["token"] == "" and "oauth" not in pub  # tokens never sent to the page
+    s.apply_config({"mcp": []})
+    print("38 one-click connector sign-in OK")
     print("ALL TESTS PASSED")
 
 
