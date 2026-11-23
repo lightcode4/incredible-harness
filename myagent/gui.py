@@ -89,6 +89,34 @@ class Stop(Exception):
     pass
 
 
+def explain_error(e: Exception, cfg: dict) -> str:
+    """Turn provider errors into plain words with the fix."""
+    code = getattr(e, "status_code", None)
+    msg = str(getattr(e, "message", "") or e)
+    low = msg.lower()
+    svc = cfg.get("base_url") or {"claude": "Anthropic", "openai": "OpenAI", "local": "your local model server"}.get(cfg.get("provider"), "the provider")
+    if type(e).__name__ in ("APIConnectionError", "APITimeoutError", "ConnectError"):
+        return (f"Could not reach {svc}. Check your internet connection" +
+                (", and that Ollama or LM Studio is running" if cfg.get("provider") == "local" else "") + ".")
+    if code == 401:
+        return "The API key was rejected. Paste a valid key in Settings > Models."
+    if code == 402 or "insufficient balance" in low or "credit" in low and "add" in low:
+        return "Your account has no credit left with this provider. Add credit on their website (billing page), then try again."
+    if code == 403:
+        return f"This model isn't enabled for your account ({cfg.get('model')}). Choose another model in Settings > Models, or enable it on the provider's website. Details: {msg[:200]}"
+    if code in (404, 405):
+        return (f"The service address looks wrong (error {code}). In Settings > Models, use a preset or check the Base URL — "
+                f"currently {cfg.get('base_url') or 'the default'}. Also check that the model name exists.")
+    if code == 410 or "deprecated" in low:
+        return f"The model {cfg.get('model')} has been retired. Pick another one in Settings > Models (use Load models)."
+    if code == 429:
+        return ("The provider is rate-limiting you or a free quota is used up. Wait a minute and retry, or choose a paid model. "
+                f"Details: {msg[:200]}")
+    if code and code >= 500:
+        return f"The provider had a server error ({code}). Try again in a moment."
+    return f"{type(e).__name__}: {msg[:400]}"
+
+
 def _rule_kind(name: str) -> str:
     if name.startswith("browser_"):
         return "browser"
@@ -616,7 +644,7 @@ class Chat:
             self.provider.close_interrupted()
         except Exception as e:
             px.log.exception("Turn failed in chat %s", self.id)
-            self.notice(f"{type(e).__name__}: {e}")
+            self.notice(explain_error(e, {**self.app.config, "cwd": self.cwd}))
             self.provider.close_interrupted()
         finally:
             self.end_block()
@@ -1022,6 +1050,28 @@ class Session:
             return {"latest": None, "current": BUILD, "update": False}
         return {"latest": best[0], "current": BUILD, "update": best[0] > BUILD, "url": best[1]}
 
+    def _client(self, cfg: dict):
+        if cfg["provider"] == "claude":
+            import anthropic
+            return anthropic.Anthropic(api_key=cfg["api_key"]) if cfg["api_key"] else anthropic.Anthropic()
+        import openai
+        base = cfg["base_url"] or (LOCAL_URL if cfg["provider"] == "local" else None)
+        return openai.OpenAI(base_url=base, api_key=cfg["api_key"] or ("local" if cfg["provider"] == "local" else None))
+
+    def list_models(self, cfg: dict) -> list[str]:
+        c = self._client(cfg)
+        ids = [m.id for m in c.models.list()]
+        skip = ("embed", "image", "tts", "whisper", "moderation", "dall-e", "transcribe")
+        return sorted(i for i in ids if not any(x in i for x in skip))
+
+    def test_connection(self, cfg: dict) -> str:
+        c = self._client(cfg)
+        if cfg["provider"] == "claude":
+            r = c.messages.create(model=cfg["model"], max_tokens=16, messages=[{"role": "user", "content": "Reply with: ok"}])
+            return "".join(getattr(b, "text", "") for b in r.content).strip() or "ok"
+        r = c.chat.completions.create(model=cfg["model"], max_tokens=16, messages=[{"role": "user", "content": "Reply with: ok"}])
+        return (r.choices[0].message.content or "ok").strip()
+
     def install_update(self):
         def run():
             try:
@@ -1297,6 +1347,17 @@ def make_handler(session: Session, token: str):
                         session.events.put({"kind": "browser_status", "text": str(e), "install": True})
                 elif path == "/api/browser/install":
                     session.install_browser()
+                elif path in ("/api/models", "/api/test-connection"):
+                    cfg = {**session.config, **{k: v for k, v in data.items() if k in ("provider", "model", "base_url", "api_key") and v}}
+                    if cfg["provider"] not in DEFAULT_MODELS:
+                        raise ValueError("Unknown provider")
+                    try:
+                        if path == "/api/models":
+                            result = {"models": session.list_models(cfg)}
+                        else:
+                            result = {"ok": True, "reply": session.test_connection(cfg)}
+                    except Exception as e:
+                        result = {"ok": False, "error": explain_error(e, cfg)}
                 elif path == "/api/update":
                     result = session.check_update()
                 elif path == "/api/update/install":

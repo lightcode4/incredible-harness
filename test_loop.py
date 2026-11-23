@@ -567,6 +567,19 @@ def main():
     assert "in Spanish" in REQUESTS[-1][2]["system"][0]["text"]
     s.apply_config({"language": ""})
     print("36 updates + chat order + language OK")
+
+    # 37. errors in plain words
+    from myagent.gui import explain_error
+
+    class E(Exception):
+        def __init__(self, code, msg=""):
+            super().__init__(msg)
+            self.status_code, self.message = code, msg
+    cfg = {"provider": "openai", "model": "x", "base_url": "https://example.com/"}
+    assert "no credit" in explain_error(E(402, "Insufficient balance"), cfg)
+    assert "address looks wrong" in explain_error(E(405), cfg)
+    assert "rejected" in explain_error(E(401), cfg) and "retired" in explain_error(E(410, "deprecated"), cfg)
+    print("37 plain-language errors OK")
     print("ALL TESTS PASSED")
 
 

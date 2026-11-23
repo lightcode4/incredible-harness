@@ -638,7 +638,9 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
         <div class="field"><label>Model for sub-agents &amp; simple steps</label><input id="fastModel" spellcheck="false" list="models"><small id="fastHint"></small></div>
         <div class="field"><label>Reply language</label><input id="language" placeholder="Same as you write" list="langs"><datalist id="langs"><option>English</option><option>Spanish</option><option>French</option><option>Portuguese</option><option>German</option><option>Arabic</option><option>Hindi</option><option>Chinese</option><option>Japanese</option><option>Yoruba</option><option>Swahili</option></datalist></div>
       </div>
+      <div class="field" id="svcField"><label>Service</label><div class="presets" id="svcPresets"></div></div>
       <div class="field" id="baseField"><label>Base URL</label><input id="baseurl" spellcheck="false" placeholder="Leave empty for the default"><small id="baseHint"></small></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn small" id="loadModels">Load models</button><button class="btn small" id="testConn">Test connection</button><span id="connResult" style="font-size:13px;color:var(--muted)"></span></div>
       <div class="field"><label>API key</label><input id="key" type="password" placeholder="Paste your key"><small>Saved only on this computer, readable only by your user account.</small></div>
       <div class="field"><label>Working folder</label><div style="display:flex;gap:8px"><input id="cwd" spellcheck="false"><button class="btn" id="pick" hidden>Browse…</button></div></div>
     </div>
@@ -1452,6 +1454,26 @@ function palKey(e) {
 $("jumpBtn").onclick = palette;
 document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); e.stopImmediatePropagation(); palette(); } }, true);
 setTodos([]); setBusy(false);
+
+// ---------- Service presets, model list, connection test ----------
+const SERVICES = [["OpenCode", "https://opencode.ai/inference/openai/v1"], ["OpenAI", ""], ["OpenRouter", "https://openrouter.ai/api/v1"],
+  ["Groq", "https://api.groq.com/openai/v1"], ["Together", "https://api.together.xyz/v1"], ["DeepSeek", "https://api.deepseek.com/v1"]];
+SERVICES.forEach(([n, u]) => { const b = el("button", "btn small"); b.textContent = n; b.onclick = () => { $("baseurl").value = u; $("connResult").textContent = n + " selected. Paste your " + n + " key, then Load models."; }; $("svcPresets").appendChild(b); });
+const _setProvider = setProvider;
+setProvider = function (p) { _setProvider(p); $("svcField").hidden = p !== "openai"; };
+function connBody() { const b = { provider, model: $("model").value.trim(), base_url: $("baseurl").value.trim() }; if ($("key").value) b.api_key = $("key").value; return b; }
+$("loadModels").onclick = async () => {
+  $("connResult").textContent = "Loading…";
+  const r = await api("/api/models", connBody()).catch(e => ({ error: e.message }));
+  if (r.error) { $("connResult").textContent = r.error; $("connResult").style.color = "var(--bad)"; return; }
+  $("models").innerHTML = r.models.map(m => `<option value="${esc(m)}">`).join(""); $("connResult").style.color = "";
+  $("connResult").textContent = `${r.models.length} models available — click the Model box to pick one.`;
+};
+$("testConn").onclick = async () => {
+  $("connResult").textContent = "Testing…"; $("connResult").style.color = "";
+  const r = await api("/api/test-connection", connBody()).catch(e => ({ error: e.message }));
+  $("connResult").textContent = r.ok ? `✓ Works — the model replied “${r.reply}”.` : r.error; $("connResult").style.color = r.ok ? "var(--ok)" : "var(--bad)";
+};
 
 loadChats(); $("input").focus();
 setTimeout(() => { if (config.build > 0) api("/api/update").then(r => { if (r.update) showUpdate(r); }).catch(() => {}); }, 4000);
