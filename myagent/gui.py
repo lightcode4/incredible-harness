@@ -89,6 +89,23 @@ class Stop(Exception):
     pass
 
 
+# Website addresses people paste, mapped to the service's real OpenAI-compatible API address.
+API_ADDRESS_FIXES = {
+    "https://app.haimaker.ai": "https://api.haimaker.ai/v1", "https://haimaker.ai": "https://api.haimaker.ai/v1",
+    "https://opencode.ai": "https://opencode.ai/inference/openai/v1", "https://openrouter.ai": "https://openrouter.ai/api/v1",
+    "https://groq.com": "https://api.groq.com/openai/v1", "https://console.groq.com": "https://api.groq.com/openai/v1",
+    "https://platform.openai.com": "", "https://chatgpt.com": "", "https://together.ai": "https://api.together.xyz/v1",
+    "https://platform.deepseek.com": "https://api.deepseek.com/v1",
+}
+
+
+def fix_base_url(url: str) -> str:
+    u = (url or "").strip().rstrip("/")
+    if u.endswith("/chat/completions"):
+        u = u[: -len("/chat/completions")]
+    return API_ADDRESS_FIXES.get(u, u)
+
+
 def explain_error(e: Exception, cfg: dict) -> str:
     """Turn provider errors into plain words with the fix."""
     code = getattr(e, "status_code", None)
@@ -810,6 +827,7 @@ class Session:
             raise ValueError(f"Folder not found: {cwd}")
         cfg["cwd"] = str(cwd.resolve())
         cfg["budget"] = max(0.0, float(cfg.get("budget") or 0))
+        cfg["base_url"] = fix_base_url(cfg.get("base_url", ""))
         self.make_provider(cfg)  # validate (e.g. API key present) before changing anything
         old = self.config
         self.config = cfg
@@ -1059,12 +1077,18 @@ class Session:
         return openai.OpenAI(base_url=base, api_key=cfg["api_key"] or ("local" if cfg["provider"] == "local" else None))
 
     def list_models(self, cfg: dict) -> list[str]:
+        cfg = {**cfg, "base_url": fix_base_url(cfg.get("base_url", ""))}
         c = self._client(cfg)
-        ids = [m.id for m in c.models.list()]
+        try:
+            ids = [m.id for m in c.models.list()]
+        except (AttributeError, TypeError, ValueError):
+            raise ValueError(f"{cfg['base_url'] or 'That address'} answered, but not like an AI API (it looks like a website). "
+                             "Use the service's API address — pick a preset under Service.")
         skip = ("embed", "image", "tts", "whisper", "moderation", "dall-e", "transcribe")
         return sorted(i for i in ids if not any(x in i for x in skip))
 
     def test_connection(self, cfg: dict) -> str:
+        cfg = {**cfg, "base_url": fix_base_url(cfg.get("base_url", ""))}
         c = self._client(cfg)
         if cfg["provider"] == "claude":
             r = c.messages.create(model=cfg["model"], max_tokens=16, messages=[{"role": "user", "content": "Reply with: ok"}])

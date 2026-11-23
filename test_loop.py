@@ -579,7 +579,11 @@ def main():
     assert "no credit" in explain_error(E(402, "Insufficient balance"), cfg)
     assert "address looks wrong" in explain_error(E(405), cfg)
     assert "rejected" in explain_error(E(401), cfg) and "retired" in explain_error(E(410, "deprecated"), cfg)
-    print("37 plain-language errors OK")
+    from myagent.gui import fix_base_url
+    assert fix_base_url("https://app.haimaker.ai/") == "https://api.haimaker.ai/v1"
+    assert fix_base_url("https://opencode.ai/") == "https://opencode.ai/inference/openai/v1"
+    assert fix_base_url("https://api.x.com/v1/chat/completions") == "https://api.x.com/v1"
+    print("37 plain-language errors + address fixes OK")
     print("ALL TESTS PASSED")
 
 

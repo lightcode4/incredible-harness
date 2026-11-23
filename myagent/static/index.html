@@ -1456,7 +1456,7 @@ document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.ke
 setTodos([]); setBusy(false);
 
 // ---------- Service presets, model list, connection test ----------
-const SERVICES = [["OpenCode", "https://opencode.ai/inference/openai/v1"], ["OpenAI", ""], ["OpenRouter", "https://openrouter.ai/api/v1"],
+const SERVICES = [["haimaker", "https://api.haimaker.ai/v1"], ["OpenCode", "https://opencode.ai/inference/openai/v1"], ["OpenAI", ""], ["OpenRouter", "https://openrouter.ai/api/v1"],
   ["Groq", "https://api.groq.com/openai/v1"], ["Together", "https://api.together.xyz/v1"], ["DeepSeek", "https://api.deepseek.com/v1"]];
 SERVICES.forEach(([n, u]) => { const b = el("button", "btn small"); b.textContent = n; b.onclick = () => { $("baseurl").value = u; $("connResult").textContent = n + " selected. Paste your " + n + " key, then Load models."; }; $("svcPresets").appendChild(b); });
 const _setProvider = setProvider;
