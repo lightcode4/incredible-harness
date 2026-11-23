@@ -612,14 +612,20 @@ body.quick { background: transparent; overflow: hidden; }
 .plogo.lg { width: 56px; height: 56px; border-radius: 14px; font-size: 20px; } .plogo.lg svg { width: 30px; height: 30px; }
 .modelbar { position: relative; }
 #provMenu { position: absolute; top: calc(100% + 6px); left: 8px; width: 380px; z-index: 30; padding: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.14); }
-.pmhead { text-transform: uppercase; letter-spacing: .14em; font-size: 10px; color: var(--faint); padding: 6px 10px 8px; }
+.pmhead { text-transform: uppercase; letter-spacing: .12em; font-size: 10px; font-weight: 600; color: var(--muted); padding: 6px 10px 8px; }
+.pmsep { text-transform: uppercase; letter-spacing: .12em; font-size: 10px; font-weight: 600; color: var(--muted); padding: 12px 10px 6px; margin-top: 4px; border-top: 1px solid var(--line-soft); }
 #provList { max-height: 420px; overflow-y: auto; display: grid; gap: 2px; }
 .prow { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 11px; border: 0; background: none; text-align: left; width: 100%; }
 .prow:hover { background: var(--hover); } .prow.cur { background: var(--soft); }
-.prow b { display: block; font-size: 14px; font-weight: 600; } .prow small { display: block; font-size: 11.5px; color: var(--muted); }
-.prow .tag { margin-left: auto; font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; white-space: nowrap; }
-.prow.cur .tag { color: var(--accent); border-color: transparent; font-size: 15px; }
-.pmsep { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); padding: 10px 10px 4px; }
+.prow { color: var(--text); cursor: pointer; } .prow .ptext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.prow b { display: block; font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prow small { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prow .tag { flex: none; font-size: 11px; font-weight: 500; color: var(--muted); border: 1px solid var(--line); border-radius: 7px; padding: 3px 9px; white-space: nowrap; }
+.prow .tag.ready { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+.prow .tag.on { border: 0; padding: 0 4px; display: grid; place-items: center; } .prow .tag.on svg { width: 18px; height: 18px; fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.prow:hover .tag:not(.on) { color: var(--text); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.plogo .pletter { font-family: var(--sans); font-weight: 700; letter-spacing: -.02em; }
+.plogo { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent); }
 .pmfoot { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; border-top: 1px solid var(--line); background: none; padding: 12px 10px 4px; margin-top: 6px; color: var(--body); font-size: 13.5px; }
 .pmfoot svg { width: 16px; height: 16px; color: var(--muted); } .pmfoot .arrow { margin-left: auto; transform: rotate(45deg); }
 body.models-open .page > .pagehead, body.models-open .page > .modelbar, body.models-open .page > .grid { display: none; }
@@ -671,7 +677,9 @@ body.models-open #modelsView { display: block !important; }
 #compbar #planBtn { height: auto; background: none; border: 0; padding: 4px 8px; border-radius: 9px; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 6px; }
 #compbar #planBtn:hover, #compbar #planBtn[aria-expanded="true"] { background: var(--hover); } #compbar #planBtn svg { width: 13px; height: 13px; transform: rotate(90deg); opacity: .6; }
 #compbar #planBtn.on { color: var(--accent); }
-#compbar #provMenu { top: auto; bottom: calc(100% + 8px); left: auto; right: 0; }
+#compbar #provMenu { top: auto; bottom: calc(100% + 8px); left: auto; right: 0; width: 360px; max-width: calc(100vw - 32px); border-radius: 16px; padding: 8px; }
+#compbar #provList { max-height: min(440px, calc(100vh - 260px)); padding-right: 2px; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); padding-bottom: 20px; }
+#compbar .modelchip .mlogo { box-shadow: none; } #compbar .modelchip .mlogo svg { width: 13px; height: 13px; } #compbar .modelchip .mlogo .pletter { font-size: 11px; }
 #modeMenu { position: absolute; right: 0; bottom: calc(100% + 8px); width: 280px; z-index: 31; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,.14); }
 #modeMenu[hidden] { display: none; }
 #modeMenu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 9px; cursor: pointer; color: var(--text); }
@@ -908,7 +916,7 @@ body.models-open #modelsView { display: block !important; }
       </div>
       <input type="file" id="fileInput" multiple hidden>
     </div>
-          <div class="foot" id="compbar">
+          <div id="compbar">
             <div class="modelbar">
       <div id="provMenu" class="card" hidden role="menu" aria-label="Choose a provider">
         <div class="pmhead">A model for every possibility</div><div id="provList"></div>
@@ -2517,9 +2525,9 @@ const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches && docum
 function logo(p, size = "") {
   const hex = "#" + (LOGOS[p.logo]?.hex || p.color || "777777");
   const dark = isDark(), neutral = /^#(000000|111111|191919|211e1e)$/i.test(hex);
-  const fg = neutral ? (dark ? "#f1f1ea" : "#1a1a1a") : hex;
-  const bg = `color-mix(in srgb, ${neutral ? (dark ? "#ffffff" : "#000000") : hex} ${dark ? 18 : 11}%, transparent)`;
-  const inner = LOGOS[p.logo] ? `<svg viewBox="0 0 24 24" style="fill:${fg};stroke:none"><path d="${LOGOS[p.logo].path}"/></svg>` : `<span style="color:${fg}">${esc(p.letter || p.name[0])}</span>`;
+  const fg = neutral ? (dark ? "#f1ead8" : "#1f1a12") : dark ? `color-mix(in srgb, ${hex} 62%, #ffffff)` : `color-mix(in srgb, ${hex} 88%, #000000)`;
+  const bg = neutral ? (dark ? "rgba(255,255,255,.09)" : "rgba(0,0,0,.055)") : `color-mix(in srgb, ${hex} ${dark ? 20 : 12}%, transparent)`;
+  const inner = LOGOS[p.logo] ? `<svg viewBox="0 0 24 24" style="fill:${fg};stroke:none"><path d="${LOGOS[p.logo].path}"/></svg>` : `<span class="pletter" style="color:${fg}">${esc(p.letter || p.name[0])}</span>`;
   return `<span class="plogo ${size}" style="background:${bg}" aria-hidden="true">${inner}</span>`;
 }
 async function loadProviders() {
@@ -2533,7 +2541,7 @@ function renderProviders() {
     $("modelBy").textContent = cur.by; $("sdkName").textContent = cur.kind === "claude" ? "Anthropic SDK" : cur.kind === "local" ? "Local server" : "OpenAI-compatible SDK"; $("railProv").textContent = cur.name + (cur.kind === "claude" ? " · effort " + (config.effort || "") : ""); }
   // menu: connected first
   const ready = PROVS.filter(p => p.has_key), rest = PROVS.filter(p => !p.has_key);
-  const row = p => `<button class="prow${p.id === provCurrent ? " cur" : ""}" data-id="${p.id}">${logo(p, "sm")}<span><b>${esc(p.name)}</b><small>${esc(p.by)}</small></span><span class="tag">${p.id === provCurrent ? "✓" : p.has_key ? "Ready" : "Add key"}</span></button>`;
+  const row = p => `<button class="prow${p.id === provCurrent ? " cur" : ""}" data-id="${p.id}" title="${esc(p.blurb || p.name)}">${logo(p, "sm")}<span class="ptext"><b>${esc(p.name)}</b><small>${esc(p.by)}</small></span><span class="tag${p.id === provCurrent ? " on" : p.has_key ? " ready" : ""}">${p.id === provCurrent ? '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : p.has_key ? "Ready" : "Add key"}</span></button>`;
   $("provList").innerHTML = ready.map(row).join("") + (rest.length ? `<div class="pmsep">Add a provider</div>` + rest.map(row).join("") : "");
   $("provList").querySelectorAll(".prow").forEach(b => b.onclick = () => chooseProvider(b.dataset.id));
   // Models page cards
