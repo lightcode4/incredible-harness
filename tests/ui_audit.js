@@ -7,7 +7,7 @@ const check = (name, ok, detail = '') => (ok ? passed : problems).push(name + (d
 async function overlaps(pg, label) {
   const found = await pg.evaluate(() => {
     const sel = 'button, a, input, select, textarea, .pill, .card, .status, .badge, h1, .eyebrow, .sub, .navbtn, .chatitem, .modelchip, .sdk, .wsbox, .who, .composer, .ctab, kbd, .rrow, .nums span, .savednote';
-    const modal = document.querySelector('dialog[open]') || document.querySelector('#provMenu:not([hidden])');
+    const modal = document.querySelector('dialog[open]') || document.querySelector('#provMenu:not([hidden])') || document.querySelector('#railDock.open #railPop');
     const clip = el => { // the part of the element that is visible inside scrolling/clipping ancestors
       let r = el.getBoundingClientRect(); r = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
       for (let p = el.parentElement; p; p = p.parentElement) {
@@ -72,11 +72,12 @@ async function overlaps(pg, label) {
       }
       await navTo(pg, '#navUsage'); check('Usage & cost shows the cost', (await pg.innerText('#log')).includes('cost'));
       await navTo(pg, '#navHelp'); check('A little help opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
-      await pg.click('#railWsBtn'); await pg.waitForTimeout(300);
+      await pg.click('#railFab'); await pg.waitForTimeout(250); await pg.click('#railWsBtn'); await pg.waitForTimeout(300);
       check('Workspace row opens the folder chooser', await pg.isVisible('#folderPicker[open]'));
       if (await pg.isVisible('#folderPicker[open]')) { await overlaps(pg, 'folder chooser'); await pg.keyboard.press('Escape'); }
       // --- top bar
-      await pg.click('#jumpBtn'); check('Jump to anything opens the palette', await pg.isVisible('#palette[open]'));
+      check('Jump box is gone from the top bar', !(await pg.isVisible('#jumpBtn')));
+      await pg.keyboard.press('Control+k'); await pg.waitForTimeout(200); check('Ctrl/Cmd+K still opens the palette', await pg.isVisible('#palette[open]'));
       await pg.fill('#palIn', 'git'); check('Palette search finds Source control', (await pg.innerText('#palList')).includes('Source control')); await pg.keyboard.press('Escape');
       await pg.click('#keysBtn'); check('Help button opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
       // --- header & model bar
@@ -98,6 +99,10 @@ async function overlaps(pg, label) {
       check('Provider panel has the Get a key link', (await pg.getAttribute('#pdGet', 'href')).includes('openrouter.ai/keys'));
       await overlaps(pg, 'provider panel'); await pg.screenshot({ path: 'audit-provider.png' }); await pg.click('#pdClose');
       await pg.click('#mvBack'); check('Back to chat closes the Models page', !(await pg.isVisible('#mvGrid')));
+      check('Run overview is a small floating button', await pg.isVisible('#railFab') && !(await pg.isVisible('#railPop')));
+      await pg.click('#railFab'); await pg.waitForTimeout(250);
+      check('Clicking it pops the overview open', await pg.isVisible('#railModelBtn') && await pg.isVisible('#railCost'));
+      await overlaps(pg, 'overview open');
       await pg.click('#railModelBtn'); await pg.waitForSelector('#modelPicker[open]'); await pg.waitForTimeout(300);
       check('Rail model opens the model list', await pg.isVisible('#mpList')); await overlaps(pg, 'model picker'); await pg.keyboard.press('Escape');
       await pg.click('#planBtn'); await pg.waitForTimeout(200); check('Plan mode toggles on', await pg.evaluate(() => document.getElementById('planBtn').classList.contains('on')));
@@ -107,7 +112,15 @@ async function overlaps(pg, label) {
       for (const t of ['git', 'term', 'browser', 'chat']) { await pg.click(`.ctab[data-c="${t}"]`); await overlaps(pg, `tab ${t}`); }
       // --- right rail
 
-      await pg.click('#taskBoardBtn'); check('Open task board responds', true);
+      { const fb = await pg.locator('#railFab').boundingBox(); await pg.mouse.move(fb.x + 20, fb.y + 20); await pg.mouse.down(); await pg.mouse.move(fb.x - 300, fb.y + 200, { steps: 8 }); await pg.mouse.up(); await pg.waitForTimeout(200);
+        const nb = await pg.locator('#railFab').boundingBox();
+        check('Overview button can be dragged anywhere', Math.abs(nb.x - (fb.x - 320)) < 30 && Math.abs(nb.y - (fb.y + 180)) < 30 && !(await pg.isVisible('#railPop')), `${Math.round(fb.x)},${Math.round(fb.y)} -> ${Math.round(nb.x)},${Math.round(nb.y)}`);
+        await pg.reload(); await pg.waitForTimeout(1200); const rb = await pg.locator('#railFab').boundingBox();
+        check('It stays where you put it', Math.abs(rb.x - nb.x) < 3 && Math.abs(rb.y - nb.y) < 3);
+        await pg.click('#railFab'); await pg.waitForTimeout(250); await pg.click('#taskBoardBtn'); check('Open task board responds', true);
+        await pg.keyboard.press('Escape'); await pg.waitForTimeout(250); check('Escape closes the overview', !(await pg.isVisible('#railPop'))); 
+        await pg.dblclick('#railFab'); await pg.waitForTimeout(300); const hb = await pg.locator('#railFab').boundingBox();
+        check('Double-click puts it back in its corner', Math.abs(hb.x - fb.x) < 3 && Math.abs(hb.y - fb.y) < 3 && !(await pg.isVisible('#railPop'))); }
       // --- settings tabs
       await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
       for (const t of ['model', 'tools', 'perms', 'instr', 'memory', 'sched', 'mcp', 'phone', 'about']) {
@@ -119,7 +132,7 @@ async function overlaps(pg, label) {
       await pg.getByRole('button', { name: 'Allow', exact: true }).click({ timeout: 15000 });
       await pg.waitForSelector('.turnfoot', { timeout: 15000 });
       check('A message runs, asks approval and finishes', true);
-      check('Run overview shows the plan', (await pg.innerText('#todoList')).includes('Handle empty input'));
+      check('Run overview shows the plan', (await pg.textContent('#todoList')).includes('Handle empty input'));
       check('Chat title updates', (await pg.innerText('#chatHead')) !== 'New session');
       // New session really starts a new one, and old sessions reopen
       const firstTitle = await pg.innerText('#chatHead');
