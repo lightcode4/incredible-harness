@@ -20,7 +20,11 @@ from typing import Callable, Protocol
 from .tools import WORKSPACE_TOOLS
 
 RunTool = Callable[[str, dict], "tuple[str, bool]"]
-MAX_STEPS = 80  # tool rounds per user message
+MAX_STEPS = 80  # tool rounds per stretch; the chat carries on by itself for a few stretches (see Chat._turn)
+
+
+class StepLimit(Exception):
+    """A long task used MAX_STEPS tool rounds. The conversation is left ready to carry on."""
 
 
 class UI(Protocol):
@@ -313,7 +317,7 @@ class ClaudeProvider:
                     out = [self._result_block(p) for p in out]
                 results.append({"type": "tool_result", "tool_use_id": tu.id, "content": out, "is_error": is_error})
             self.messages.append({"role": "user", "content": results})
-        ui.notice(f"Stopped after {MAX_STEPS} tool rounds. Say 'continue' to keep going.")
+        raise StepLimit()
 
     def _answer_unrun(self, tool_uses, reason: str) -> None:
         if tool_uses:
@@ -525,7 +529,7 @@ class OpenAIProvider:
             if images:
                 self.messages.append({"role": "user", "content": [{"type": "text", "text": "Screenshot from the browser tool:"}] + [
                     {"type": "image_url", "image_url": {"url": f"data:{p['media_type']};base64,{p['data']}"}} for p in images]})
-        ui.notice(f"Stopped after {MAX_STEPS} tool rounds. Say 'continue' to keep going.")
+        raise StepLimit()
 
     def close_interrupted(self) -> None:
         last = self.messages[-1]

@@ -1802,7 +1802,8 @@ function handle(ev) {
     case "preview": endBlock(); { const s = add(el("div", "srv", icon("eye"))); s.appendChild(document.createTextNode("Opened preview: " + ev.target)); } break;
     case "plan_ready": planReady(); break;
     case "reconnect": { const st = $("wbStep"), wt = document.querySelector("#workbar .wbt");
-      if (ev.ok) { wt.textContent = "Working…"; st.textContent = "Reconnected"; setTimeout(() => { if (st.textContent === "Reconnected") st.textContent = ""; }, 3000); }
+      if (ev.step) { wt.textContent = "Working…"; st.textContent = ev.step; }
+      else if (ev.ok) { wt.textContent = "Working…"; st.textContent = "Reconnected"; setTimeout(() => { if (st.textContent === "Reconnected") st.textContent = ""; }, 3000); }
       else { wt.textContent = "Connection lost"; st.textContent = `Retrying in ${ev.wait}s · picks up where it stopped`; } } break;
     case "interrupted": continueCard(); break;
     case "usage": setCost(ev.cost, ev.tokens, ev.priced); setCtx(ev.context, ev.window); break;
@@ -1833,7 +1834,7 @@ function hookRow(ev) {
 let compactions = 0;
 function continueCard() {
   if (replaying || document.querySelector("#log .contbox")) return;
-  const p = el("div", "planbox contbox", `${icon("refresh")}<span>This reply was cut off. Continue picks up from the step it stopped at.</span>`);
+  const p = el("div", "planbox contbox", `${icon("refresh")}<span>This reply stopped before it finished. Continue picks up from the step it stopped at.</span>`);
   const go = el("button", "btn primary", "Continue");
   go.onclick = async () => { go.disabled = true; try { await api("/api/continue"); p.remove(); } catch (e) { go.disabled = false; notice(e.message); } };
   p.append(go); add(p); scroll(true);

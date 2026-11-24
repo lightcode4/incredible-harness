@@ -9,6 +9,7 @@ import sys
 
 from . import __version__
 from .tools import MUTATING, ToolError, Workspace, describe, validate
+from .providers import MAX_STEPS, StepLimit
 
 for _stream in (sys.stdout, sys.stderr):
     # Windows consoles default to cp1252; never crash on symbols. (Packaged desktop apps have no console: None.)
@@ -198,6 +199,8 @@ class App:
             try:
                 self.provider.turn(line, self.run_tool, self.ui)
                 self.ui.end_block()
+            except StepLimit:
+                print(f"\nStopped after {MAX_STEPS} tool rounds. Say 'continue' to keep going.")
             except KeyboardInterrupt:
                 self.ui.notice("Interrupted.")
                 self.provider.close_interrupted()
@@ -227,6 +230,8 @@ def main(argv=None):
         try:
             app.provider.turn(" ".join(args.prompt), app.run_tool, app.ui)
             app.ui.end_block()
+        except StepLimit:
+            print(f"\nStopped after {MAX_STEPS} tool rounds. Say 'continue' to keep going.")
         except KeyboardInterrupt:
             app.ui.notice("Interrupted.")
             app.provider.close_interrupted()

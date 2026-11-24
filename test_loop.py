@@ -1414,6 +1414,16 @@ def main():
     assert "Picked up the last request." in s.current.provider.last_text() and not s.current.interrupted
     assert json.loads((CHATS / f"{cid}.json").read_text())["running"] is False
     print("70 reconnect and continue OK")
+    # 71. long tasks keep going by themselves past the per-stretch step limit, without stopping
+    import myagent.providers as prov
+    old_max, prov.MAX_STEPS = prov.MAX_STEPS, 2
+    s.new_chat()
+    evs = d.run("long job", script=[("tool", "bash", {"command": "touch L1"})] * 7 + [("text", "Long job done.")])
+    prov.MAX_STEPS = old_max
+    assert "Long job done." in s.current.provider.last_text() and not s.current.interrupted
+    assert any(e.get("step") for e in d.kinds(evs, "reconnect")), "shows it is still going"
+    assert not any("Stopped after" in (e.get("text") or "") or "Paused" in (e.get("text") or "") for e in evs)
+    print("71 long tasks carry on OK")
     print("ALL TESTS PASSED")
 
 

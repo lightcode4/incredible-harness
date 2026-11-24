@@ -38,7 +38,7 @@ from .mcp_remote import McpRemoteError, sign_in as mcp_sign_in
 from ._build import BUILD, REPO
 from .browser import Browser, NeedsBrowser, install_chromium
 from .computer import Computer, ComputerError
-from .providers import is_transient, COMPACT_AT, ClaudeProvider, OpenAIProvider, cost_of
+from .providers import MAX_STEPS, StepLimit, is_transient, COMPACT_AT, ClaudeProvider, OpenAIProvider, cost_of
 from .terminal import Terminal
 from .tools import (FILE_CHANGING, MUTATING, READONLY_TOOLS, TOOLS, ToolError, Workspace, apply_hunks, describe, hunks,
                     project_instructions, validate)
@@ -797,7 +797,10 @@ class Chat:
             sub = self.app.make_provider({**self.app.config, "cwd": self.cwd, "web": self.app.config.get("web") and kind != "explore"},
                                          tools=tools, system=SUBAGENT_KINDS.get(kind, SUBAGENT_SYSTEM),
                                          fast=kind in (None, "explore"))
-            sub.turn(args["prompt"], sub_run, SubUI())
+            try:
+                sub.turn(args["prompt"], sub_run, SubUI())
+            except StepLimit:  # a sub-agent reports what it found so far
+                pass
             report = sub.last_text() or "(the sub-agent returned no report)"
             self.emit("tool_result", id=call_id, output=f"{SubUI.steps} steps\n\n{report}", error=False)
             return report, False
@@ -1098,12 +1101,19 @@ class Chat:
         self.turn_changes, self.turn_cost = {}, 0.0
         self.emit("status", busy=True)
         try:
-            if parts is None:  # Continue: no new message, carry on from where the reply stopped
-                if not self.provider.resume(self.run_tool, self):
-                    self.notice("Nothing to continue: the last reply had finished.")
-            else:
-                self._prompt_hooks(parts, first, text)
-                self.provider.turn(parts, self.run_tool, self)
+            stretch = 0
+            while True:
+                try:
+                    if parts is None or stretch:  # Continue: no new message, carry on from where the reply stopped
+                        if not self.provider.resume(self.run_tool, self) and not stretch:
+                            self.notice("Nothing to continue: the last reply had finished.")
+                    else:
+                        self._prompt_hooks(parts, first, text)
+                        self.provider.turn(parts, self.run_tool, self)
+                    break
+                except StepLimit:  # a long task: carry on by itself until it is done (Stop and the budget still end it)
+                    stretch += 1
+                    self.emit("reconnect", ok=True, step=f"Long task · {stretch * MAX_STEPS} steps so far, still going")
             self._finish_hook()
         except Stop as e:
             self.notice(str(e))
