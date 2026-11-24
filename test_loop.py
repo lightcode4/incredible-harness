@@ -321,7 +321,7 @@ def main():
         s.browser_input({"type": "navigate", "url": page + "sel.html"})
         s.browser_input({"type": "dblclick", "x": 40, "y": 22})
         assert s.browser_input({"type": "selection"})["text"].strip() == "CopyThisWord"
-        s.browser.call(lambda pg: pg.wait_for_timeout(700))  # a press right after a double-click counts as a triple-click
+        s.browser_input({"type": "click", "x": 400, "y": 300})  # clear it first: pressing on selected text drags it instead
         s.browser_input({"type": "down", "x": 11, "y": 22}); s.browser_input({"type": "move", "x": 200, "y": 22}); s.browser_input({"type": "up", "x": 200, "y": 22})
         assert s.browser_input({"type": "selection"})["text"].startswith("CopyThisWord an")
         s.browser_input({"type": "click", "x": 30, "y": 90}); s.browser_input({"type": "text", "text": "pasted text"})
