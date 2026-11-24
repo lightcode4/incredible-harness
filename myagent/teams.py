@@ -9,11 +9,13 @@
   activity/<login>.jsonl       each member's activity lines (one file each, so pushes never clash)
   messages/<login>.jsonl       the team's messages, one file per author
   attachments/<id>/<name>      files, images and documents shared in messages
+  wallpaper/<name>             the team's own wallpaper picture (team.json "wallpaper" picks a preset or this file)
   notes/files/<name>.md        shared notes anyone in the team can edit
 Invitations are GitHub collaborator invitations; the app lists them and accepts them for you."""
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import time
@@ -261,7 +263,7 @@ def summary(where: Path) -> dict:
                     for f in nd.iterdir() if f.is_file()), key=lambda n: n["name"].lower()) if nd.is_dir() else []
     projects = [{"id": d.name, **_j(d / "project.json", {})} for d in sorted((where / "projects").glob("*"))
                 if d.is_dir()] if (where / "projects").is_dir() else []
-    return {"name": team.get("name", "Team"), "members": members, "chats": sorted(chats, key=lambda c: -c["updated"]),
+    return {"name": team.get("name", "Team"), "wallpaper": team.get("wallpaper") or {"kind": "preset", "id": "none"}, "members": members, "chats": sorted(chats, key=lambda c: -c["updated"]),
             "messages": sorted(messages, key=lambda m: m["t"])[-300:], "notes": notes,
             "activity": sorted(activity, key=lambda a: -a["t"])[:60], "projects": projects}
 
@@ -284,11 +286,46 @@ def forget(full: str) -> None:
     shutil.rmtree(_home() / full.replace("/", "__"), ignore_errors=True)
 
 
+WALLPAPERS = {"none", "daybreak", "dunes", "night", "aurora", "ocean", "blueprint", "paper", "bloom", "ember"}
+
+
+def set_wallpaper(token: str, user: dict, full: str, preset: str = "", image: tuple[str, bytes] | None = None) -> dict:
+    """Choose the team's conversation wallpaper (everyone sees it): a preset, or your own picture (up to 8 MB)."""
+    login = _need(token, user)
+    if image and len(image[1]) > 8_000_000:
+        raise TeamError("Wallpapers can be up to 8 MB.")
+    if not image and preset not in WALLPAPERS:
+        raise TeamError("Unknown wallpaper.")
+    for _ in range(3):
+        where, env = _checkout(token, user, full)
+        team = _j(where / "team.json", {})
+        old = (team.get("wallpaper") or {}).get("path")
+        if old and (where / old).is_file():
+            (where / old).unlink()
+        if image:
+            ext = (Path(image[0]).suffix.lower() if Path(image[0]).suffix.lower() in (".jpg", ".jpeg", ".png", ".webp") else ".jpg")
+            path = f"wallpaper/team-{int(time.time())}{ext}"
+            (where / "wallpaper").mkdir(exist_ok=True)
+            (where / path).write_bytes(image[1])
+            team["wallpaper"] = {"kind": "image", "path": path}
+        else:
+            team["wallpaper"] = {"kind": "preset", "id": preset}
+        (where / "team.json").write_text(json.dumps(team, indent=1))
+        _log(where, login, "changed the team wallpaper")
+        try:
+            sync.publish(where, env, f"{login}: wallpaper")
+            return team["wallpaper"]
+        except sync.SyncError:
+            time.sleep(1)
+    raise TeamError("Couldn't save the wallpaper just now. Try again in a moment.")
+
+
 def attachment(full: str, path: str) -> Path:
     """A file shared in the team's messages, from your local copy of the team."""
-    base = (_home() / full.replace("/", "__") / "attachments").resolve()
-    p = (_home() / full.replace("/", "__") / path).resolve()
-    if not str(p).startswith(str(base) + "/") and not str(p).startswith(str(base) + "\\"):
+    root = (_home() / full.replace("/", "__")).resolve()
+    p = (root / path).resolve()
+    ok = any(str(p).startswith(str(root / d) + os.sep) for d in ("attachments", "wallpaper"))
+    if not ok:
         raise TeamError("That file isn't part of this team.")
     if not p.is_file():
         raise TeamError("That file isn't here yet. Sync the team and try again.")

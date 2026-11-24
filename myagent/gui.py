@@ -2743,6 +2743,11 @@ def make_handler(session: Session, token: str):
                     result = {"project": session.team_project(str(data.get("repo", "")), str(data.get("name", "")))}
                 elif path == "/api/team/message":
                     result = session.team_message(str(data.get("repo", "")), str(data.get("text", "")), data.get("files") or [])
+                elif path == "/api/team/wallpaper":
+                    img = data.get("image")
+                    session._team_call(teams.set_wallpaper, *session._gh(), str(data.get("repo", "")), str(data.get("preset", "")),
+                                       (str(img.get("name") or "wallpaper.jpg"), base64.b64decode(img.get("data") or "")) if img else None)
+                    result = session.team_sync(str(data.get("repo", "")))
                 elif path == "/api/team/file/save":
                     result = {"path": session.team_file_save(str(data.get("repo", "")), str(data.get("path", "")))}
                 elif path == "/api/team/note":
@@ -2798,6 +2803,13 @@ def make_handler(session: Session, token: str):
                                   else market.add_source(str(data.get("repo", "")), session.config.get("github_token", ""))}
                     except market.MarketError as e:
                         raise ValueError(str(e))
+                elif path == "/api/market/install-url":
+                    try:
+                        result = market.install_url(str(data.get("url", "")), session.config.get("github_token", ""))
+                    except market.MarketError as e:
+                        raise ValueError(str(e))
+                    if chat and not chat.busy:
+                        chat.build(keep_history=True)
                 elif path == "/api/market/install":
                     try:
                         if data.get("remove"):

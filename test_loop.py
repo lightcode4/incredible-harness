@@ -1773,6 +1773,22 @@ def main():
     sub = market.browse("acme/plugins/plugins/dev")  # a folder inside a repository
     assert {i["kind"] for i in sub} == {"plugin", "skill", "agent"} and market.install("acme/plugins/plugins/dev", "plugin:@plugins/dev")["installed"] == 2
     assert market.browse("acme/app") == [], "an app repository simply offers nothing"
+    # add from a link
+    for iid in [k for k in list(market.load_state()["installed"])]:
+        market.uninstall(*iid.split("|", 1)) if not iid.startswith("url|") else None
+    r = market.install_url("https://github.com/acme/skills/tree/main/skills/pdf-tools")
+    assert r == {"kind": "skill", "name": "pdf-tools", "source": "acme/skills"} and "pdf-tools" in ex.skills(s.current.cwd)
+    assert market.install_url("https://github.com/acme/skills/blob/main/skills/pdf-tools/SKILL.md")["name"] == "pdf-tools"
+    assert market.install_url("https://github.com/acme/skills/blob/main/agents/reviewer.md")["kind"] == "agent" and "reviewer" in ex.agents(s.current.cwd)
+    r = market.install_url("https://github.com/acme/plugins")  # several skills: added as a marketplace to pick from
+    assert r["kind"] == "marketplace" and r["count"] == 2 and "acme/plugins" in market.load_state()["sources"]
+    r = market.install_url(f"http://127.0.0.1:{ms.server_port}/raw/acme/plugins/HEAD/skills/word/SKILL.md")  # any web link
+    assert r["name"] == "word" and (ex.HOME / "skills" / "word" / "SKILL.md").read_text().startswith("---\nname: word")
+    for bad in ("not a link", "https://github.com/acme/app", "https://github.com/acme/skills/blob/main/README.md"):
+        try:
+            market.install_url(bad); raise AssertionError("refused: " + bad)
+        except market.MarketError:
+            pass
     # background refresh: checks the source looked at longest ago, one at a time
     st = market.load_state(); st["sources"] = ["acme/app", "acme/skills"]; st["removed"] = list(market.DEFAULT_SOURCES); market.save_state(st)
     market._trees.clear()
@@ -2048,6 +2064,18 @@ def main():
         pass
     try:
         tm.post_message("tok-octo", octo, full, "   "); raise AssertionError("empty messages are refused")
+    except tm.TeamError:
+        pass
+    # wallpapers: a preset, then the team's own picture; everyone sees it
+    as_(hA)
+    assert tm.set_wallpaper("tok-octo", octo, full, "aurora") == {"kind": "preset", "id": "aurora"}
+    wp = tm.set_wallpaper("tok-octo", octo, full, image=("beach.png", png))
+    assert wp["kind"] == "image" and tm.attachment(full, wp["path"]).read_bytes() == png
+    as_(hB)
+    r = tm.sync_team("tok-bob", bob, full, [pB], lambda pid: hB / "projects" / pid / "files", {}, hB / "chats", "", nB)
+    assert r["summary"]["wallpaper"] == wp and tm.attachment(full, wp["path"]).read_bytes() == png
+    try:
+        tm.set_wallpaper("tok-bob", bob, full, "rainbow-unicorn"); raise AssertionError("unknown presets are refused")
     except tm.TeamError:
         pass
     tm.remove("tok-octo", octo, full, "bob")

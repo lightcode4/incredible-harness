@@ -534,7 +534,7 @@ body.projects-open .page > .pagehead, body.projects-open .page > .modelbar, body
 body.projects-open #projectsView { display: block !important; }
 body.teams-open .page > .pagehead, body.teams-open .page > .modelbar, body.teams-open .page > .grid { display: none; }
 body.teams-open #teamsView { display: block !important; }
-body.team-detail #teamsView > .pagehead { display: none; }
+body.team-detail #teamsView > .pagehead, body.team-detail #tmBack { display: none; }
 /* ---- Teams ---- */
 .tmtop { display: flex; align-items: center; gap: 12px; margin: 4px 0 16px; }
 .tmbadge { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; font: 700 19px var(--serifF, Georgia, serif); color: #2b2012;
@@ -610,7 +610,45 @@ body.team-detail #teamsView > .pagehead { display: none; }
 .tmpj:hover { background: var(--hover); } .tmpj svg { width: 16px; height: 16px; fill: none; stroke: var(--accent); stroke-width: 1.6; flex: none; }
 .tmside .aempty { font-size: 12.5px; padding: 4px 4px 10px; } .tmleave { align-self: center; color: var(--faint); font-size: 12.5px; margin-top: 2px; }
 #tmSync.spin svg { animation: spin 1s linear infinite; }
-.tmgridcard { text-align: left; } .tmgridcard .tmbadge { width: 38px; height: 38px; font-size: 16px; border-radius: 11px; margin-bottom: 10px; }
+.tmgridcard { text-align: left; }
+/* back button: dark square with an arrow (like the send button), always visible at the top of a page */
+.backbtn { position: sticky; top: 8px; z-index: 6; width: 38px; height: 38px; border-radius: 11px; border: 1px solid var(--line); background: #2b2722; color: #f4efe6;
+  display: grid; place-items: center; cursor: pointer; margin: 0 0 6px; box-shadow: 0 6px 18px -10px rgba(0,0,0,.6); }
+.backbtn:hover { background: #38322b; } .backbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.backbtn.inline { position: static; margin: 0; box-shadow: none; }
+.pgsearch { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; height: 38px; min-width: 260px; }
+.pgsearch:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); } .pgsearch svg { width: 16px; height: 16px; fill: none; stroke: var(--muted); stroke-width: 1.8; flex: none; }
+.pgsearch input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: 13.5px; outline: none; } .pgsearch.small { min-width: 220px; height: 34px; }
+.addon { display: grid; grid-template-columns: 1fr; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 16px 18px; margin: 16px 0 6px; }
+.addon b { font-size: 14px; } .addon small { color: var(--muted); font-size: 12.5px; margin-top: -4px; }
+.addon input { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 13px; padding: 13px 16px; font: inherit; font-size: 14.5px; outline: none; }
+.addon input:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.addon button { border: 0; border-radius: 14px; padding: 13px; font: 650 14.5px inherit; cursor: pointer; background: var(--accent); color: var(--accent-text); }
+.addon button:disabled { background: #5a5650; color: #34312c; cursor: default; } .addon .addonmsg:empty { display: none; } .addon .addonmsg.ok { color: var(--ok); } .addon .addonmsg.bad { color: var(--bad); }
+.wpgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
+.wpgrid button { aspect-ratio: 16/10; border-radius: 10px; border: 2px solid transparent; cursor: pointer; position: relative; overflow: hidden; }
+.wpgrid button.on { border-color: var(--accent); } .wpgrid button span { position: absolute; left: 6px; bottom: 4px; font-size: 10.5px; color: #fff; text-shadow: 0 1px 3px #000; }
+mark.tmhit { background: color-mix(in srgb, var(--accent) 45%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+/* wallpapers (behind the conversation; a soft veil keeps text readable) */
+#tmMsgs[data-wp] { background-size: cover; background-position: center; }
+.wp-none { background: var(--panel); }
+.wp-daybreak { background: radial-gradient(ellipse 70% 55% at 50% 110%, #f3c56a 0%, #d9823f 28%, #5b2d22 55%, #1d1410 80%); }
+.wp-dunes { background: linear-gradient(170deg, transparent 55%, #6b4a2a 55.2%, #3e2a19 70%, transparent 70.2%), linear-gradient(190deg, transparent 62%, #8a5d33 62.2%, #4e341e 80%), linear-gradient(#f2b867, #c46d3d 45%, #3b2316); }
+.wp-night { background: radial-gradient(1px 1px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 20%, #fff, transparent), radial-gradient(1.5px 1.5px at 40% 70%, #fff, transparent),
+  radial-gradient(1px 1px at 85% 60%, #fff, transparent), radial-gradient(1px 1px at 55% 45%, #ddd, transparent), radial-gradient(1.5px 1.5px at 10% 85%, #fff, transparent),
+  radial-gradient(1px 1px at 92% 88%, #ccc, transparent), radial-gradient(ellipse at 50% 120%, #26305e, #0b0d1f 60%); background-size: 260px 260px, 300px 300px, 340px 340px, 220px 220px, 280px 280px, 360px 360px, 240px 240px, cover; }
+.wp-aurora { background: radial-gradient(ellipse 60% 40% at 30% 20%, rgba(80,220,170,.55), transparent 70%), radial-gradient(ellipse 50% 40% at 75% 30%, rgba(140,90,230,.5), transparent 70%), linear-gradient(#071419, #0d1a2b 70%, #0a0f18); }
+.wp-ocean { background: radial-gradient(ellipse 120% 40% at 50% 100%, #0f5f78, transparent 70%), repeating-radial-gradient(ellipse 60% 18% at 50% 120%, rgba(255,255,255,.05) 0 6px, transparent 6px 22px), linear-gradient(#0b2738, #07161f); }
+.wp-blueprint { background: linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px), #12304a;
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px, cover; }
+.wp-paper { background: radial-gradient(rgba(120,90,50,.18) 1px, transparent 1.2px) 0 0/18px 18px, linear-gradient(#efe4cf, #e2d3b6); }
+.wp-bloom { background: radial-gradient(circle at 20% 25%, rgba(255,120,170,.55), transparent 35%), radial-gradient(circle at 80% 70%, rgba(170,110,255,.5), transparent 38%), radial-gradient(circle at 60% 15%, rgba(255,200,120,.4), transparent 30%), #1c1220; }
+.wp-ember { background: radial-gradient(ellipse 80% 50% at 50% 115%, #ff7a2f, #9b2d14 40%, transparent 70%), radial-gradient(1.5px 1.5px at 30% 60%, #ffb36b, transparent) 0 0/120px 120px, #160b08; }
+#tmMsgs[data-wp]:not([data-wp="none"]) { position: relative; }
+#tmMsgs[data-wp]:not([data-wp="none"]) .tmgrp .gb, #tmMsgs[data-wp]:not([data-wp="none"]) .tmevt, #tmMsgs[data-wp]:not([data-wp="none"]) .tmday {
+  background: color-mix(in srgb, var(--panel) 82%, transparent); backdrop-filter: blur(6px); border-radius: 12px; }
+#tmMsgs[data-wp]:not([data-wp="none"]) .tmgrp .gb { padding: 6px 10px 8px; } #tmMsgs[data-wp]:not([data-wp="none"]) .tmevt { width: fit-content; margin: 8px auto; padding: 3px 10px; }
+#tmMsgs[data-wp]:not([data-wp="none"]) .tmday { width: fit-content; margin: 14px auto 8px; padding: 2px 10px; } #tmMsgs[data-wp]:not([data-wp="none"]) .tmday::before, #tmMsgs[data-wp]:not([data-wp="none"]) .tmday::after { display: none; } .tmgridcard .tmbadge { width: 38px; height: 38px; font-size: 16px; border-radius: 11px; margin-bottom: 10px; }
 .tmgridcard .tmfaces { padding-left: 8px; margin-top: 10px; } .tmgridcard .last { color: var(--muted); font-size: 12.5px; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tminvite { display: flex; align-items: center; gap: 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, var(--panel)); border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
 #pjGrid, #tmGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; padding-bottom: 20px; }
@@ -1140,9 +1178,12 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <button hidden class="btn primary" id="newSessionBtn"><svg><use href="#i-plus"/></svg>New session</button>
     </div>
     <section id="galleryView" hidden>
+      <button class="backbtn" id="gaBack" title="Back to chat (Esc)" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
       <div class="pagehead"><div><div class="eyebrow">Add abilities in one click</div><h1 class="serif">Skills &amp; connectors</h1>
         <p class="sub">Skills teach the agent a way of working. Connectors give it access to your other apps.</p></div>
-        <span class="spacer"></span><button class="btn" id="gaBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+        <span class="spacer"></span><label class="pgsearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><input id="gaSearch" placeholder="Search skills and connectors" spellcheck="false"></label></div>
+      <div class="addon"><b>Add from a link</b><small>A GitHub repository or folder with a SKILL.md, a link to a SKILL.md file, or an agent / command file.</small>
+        <input id="addonUrl" placeholder="https://github.com/owner/repo/tree/main/skills/my-skill" spellcheck="false"><button id="addonBtn" disabled>Install skill</button><small class="addonmsg" id="addonMsg"></small></div>
       <div class="rsec" style="border:0;margin-top:14px">Skills</div><div class="gagrid" id="gaSkills"></div>
       <div class="rsec" style="border:0;margin-top:22px">Connectors</div><div class="gagrid" id="gaConn"></div>
       <div class="rsec" style="border:0;margin-top:22px">Marketplace</div>
@@ -1156,10 +1197,11 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <p class="sub" style="margin-top:16px">Your own skills: add a folder with a SKILL.md file to <code>~/.incredible-herness/skills/</code> (or <code>.herness/skills/</code> inside a project). <span id="gaCustom"></span></p>
     </section>
     <section id="usageView" hidden>
+      <button class="backbtn" id="usBack" title="Back to chat (Esc)" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
       <div class="pagehead"><div><div class="eyebrow">Across all your chats</div><h1 class="serif">Usage &amp; cost</h1>
         <p class="sub">What every model request cost, day by day. Prices are public list prices; your provider's bill is the final word.</p></div>
         <span class="spacer"></span><div class="artseg" id="usRange" role="tablist" aria-label="Time range"><button data-d="7">7 days</button><button data-d="30" class="on">30 days</button><button data-d="90">90 days</button></div>
-        <button class="btn" id="usBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+        </div>
       <div class="ustiles"><div class="ustile"><small>Today</small><b id="usToday">$0.00</b></div><div class="ustile"><small>Last 7 days</small><b id="usWeek">$0.00</b></div>
         <div class="ustile"><small>Last 30 days</small><b id="usMonth">$0.00</b></div><div class="ustile"><small id="usTokLabel">Tokens · 30 days</small><b id="usTok">0</b></div></div>
       <div class="uscard"><div class="ushead"><b id="usChartTitle">Cost per day</b><button class="linkbtn" id="usTableBtn">Show as table</button></div>
@@ -1167,21 +1209,27 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <div class="uscard"><div class="ushead"><b>By model</b><small id="usUnpriced"></small></div><div id="usModels"></div></div>
     </section>
     <section id="teamsView" hidden>
+      <button class="backbtn" id="tmBack" title="Back to chat (Esc)" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
       <div class="pagehead"><div><div class="eyebrow">Work together</div><h1 class="serif">Teams</h1>
         <p class="sub">Projects, chats, messages and notes, shared with your team (kept in a private GitHub repository).</p></div>
-        <span class="spacer"></span><button class="btn primary" id="tmNew"><svg><use href="#i-plus"/></svg>New team</button><button class="btn" id="tmBack" hidden><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+        <span class="spacer"></span><label class="pgsearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><input id="tmGridSearch" placeholder="Search teams" spellcheck="false"></label><button class="btn primary" id="tmNew"><svg><use href="#i-plus"/></svg>New team</button></div>
       <div id="tmInvites"></div>
       <div id="tmGrid" class="pgrid"></div>
       <div id="tmDetail" hidden>
         <div class="tmtop">
-          <button class="iconbtn" id="tmAll" title="All teams" aria-label="All teams"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button class="backbtn inline" id="tmAll" title="All teams" aria-label="All teams"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
           <span class="tmbadge" id="tmBadge"></span>
           <div class="tmtitle"><h2 id="tmName"></h2><small id="tmSub"></small></div>
           <span class="spacer"></span>
+          <label class="pgsearch small"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><input id="tmSearch" placeholder="Search messages, notes, chats" spellcheck="false"></label>
           <div class="tmfaces" id="tmFaces"></div>
+          <button class="iconbtn" id="tmWpBtn" title="Wallpaper" aria-label="Wallpaper"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17l5-4.5 3.5 3 3-2.5L20 17"/></svg></button>
           <button class="btn small" id="tmInviteBtn"><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.2"/><path d="M4 19c0-3.3 2.7-5.5 6-5.5 1.3 0 2.5.3 3.4.9M18 13v6M15 16h6"/></svg>Invite</button>
           <button class="iconbtn" id="tmSync" title="Sync now" aria-label="Sync now"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
         </div>
+        <div class="tminvpop" id="tmWpBox" hidden><b>Team wallpaper</b><small>Everyone in the team sees it behind the conversation.</small>
+          <div class="wpgrid" id="wpGrid"></div>
+          <div class="tminv"><button class="btn small" id="wpUpload">Use my own picture…</button><input type="file" id="wpFile" accept="image/png,image/jpeg,image/webp" hidden></div></div>
         <div class="tminvpop" id="tmInviteBox" hidden><b>Invite to the team</b><small>They'll see it under Teams in LightCode⁴ (and get a GitHub email).</small>
           <div class="tminv"><input id="tmWho" placeholder="GitHub username" spellcheck="false"><select id="tmRole"><option value="member">Member</option><option value="owner">Owner</option></select><button class="btn small primary" id="tmInvite">Send invite</button></div></div>
         <div class="tmbody">
@@ -1222,9 +1270,10 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     </section>
     <div id="tmLight" hidden><img alt="Shared image"></div>
     <section id="projectsView" hidden>
+      <button class="backbtn" id="pjBack" title="Back to chat (Esc)" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
       <div class="pagehead"><div><div class="eyebrow">Your work, together</div><h1 class="serif">Projects</h1>
         <p class="sub">Group chats around one folder, with shared instructions and reference files every chat can use.</p></div>
-        <span class="spacer"></span><button class="btn" id="pjJoin" title="Open a project a teammate shared with you">Join shared project</button><button class="btn primary" id="pjNew"><svg><use href="#i-plus"/></svg>New project</button><button class="btn" id="pjBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+        <span class="spacer"></span><button class="btn" id="pjJoin" title="Open a project a teammate shared with you">Join shared project</button><button class="btn primary" id="pjNew"><svg><use href="#i-plus"/></svg>New project</button></div>
       <div id="pjGrid"></div>
       <div id="pjDetail" hidden>
         <div class="pjform">
@@ -1240,9 +1289,10 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       </div>
     </section>
     <section id="modelsView" hidden>
+      <button class="backbtn" id="mvBack" title="Back to chat (Esc)" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
       <div class="pagehead"><div><div class="eyebrow">Your model. Your choice</div><h1 class="serif">A mind for every task.</h1>
         <p class="sub">Claude, OpenAI, every major provider, or a model that lives on your machine. Paste a key once; switch any time.</p></div>
-        <span class="spacer"></span><button class="btn" id="mvBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+        <span class="spacer"></span></div>
       <div id="mvGrid"></div>
     </section>
     <div class="grid">
@@ -2881,8 +2931,16 @@ const dayLabel = t => { const d = new Date(t * 1000), now = new Date(), y = new 
   return d.toDateString() === now.toDateString() ? "Today" : d.toDateString() === y.toDateString() ? "Yesterday" : d.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }); };
 const hm = t => new Date(t * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 let tmLast = null;
+let tmQ = "";
+const hiText = (node, text) => { if (!tmQ) { node.textContent = text; return; } const i = text.toLowerCase().indexOf(tmQ); if (i < 0) { node.textContent = text; return; }
+  node.textContent = ""; node.append(text.slice(0, i)); const m = el("mark", "tmhit"); m.textContent = text.slice(i, i + tmQ.length); node.append(m, text.slice(i + tmQ.length)); };
+const tmMatch = (...xs) => !tmQ || xs.some(x => (x || "").toLowerCase().includes(tmQ));
+function applyWallpaper(t) { const ms = $("tmMsgs"), wp = t.wallpaper || { kind: "preset", id: "none" };
+  ms.className = ""; ms.style.backgroundImage = "";
+  if (wp.kind === "image" && wp.path) { ms.dataset.wp = "image"; ms.style.backgroundImage = `linear-gradient(rgba(16,12,8,.35), rgba(16,12,8,.35)), url("${fileUrl(t.repo, wp.path)}")`; }
+  else { ms.dataset.wp = wp.id || "none"; ms.classList.add("wp-" + (wp.id || "none")); } }
 function drawTeam(t) {
-  tmLast = t;
+  tmLast = t; applyWallpaper(t);
   const me = tmData.me, members = t.members || [], owner = members.some(m => m.login === me && m.role === "owner"), joined = members.filter(m => m.joined);
   teamBadge($("tmBadge"), t.name); $("tmName").textContent = t.name || "Team";
   const on = joined.filter(isOnline).length;
@@ -2904,7 +2962,7 @@ function drawTeam(t) {
     r.querySelector("span").textContent = p.name || "Project"; r.onclick = () => { closeTeams(); openProjects(p.id); }; pj.appendChild(r); });
   const ch = $("tmChats"); ch.innerHTML = "";
   if (!(t.chats || []).length) ch.appendChild(el("div", "aempty", "Nobody has shared a chat yet."));
-  (t.chats || []).forEach(c => { const r = el("div", "tmrow", `<span class="tmi"><b></b><small></small></span>`); r.querySelector("b").textContent = c.title;
+  (t.chats || []).filter(c => tmMatch(c.title, c.by)).forEach(c => { const r = el("div", "tmrow", `<span class="tmi"><b></b><small></small></span>`); hiText(r.querySelector("b"), c.title);
     r.querySelector("small").textContent = (c.by === me ? "Shared by you" : `@${c.by}`) + (c.updated ? " · " + ago(c.updated) : "");
     const b = el("button", "btn small", c.by === me ? "Unshare" : "Open copy");
     b.onclick = async () => { try { if (c.by === me) drawTeam(await api("/api/team/share-chat", { repo: t.repo, chat: c.id, on: false }));
@@ -2912,8 +2970,10 @@ function drawTeam(t) {
     r.appendChild(b); ch.appendChild(r); });
   // conversation: messages grouped by person, with team activity woven in
   const ms = $("tmMsgs"), stick = ms.scrollHeight - ms.scrollTop - ms.clientHeight < 60; ms.innerHTML = "";
-  const items = [...(t.messages || []).map(m => ({ ...m, k: "m" })), ...(t.activity || []).map(a => ({ ...a, k: "a" }))].sort((a, b) => a.t - b.t);
-  if (!items.length) { const e = el("div", "tmempty", `<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg><b>Start the conversation</b><span>Messages reach everyone in the team. Use them for quick questions, updates and hand-offs.</span>`); ms.appendChild(e); }
+  const items = [...(t.messages || []).filter(m => tmMatch(m.text, m.who, m.name, ...(m.files || []).map(f => f.name))).map(m => ({ ...m, k: "m" })),
+                 ...(tmQ ? [] : (t.activity || []).map(a => ({ ...a, k: "a" })))].sort((a, b) => a.t - b.t);
+  if (!items.length && tmQ) ms.appendChild(el("div", "tmempty", `<b>Nothing found</b><span>No messages mention “${esc(tmQ)}”.</span>`));
+  else if (!items.length) { const e = el("div", "tmempty", `<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg><b>Start the conversation</b><span>Messages reach everyone in the team. Use them for quick questions, updates and hand-offs.</span>`); ms.appendChild(e); }
   let day = "", grp = null;
   items.forEach(it => {
     const d = dayLabel(it.t); if (d !== day) { day = d; grp = null; ms.appendChild(el("div", "tmday", esc(d))); }
@@ -2924,7 +2984,7 @@ function drawTeam(t) {
       g.prepend(avatar(it.who, m.name, m.avatar)); g.querySelector("b").textContent = it.who === me ? "You" : (m.name || it.who);
       ms.appendChild(g); grp = { who: it.who, body: g.querySelector(".gb"), t: it.t };
     }
-    if (it.text) { const l = el("div", "tmline"); l.textContent = it.text; l.title = new Date(it.t * 1000).toLocaleString(); grp.body.appendChild(l); }
+    if (it.text) { const l = el("div", "tmline"); hiText(l, it.text); l.title = new Date(it.t * 1000).toLocaleString(); grp.body.appendChild(l); }
     if ((it.files || []).length) { const fl = el("div", "tmfiles"); it.files.forEach(f => fl.appendChild(teamFile(t.repo, f))); grp.body.appendChild(fl); }
     grp.t = it.t;
   });
@@ -2933,8 +2993,8 @@ function drawTeam(t) {
   $("tmNoteCount").textContent = (t.notes || []).length || "";
   const nt = $("tmNotes"); nt.innerHTML = "";
   if (!(t.notes || []).length) nt.appendChild(el("div", "aempty", "No notes yet."));
-  (t.notes || []).forEach(n => { const r = el("button", "tmnote" + (n.name === noteOrig && !$("tmNoteEd").hidden ? " on" : ""), "<b></b><small></small>");
-    r.querySelector("b").textContent = n.name.replace(/\.(md|txt)$/, ""); r.querySelector("small").textContent = n.first || "Empty";
+  (t.notes || []).filter(n => tmMatch(n.name, n.first)).forEach(n => { const r = el("button", "tmnote" + (n.name === noteOrig && !$("tmNoteEd").hidden ? " on" : ""), "<b></b><small></small>");
+    hiText(r.querySelector("b"), n.name.replace(/\.(md|txt)$/, "")); r.querySelector("small").textContent = n.first || "Empty";
     r.onclick = () => openNote(n.name); nt.appendChild(r); });
 }
 async function showTeam(repo) {
@@ -2945,7 +3005,7 @@ async function showTeam(repo) {
 }
 $("navTeams").onclick = () => openTeams();
 $("tmBack").onclick = () => { closeTeams(); navSet("navPlay"); setTab("chat"); };
-$("tmAll").onclick = async () => { $("tmInviteBox").hidden = true; await loadTeams(); showTeamGrid(); };
+$("tmAll").onclick = async () => { $("tmInviteBox").hidden = true; $("tmWpBox").hidden = true; tmQ = ""; $("tmSearch").value = ""; await loadTeams(); showTeamGrid(); };
 $("tmSync").onclick = async () => { const b = $("tmSync"); b.disabled = true; b.classList.add("spin");
   try { const t = await api("/api/team/sync", { repo: tmCur }); const i = tmData.teams.findIndex(x => x.repo === tmCur); if (i >= 0) tmData.teams[i] = { ...tmData.teams[i], ...t, synced: Date.now() / 1000 }; drawTeam({ ...t, synced: Date.now() / 1000 }); }
   catch (e) { notice(e.message); } finally { b.disabled = false; b.classList.remove("spin"); } };
@@ -2969,6 +3029,21 @@ function teamFile(repo, f) {
   c.appendChild(sv); return c;
 }
 $("tmLight").onclick = () => { $("tmLight").hidden = true; };
+// ---- search in a team, and across teams ----
+$("tmSearch").oninput = () => { tmQ = $("tmSearch").value.trim().toLowerCase(); if (tmLast) drawTeam(tmLast); };
+$("tmGridSearch").oninput = () => { const q = $("tmGridSearch").value.trim().toLowerCase();
+  document.querySelectorAll("#tmGrid .tmgridcard").forEach(c => c.hidden = !!q && !c.textContent.toLowerCase().includes(q)); };
+// ---- wallpapers ----
+const WALLPAPERS = [["none", "None"], ["daybreak", "Daybreak"], ["dunes", "Dunes"], ["night", "Night sky"], ["aurora", "Aurora"], ["ocean", "Ocean"], ["blueprint", "Blueprint"], ["paper", "Paper"], ["bloom", "Bloom"], ["ember", "Ember"]];
+function drawWallpapers() { const g = $("wpGrid"), cur = (tmLast?.wallpaper || {}); g.innerHTML = "";
+  WALLPAPERS.forEach(([id, label]) => { const b = el("button", "wp-" + id + (cur.kind !== "image" && (cur.id || "none") === id ? " on" : ""), "<span></span>"); b.querySelector("span").textContent = label; b.title = label;
+    b.onclick = async () => { try { drawTeam({ ...(await api("/api/team/wallpaper", { repo: tmCur, preset: id })), synced: Date.now() / 1000 }); drawWallpapers(); } catch (e) { notice(e.message); } };
+    g.appendChild(b); }); }
+$("tmWpBtn").onclick = () => { $("tmInviteBox").hidden = true; $("tmWpBox").hidden = !$("tmWpBox").hidden; if (!$("tmWpBox").hidden) drawWallpapers(); };
+$("wpUpload").onclick = () => $("wpFile").click();
+$("wpFile").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; if (f.size > 8e6) return notice("Wallpapers can be up to 8 MB.");
+  const rd = new FileReader(); rd.onload = async () => { try { drawTeam({ ...(await api("/api/team/wallpaper", { repo: tmCur, image: { name: f.name, data: rd.result.split(",")[1] } })), synced: Date.now() / 1000 }); $("tmWpBox").hidden = true; notice("New wallpaper for the team."); } catch (er) { notice(er.message); } };
+  rd.readAsDataURL(f); };
 let tmFiles = [];
 function addTeamFiles(list) {
   for (const f of list) { if (f.size > 20e6) { notice(`${f.name} is larger than 20 MB.`); continue; }
@@ -3001,7 +3076,7 @@ $("tmNoteWrite").onclick = () => { noteMode(false); $("tmNoteText").focus(); }; 
 $("tmNoteClose").onclick = () => { $("tmNoteEd").hidden = true; $("tmNoteEmpty").hidden = false; noteOrig = null; if (tmLast) drawTeam(tmLast); };
 function tmTab(k) { document.querySelectorAll(".tmtabs button").forEach(b => b.classList.toggle("on", b.dataset.tm === k)); document.querySelectorAll(".tmpane").forEach(p => p.hidden = p.dataset.tm !== k); }
 document.querySelectorAll(".tmtabs button").forEach(b => b.onclick = () => tmTab(b.dataset.tm));
-$("tmInviteBtn").onclick = () => { $("tmInviteBox").hidden = !$("tmInviteBox").hidden; if (!$("tmInviteBox").hidden) $("tmWho").focus(); };
+$("tmInviteBtn").onclick = () => { $("tmWpBox").hidden = true; $("tmInviteBox").hidden = !$("tmInviteBox").hidden; if (!$("tmInviteBox").hidden) $("tmWho").focus(); };
 $("tmNoteSave").onclick = async () => { const name = $("tmNoteName").value.trim() || "Untitled"; $("tmNoteSave").disabled = true;
   try { const r = await api("/api/team/note", { repo: tmCur, name, text: $("tmNoteText").value, rename: noteOrig || "" }); noteOrig = name.replace(/\.(md|txt)$/, "") + ".md"; $("tmNoteDel").hidden = false;
     drawTeam({ ...r, synced: Date.now() / 1000 }); noteMode(true); notice("Saved for the team."); }
@@ -3529,6 +3604,31 @@ $("mkSources").onchange = () => loadMarket($("mkSources").value);
 $("mkRefresh").onclick = () => mk.source ? loadMarket(mk.source, true) : loadMarket("");
 $("mkRemoveSrc").onclick = async () => { if (!confirm(`Remove the marketplace ${mk.source}? Installed items stay.`)) return; await api("/api/market/source", { repo: mk.source, remove: true }); loadMarket(""); };
 $("mkSearch").oninput = drawMarket;
+$("gaSearch").oninput = () => { const q = $("gaSearch").value.trim().toLowerCase();
+  document.querySelectorAll("#gaSkills .gacard, #gaConn .gacard").forEach(c => c.hidden = !!q && !c.textContent.toLowerCase().includes(q));
+  $("mkSearch").value = $("gaSearch").value; drawMarket(); };
+$("addonUrl").oninput = () => { $("addonBtn").disabled = !/^https?:\/\/\S+/.test($("addonUrl").value.trim()); $("addonMsg").textContent = ""; };
+$("addonUrl").onkeydown = e => { if (e.key === "Enter" && !$("addonBtn").disabled) $("addonBtn").click(); };
+$("addonBtn").onclick = async () => { const b = $("addonBtn"), m = $("addonMsg"); b.disabled = true; b.textContent = "Installing…"; m.className = "addonmsg"; m.textContent = "";
+  try { const r = await api("/api/market/install-url", { url: $("addonUrl").value.trim() });
+    m.className = "addonmsg ok"; m.textContent = r.kind === "marketplace" ? `That repository has ${r.count} skills, so it was added to your Marketplace below. Pick the ones you want.`
+      : `✓ Installed the ${r.kind} “${r.name}”. It's in your collection now.`;
+    $("addonUrl").value = ""; loadGallery(); if (r.kind === "marketplace") loadMarket(r.source); }
+  catch (e) { m.className = "addonmsg bad"; m.textContent = e.message; b.disabled = false; } finally { b.textContent = "Install skill"; } };
+// ---- leave any page with Esc, or by clicking its empty background ----
+const PAGES = [["gallery-open", "gaBack"], ["usage-open", "usBack"], ["projects-open", "pjBack"], ["teams-open", "tmBack"]];
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape" || document.querySelector("dialog[open]") || !$("tmLight").hidden) return;
+  const t = e.target; if (t.matches?.("input, textarea, select") && t.value) { t.blur(); return; }
+  if (document.body.classList.contains("team-detail")) { if (!$("tmNoteEd").hidden || !$("tmWpBox").hidden || !$("tmInviteBox").hidden) { $("tmWpBox").hidden = $("tmInviteBox").hidden = true; return; } e.preventDefault(); $("tmAll").click(); return; }
+  const pg = PAGES.find(([c]) => document.body.classList.contains(c)); if (pg) { e.preventDefault(); $(pg[1]).click(); }
+  else if (document.body.classList.contains("models-open") && typeof closeModelsView === "function") { closeModelsView(); navSet("navPlay"); }
+});
+$("modelsView").addEventListener("click", e => { if (e.target === $("modelsView")) $("mvBack").click(); });
+["galleryView", "usageView", "projectsView", "teamsView"].forEach(id => $(id).addEventListener("click", e => {
+  if (e.target !== $(id)) return;  // only the empty background around the content
+  if (id === "teamsView" && document.body.classList.contains("team-detail")) return $("tmAll").click();
+  $(PAGES[["galleryView", "usageView", "projectsView", "teamsView"].indexOf(id)][1]).click(); }));
 $("mkAdd").onclick = async () => { const repo = $("mkRepo").value.trim(); if (!repo) return $("mkRepo").focus(); $("mkAdd").disabled = true;
   try { const r = await api("/api/market/source", { repo }); $("mkRepo").value = ""; await loadMarket(r.sources[0]); } catch (e) { notice(e.message); } finally { $("mkAdd").disabled = false; } };
 $("mkRepo").onkeydown = e => { if (e.key === "Enter") $("mkAdd").click(); };

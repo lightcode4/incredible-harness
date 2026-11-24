@@ -398,7 +398,15 @@ async function overlaps(pg, label) {
       await pg.locator('#gaSkills .gacard', { hasText: 'Code review' }).getByRole('button', { name: 'Remove' }).click(); await pg.waitForTimeout(300);
       await pg.locator('#gaConn .gacard', { hasText: 'Notion' }).getByRole('button', { name: 'Set up' }).click(); await pg.waitForTimeout(500);
       check('Set up opens Connectors with the connector filled in', await pg.isVisible('.pane[data-p="mcp"]') && (await pg.evaluate(() => [...document.querySelectorAll('#mcpRows input')].some(i => i.value.includes('mcp.notion.com')))));
-      await pg.click('#cancelSettings'); await pg.click('#gaBack');
+      await pg.click('#cancelSettings');
+      check('Skills page has search and Add from a link (button off until a link is typed)', await pg.isVisible('#gaSearch') && await pg.isDisabled('#addonBtn'));
+      await pg.fill('#addonUrl', 'https://github.com/owner/repo'); check('Typing a link turns Install on', !(await pg.isDisabled('#addonBtn'))); await pg.fill('#addonUrl', '');
+      await pg.fill('#gaSearch', 'zzzz-nothing'); check('Search hides skills that do not match', await pg.evaluate(() => [...document.querySelectorAll('#gaSkills .gacard')].every(c => c.hidden)));
+      await pg.fill('#gaSearch', '');
+      await pg.locator('body').click({ position: { x: 5, y: 5 } }).catch(() => {});
+      await pg.keyboard.press('Escape'); await pg.waitForTimeout(250);
+      check('Esc leaves the Skills page', !(await pg.isVisible('#galleryView')));
+      await pg.click('#navGallery').catch(() => {}); await pg.waitForTimeout(400); if (await pg.isVisible('#galleryView')) await pg.click('#gaBack');
       // settings: code intelligence + quick chat shortcut
       await pg.click('#openSettings'); await pg.click('#tabs button[data-p="tools"]'); await pg.waitForSelector('.lsprow', { timeout: 8000 });
       check('Settings lists language servers with their status', (await pg.locator('.lsprow').count()) === 6 && (await pg.innerText('#lspList')).includes('Python'));

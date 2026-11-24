@@ -394,3 +394,61 @@ def uninstall(src: str, item_id: str) -> None:
                 parent.rmdir()
                 parent = parent.parent
     save_state(st)
+
+
+# ---------------------------------------------------------------- add from a link
+def install_url(url: str, token: str = "") -> dict:
+    """Install a skill from a link: a GitHub repository or folder holding SKILL.md, a link to a SKILL.md file
+    (GitHub or anywhere on the web), or an agent / slash-command .md file in agents/ or commands/.
+    A repository with many skills is added to your marketplaces instead, so you can pick from it."""
+    url = (url or "").strip()
+    if not re.match(r"^https?://", url):
+        raise MarketError("Paste a full link, starting with https://")
+    gh = re.match(r"^https?://(?:www\.)?github\.com/([\w.-]+/[\w.-]+?)(?:\.git)?(?:/(?:tree|blob)/[^/]+(/.*)?)?/?$", url)
+    raw = re.match(r"^https?://raw\.githubusercontent\.com/([\w.-]+/[\w.-]+)/[^/]+/(.+)$", url)
+    if gh or raw:
+        repo = (gh or raw).group(1)
+        path = ((gh.group(2) or "") if gh else raw.group(2)).strip("/")
+        files = _tree(repo, token)
+        if path.endswith(".md") and path.rsplit("/", 1)[-1] != "SKILL.md":
+            kind = "agent" if "/agents/" in "/" + path else "command" if "/commands/" in "/" + path else None
+            if not kind or path not in files:
+                raise MarketError("That file isn't a skill. Link to a folder with a SKILL.md, or to the SKILL.md itself.")
+            install(repo, f"{kind}:{path}", token)
+            return {"kind": kind, "name": Path(path).stem, "source": repo}
+        folder = path[: -len("SKILL.md")].strip("/") if path.endswith("SKILL.md") else path
+        if (f"{folder}/SKILL.md" if folder else "SKILL.md") in files:
+            install(repo, f"skill:{folder}", token)
+            name = folder.rsplit("/", 1)[-1] if folder else repo.split("/")[1]
+            return {"kind": "skill", "name": name, "source": repo}
+        found = [f for f in files if f.endswith("/SKILL.md") and (not folder or f.startswith(folder + "/"))]
+        if len(found) == 1:
+            sk = found[0].rsplit("/", 1)[0]
+            install(repo, f"skill:{sk}", token)
+            return {"kind": "skill", "name": sk.rsplit("/", 1)[-1], "source": repo}
+        if found:
+            src = f"{repo}/{folder}" if folder else repo
+            add_source(src, token)
+            return {"kind": "marketplace", "name": src, "count": len(found), "source": src}
+        raise MarketError("No SKILL.md was found at that link.")
+    # any other web link to a SKILL.md
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "LightCode4"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = r.read(2_000_001)
+    except Exception as e:
+        raise MarketError(f"Couldn't download that link ({e}).")
+    if len(data) > 2_000_000:
+        raise MarketError("That file is too large to be a skill.")
+    text = data.decode("utf-8", "replace")
+    meta, body = _front(text)
+    if not meta.get("name") and not body.lstrip().startswith("#"):
+        raise MarketError("That link isn't a SKILL.md (it needs a name: line at the top, or a # title).")
+    name = _safe(meta.get("name") or url.rstrip("/").rsplit("/", 2)[-2])
+    dest = HOME / "skills" / name / "SKILL.md"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(text, encoding="utf-8")
+    st = load_state()
+    st["installed"][f"url|{url}"] = [str(dest)]
+    save_state(st)
+    return {"kind": "skill", "name": name, "source": url}
