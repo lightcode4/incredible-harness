@@ -1272,6 +1272,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <div class="artseg" role="tablist"><button id="artPrev" class="on">Preview</button><button id="artShowCode">Code</button></div>
     <button class="iconbtn" id="artCopy" title="Copy code" aria-label="Copy code"><svg><use href="#i-copy"/></svg></button>
     <button class="iconbtn" id="artSave" title="Save to Downloads" aria-label="Save to Downloads"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></button>
+    <button class="btn small" id="artPublish" title="Publish as a web page with a link you can share">Publish</button>
     <button class="iconbtn" id="artOpen" title="Open in your web browser" aria-label="Open in web browser"><svg><use href="#i-globe"/></svg></button>
     <button class="iconbtn" id="artClose" title="Close (Esc)" aria-label="Close preview"><svg><use href="#i-x"/></svg></button></div>
   <iframe id="artFrame" title="Artifact preview" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads"></iframe>
@@ -2554,6 +2555,18 @@ async function saveServices() {
 // ---------- Artifact panel ----------
 $("artClose").onclick = closeArtifact;
 $("artPrev").onclick = () => artView("preview"); $("artShowCode").onclick = () => artView("code");
+$("artPublish").onclick = async () => {
+  if (!config.github_token) { notice("Publishing uses your GitHub account. Connect it in Settings > GitHub first."); return openSettings("github"); }
+  const title = $("artTitle").textContent || "page";
+  if (!confirm(`Publish “${title}” as a public web page?\n\nAnyone with the link can open it. It's stored in a public lightcode4-pages repository on your GitHub, and publishing the same title again updates it.`)) return;
+  const b = $("artPublish"); b.disabled = true; b.textContent = "Publishing…";
+  try { const r = await api("/api/artifact/publish", { title, html: artifactDoc(artCur.code, artCur.lang) });
+    navigator.clipboard?.writeText(r.url).catch(() => {});
+    const n = el("div", "planbox", `<span>Published: <a href="#" class="publink"></a> (link copied). It goes live within a minute.</span>`);
+    const a = n.querySelector(".publink"); a.textContent = r.url; a.onclick = e => { e.preventDefault(); openUrl(r.url); };
+    const un = el("button", "btn small", "Unpublish"); un.onclick = async () => { await api("/api/artifact/publish", { unpublish: true, url: r.url }).catch(e => notice(e.message)); n.remove(); notice("The page was taken down."); };
+    n.append(un); add(n); scroll(true); }
+  catch (e) { notice(e.message); } finally { b.disabled = false; b.textContent = "Publish"; } };
 $("artCopy").onclick = () => { navigator.clipboard.writeText(artCur?.code || ""); notice("Copied the artifact's code."); };
 $("artSave").onclick = async () => { try { const r = await api("/api/artifact", { action: "save", name: $("artTitle").textContent, lang: artCur.lang, content: artifactDoc(artCur.code, artCur.lang) }); notice("Saved to " + r.path); } catch (e) { notice(e.message); } };
 $("artOpen").onclick = async () => { try { await api("/api/artifact", { action: "open", name: $("artTitle").textContent, lang: artCur.lang, content: artifactDoc(artCur.code, artCur.lang) }); } catch (e) { notice(e.message); } };

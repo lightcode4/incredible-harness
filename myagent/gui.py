@@ -2474,6 +2474,17 @@ def make_handler(session: Session, token: str):
                     except market.MarketError as e:
                         raise ValueError(str(e))
                     result = {"sources": market.overview(), "source": src, "items": items}
+                elif path == "/api/artifact/publish":
+                    login = (session.config.get("github_user") or {}).get("login", "")
+                    try:
+                        if data.get("unpublish"):
+                            github.unpublish_page(session.config.get("github_token", ""), login, str(data.get("url", "")))
+                            result = {}
+                        else:
+                            result = {"url": github.publish_page(session.config.get("github_token", ""), login,
+                                                                 str(data.get("title") or "page"), str(data.get("html", "")))}
+                    except github.GitHubError as e:
+                        raise ValueError(str(e))
                 elif path == "/api/market/source":
                     try:
                         result = {"sources": market.remove_source(str(data.get("repo", ""))) if data.get("remove")
@@ -2716,7 +2727,7 @@ def make_handler(session: Session, token: str):
                     session.new_window()
                 elif path == "/api/open-url":
                     url = str(data.get("url", ""))
-                    if re.match(r"^https://github\.com/", url):
+                    if re.match(r"^https://(github\.com/|[\w-]+\.github\.io/)", url):  # GitHub pages and published artifacts only
                         webbrowser.open(url)
                 else:
                     return self._json({"error": "not found"}, 404)

@@ -179,3 +179,43 @@ def device_poll(client_id: str, device_code: str, interval: int, expires_in: int
         elif err != "authorization_pending":
             raise GitHubError(r.get("error_description") or f"GitHub sign-in failed ({err}).")
     raise GitHubError("The sign-in code expired. Start again.")
+
+
+# ---------------------------------------------------------------- shareable pages (GitHub Pages)
+PAGES_REPO = "lightcode4-pages"
+
+
+def publish_page(token: str, login: str, title: str, html: str) -> str:
+    """Publish an artifact as a public web page: https://<you>.github.io/lightcode4-pages/<name>.html
+    Uses a public repository on your account (made the first time). Publishing the same title again updates the page."""
+    import base64
+    import re as _re
+    if not login:
+        raise GitHubError("Connect GitHub first (Settings > GitHub).")
+    try:
+        api(token, "GET", f"/repos/{login}/{PAGES_REPO}")
+    except GitHubError:
+        api(token, "POST", "/user/repos", {"name": PAGES_REPO, "auto_init": True, "private": False,
+                                           "description": "Pages shared from LightCode4"})
+    slug = (_re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60] or "page")
+    path = f"{slug}.html"
+    sha = None
+    try:
+        sha = api(token, "GET", f"/repos/{login}/{PAGES_REPO}/contents/{path}").get("sha")
+    except GitHubError:
+        pass
+    body = {"message": f"Publish {title}", "content": base64.b64encode(html.encode()).decode()}
+    if sha:
+        body["sha"] = sha
+    api(token, "PUT", f"/repos/{login}/{PAGES_REPO}/contents/{path}", body)
+    try:
+        api(token, "POST", f"/repos/{login}/{PAGES_REPO}/pages", {"source": {"branch": "main", "path": "/"}})
+    except GitHubError:
+        pass  # already switched on
+    return f"https://{login.lower()}.github.io/{PAGES_REPO}/{path}"
+
+
+def unpublish_page(token: str, login: str, url: str) -> None:
+    path = url.rsplit("/", 1)[-1]
+    sha = api(token, "GET", f"/repos/{login}/{PAGES_REPO}/contents/{path}").get("sha")
+    api(token, "DELETE", f"/repos/{login}/{PAGES_REPO}/contents/{path}", {"message": f"Unpublish {path}", "sha": sha})

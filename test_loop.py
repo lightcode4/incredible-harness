@@ -1534,10 +1534,20 @@ def main():
                 return self._out({"message": "Bad credentials"}, 401)
             if self.path == "/user":
                 return self._out({"login": "octo", "name": "Octo Cat", "avatar_url": "", "id": 42, "html_url": "https://github.com/octo"})
+            if self.path.startswith("/repos/octo/lightcode4-pages"):
+                return self._out({"sha": "abc"} if "/contents/" in self.path and gh_hits.count(("GET", self.path, "Bearer tok123")) > 1 else {"message": "Not Found"}, 404 if "/contents/" not in self.path or gh_hits.count(("GET", self.path, "Bearer tok123")) <= 1 else 200)
             if self.path.startswith("/user/repos"):
                 return self._out([{"full_name": "octo/demo", "private": True, "description": "Demo repo", "pushed_at": "2026-11-20T00:00:00Z",
                                    "html_url": "https://github.com/octo/demo", "default_branch": "main"}])
             return self._out([{"number": 7, "title": "Bug"}])
+        def do_PUT(self):
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            gh_hits.append(("PUT", self.path, body))
+            self._out({"content": {"sha": "abc"}})
+        def do_DELETE(self):
+            self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
+            gh_hits.append(("DELETE", self.path, None))
+            self._out({})
         def do_POST(self):
             raw = self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}"
             if self.path == "/login/device/code":
@@ -1601,6 +1611,14 @@ def main():
     assert '"number": 7' in outs[0] and '"number": 8' in outs[1] and ("POST", "/repos/octo/demo/issues", {"title": "From LightCode"}) in gh_hits
     assert any(e["name"] == "github_api" for e in d.kinds(evs, "approve")), "changing GitHub asks first"
     assert "tok123" not in json.dumps(s.current.transcript)
+    # publishing an artifact makes a public page in <you>/lightcode4-pages and returns its github.io link
+    url = ghm.publish_page("tok123", "octo", "Sunrise Counter!", "<h1>hi</h1>")
+    assert url == "https://octo.github.io/lightcode4-pages/sunrise-counter.html"
+    puts = [h for h in gh_hits if h[0] == "PUT"]
+    assert ("POST", "/user/repos") in [(h[0], h[1]) for h in gh_hits] and puts and puts[-1][1].endswith("/contents/sunrise-counter.html")
+    assert base64.b64decode(puts[-1][2]["content"]) == b"<h1>hi</h1>"
+    ghm.unpublish_page("tok123", "octo", url)
+    assert gh_hits[-1][0] == "DELETE"
     s.github_disconnect()
     assert not s.github_status()["connected"] and not s.current.ws.env_extra
     assert "call connect_github instead of asking" in s.system_for({**s.config, "cwd": str(dest)})
