@@ -1424,6 +1424,39 @@ def main():
     assert any(e.get("step") for e in d.kinds(evs, "reconnect")), "shows it is still going"
     assert not any("Stopped after" in (e.get("text") or "") or "Paused" in (e.get("text") or "") for e in evs)
     print("71 long tasks carry on OK")
+    # 72. queued messages always send (also after Stop); Send now stops the reply and sends straight away
+    s.new_chat()
+    c = s.current
+    def wait_idle(start):
+        deadline = time.time() + 20
+        while time.time() < deadline and not any(e["kind"] == "status" and e["busy"] is False for e in d.events[start:]):
+            time.sleep(0.05)
+    SCRIPT[:] = [("tool", "bash", {"command": "sleep 3"}), ("text", "slow done")]  # Stop ends the slow reply; the queued one gets "slow done"
+    start = len(d.events)
+    c.send("slow one")
+    time.sleep(0.8)
+    c.send("queued question")
+    assert [q["text"] for q in c.queue] == ["queued question"]
+    c.cancel.set()
+    wait_idle(start)
+    time.sleep(0.3)
+    deadline = time.time() + 20
+    while time.time() < deadline and "slow done" not in c.provider.last_text():
+        time.sleep(0.05)
+    assert "slow done" in c.provider.last_text() and not c.queue, "a queued message is still sent after Stop"
+    wait_idle(len(d.events) - 1)
+    SCRIPT[:] = [("tool", "bash", {"command": "sleep 3"}), ("text", "Answered the queued one.")]
+    start = len(d.events)
+    c.send("slow two")
+    time.sleep(0.8)
+    c.send("send me now")
+    c.cancel.set()
+    deadline = time.time() + 20
+    while time.time() < deadline and "Answered the queued one." not in c.provider.last_text():
+        time.sleep(0.05)
+    assert "Answered the queued one." in c.provider.last_text()
+    wait_idle(len(d.events) - 1)
+    print("72 queue stop and send-now OK")
     print("ALL TESTS PASSED")
 
 

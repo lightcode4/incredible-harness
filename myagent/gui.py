@@ -1138,7 +1138,7 @@ class Chat:
             self.busy = False
             self.emit("status", busy=False)
             self.save()
-            if self.queue and not self.cancel.is_set():  # next queued message
+            if self.queue:  # next queued message: always sent, even after Stop (the × on it cancels it)
                 nxt = self.queue.pop(0)
                 self.emit("queued", items=[q["text"] for q in self.queue])
                 self.send(nxt["text"], nxt["attachments"])
@@ -2184,6 +2184,9 @@ def make_handler(session: Session, token: str):
                     result = chat.context_report() if chat else {}
                 elif path == "/api/files/find":
                     result = {"files": chat.ws.find_files(str(data.get("q", "")))}
+                elif path == "/api/queue/now":
+                    if chat.busy and chat.queue:  # stop the current reply; the queued message goes straight away
+                        chat.cancel.set()
                 elif path == "/api/queue/clear":
                     chat.queue.clear()
                     chat.emit("queued", items=[])

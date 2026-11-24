@@ -728,6 +728,7 @@ body.models-open #modelsView { display: block !important; }
 mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); color: inherit; border-radius: 3px; } mark.findhit.cur { background: var(--sun); color: #2b2418; }
 #composer { position: relative; }
 #queueBar { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 8px; } #queueBar[hidden] { display: none; }
+.qchip .qnow { flex: none; border: 0; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); font-size: 12px; padding: 3px 9px; border-radius: 6px; margin-left: 4px; cursor: pointer; } .qchip .qnow:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .qchip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 12px; color: var(--body); background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 8px; }
 .qchip b { font-weight: 600; color: var(--accent); font-size: 11px; } .qchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 420px; }
 .qchip button { border: 0; background: none; color: var(--muted); padding: 2px; border-radius: 5px; display: grid; } .qchip button svg { width: 12px; height: 12px; }
@@ -2289,7 +2290,9 @@ addEventListener("focus", reportFocus); addEventListener("blur", reportFocus); d
 function showQueue(items) {
   const bar = $("queueBar"); bar.innerHTML = ""; bar.hidden = !items.length;
   items.forEach((t, i) => { const c = el("span", "qchip", `<b>Queued${items.length > 1 ? " " + (i + 1) : ""}</b><span></span>`); c.querySelector("span").textContent = t; c.title = t; bar.appendChild(c); });
-  if (items.length) { const x = el("button", "", icon("x")); x.title = "Cancel queued messages"; x.setAttribute("aria-label", "Cancel queued messages");
+  if (items.length) { const now = el("button", "qnow", "Send now"); now.title = "Stop the current reply and send this now";
+    now.onclick = () => { now.disabled = true; api("/api/queue/now").catch(e => notice(e.message)); }; bar.lastChild.appendChild(now);
+    const x = el("button", "", icon("x")); x.title = "Cancel queued messages"; x.setAttribute("aria-label", "Cancel queued messages");
     x.onclick = () => api("/api/queue/clear").catch(e => notice(e.message)); bar.lastChild.appendChild(x); }
 }
 // ---------- @-mention project files ----------
