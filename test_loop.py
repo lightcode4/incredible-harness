@@ -1636,6 +1636,35 @@ def main():
     assert not (Path(s.current.cwd) / "rw.txt").exists() and [e["text"] for e in s.current.transcript if e["kind"] == "user"] == ["first"]
     assert len(REQUESTS) == n_req and not s.current.busy, "rewinding sends nothing"
     print("76 rewind to here OK")
+    # 77. response styles + custom sub-agents from .claude/agents (Claude Code format)
+    s.set_mode("code")
+    s.new_chat()
+    cw = Path(s.current.cwd)
+    s.apply_config({"style": "concise"}, keep_history=True)
+    assert "Response style: concise" in s.system_for({**s.config, "cwd": str(cw)})
+    assert "Response style: concise" in s.chat_system(s.config)
+    s.apply_config({"style": "custom", "style_custom": "Always answer like a pirate."}, keep_history=True)
+    assert "like a pirate" in s.system_for({**s.config, "cwd": str(cw)})
+    s.apply_config({"style": "normal"}, keep_history=True)
+    assert "Response style" not in s.system_for({**s.config, "cwd": str(cw)})
+    (cw / ".claude" / "agents").mkdir(parents=True)
+    (cw / ".claude" / "agents" / "scribe.md").write_text("---\nname: scribe\ndescription: Writes release notes into files\n"
+                                                        "tools: read_file, write_file\nmodel: haiku\n---\nYou are Scribe, a careful release-notes writer.\n")
+    (cw / ".claude" / "skills" / "tone").mkdir(parents=True)
+    (cw / ".claude" / "skills" / "tone" / "SKILL.md").write_text("---\nname: tone\ndescription: House tone of voice\n---\nBe kind.")
+    s.new_chat()
+    sysp = s.system_for({**s.config, "cwd": str(cw)})
+    assert "- scribe: Writes release notes into files" in sysp and "- tone: House tone of voice" in sysp
+    n0 = len(REQUESTS)
+    evs = d.run("write the notes", script=[("tool", "task", {"description": "write notes", "prompt": "Write NOTES.md", "kind": "scribe"}),
+                                           ("tool", "write_file", {"path": "NOTES.md", "content": "v2 notes"}), ("text", "Wrote NOTES.md."),
+                                           ("text", "Done: the scribe wrote the notes.")])
+    assert (cw / "NOTES.md").read_text() == "v2 notes", "a custom agent can change files when its tools allow it"
+    assert any(e["name"] == "write_file" for e in d.kinds(evs, "approve")), "its changes still ask first"
+    sub_req = [r for r in REQUESTS[n0:] if "Scribe" in json.dumps(r[2].get("system", ""))]
+    assert sub_req and "haiku" in sub_req[0][2]["model"], [r[2].get("model") for r in REQUESTS[n0:]]
+    assert {t["name"] for t in sub_req[0][2]["tools"]} >= {"read_file", "write_file"} and "bash" not in {t["name"] for t in sub_req[0][2]["tools"]}
+    print("77 response styles + custom agents OK")
     print("ALL TESTS PASSED")
 
 

@@ -155,7 +155,7 @@ def skills(cwd: str) -> dict:
     """name -> (description, folder). A skill is a folder with SKILL.md (optional front matter: name, description).
     Project skills (<project>/.herness/skills) override personal ones (~/.incredible-herness/skills)."""
     out = {}
-    for base in (HOME / "skills", Path(cwd) / ".herness" / "skills"):
+    for base in (Path.home() / ".claude" / "skills", HOME / "skills", Path(cwd) / ".claude" / "skills", Path(cwd) / ".herness" / "skills"):
         if not base.is_dir():
             continue
         for d in sorted(base.iterdir()):
@@ -367,3 +367,48 @@ def usage_summary(days: int = 30, now: float | None = None) -> dict:
     return {"days": [{"date": d.isoformat(), **v, "cost": round(v["cost"], 4)} for d, v in per_day.items()],
             "models": sorted(({**m, "cost": round(m["cost"], 4)} for m in models.values()), key=lambda m: (-m["cost"], -m["tokens"])),
             "totals": {k: (round(v, 4) if isinstance(v, float) else v) for k, v in tot.items()}, "range": days}
+
+
+# ---------------------------------------------------------------- response styles
+STYLES = {
+    "normal": "",
+    "concise": "Response style: concise. Give the shortest answer that fully helps: lead with the answer, no preamble, no recap, "
+               "short lists over paragraphs.",
+    "explanatory": "Response style: explanatory. Teach as you go: explain the why behind each step, define terms, and add a short "
+                   "example where it helps understanding.",
+    "formal": "Response style: formal. Write in a clear, professional and polished tone, with complete sentences and no slang "
+              "or emoji.",
+    "friendly": "Response style: friendly. Warm, encouraging and conversational, while staying accurate and to the point.",
+}
+
+
+def style_text(style: str, custom: str = "") -> str:
+    if style == "custom":
+        return ("Response style chosen by the user (follow it for tone and length):\n" + custom.strip()[:2000]) if custom.strip() else ""
+    return STYLES.get(style or "normal", "")
+
+
+# ---------------------------------------------------------------- custom sub-agents (.claude/agents/*.md)
+def agents(cwd: str) -> dict:
+    """name -> {description, prompt, tools (list or None), model, path}. Same format as Claude Code's .claude/agents:
+    a Markdown file with front matter (name, description, tools: a, b, c, model) and the agent's instructions as the body.
+    Project agents override personal ones."""
+    out = {}
+    for base in (Path.home() / ".claude" / "agents", HOME / "agents", Path(cwd) / ".claude" / "agents", Path(cwd) / ".herness" / "agents"):
+        if not base.is_dir():
+            continue
+        for f in sorted(base.glob("*.md")):
+            text = f.read_text(errors="replace")
+            m = re.match(r"^---\s*\n(.*?)\n---\s*\n?", text, re.S)
+            meta = {}
+            if m:
+                for line in m.group(1).splitlines():
+                    if ":" in line:
+                        k, v = line.split(":", 1)
+                        meta[k.strip().lower()] = v.strip().strip("\"'")
+            body = (text[m.end():] if m else text).strip()
+            name = (meta.get("name") or f.stem).strip().lower().replace(" ", "-")
+            tools = [t.strip() for t in re.split(r"[,\s]+", meta.get("tools", "")) if t.strip()] or None
+            out[name] = {"description": meta.get("description") or (body.splitlines()[0][:200] if body else name),
+                         "prompt": body, "tools": tools, "model": meta.get("model", ""), "path": str(f)}
+    return out

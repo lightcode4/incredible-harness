@@ -56,7 +56,7 @@ IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 
 def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: bool = False, language: str = "",
-                  skills: dict | None = None) -> str:
+                  skills: dict | None = None, agents: dict | None = None, style: str = "") -> str:
     s = (
         "You are LightCode⁴, a capable software and computer agent working on the user's machine. "
         "You can run shell commands, read, write and edit files (including PDFs and Jupyter notebooks), search, "
@@ -89,6 +89,11 @@ def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: 
     if skills:
         s += ("\n\nSkills you can use (call use_skill with the name to load full instructions when a task matches):\n" +
               "\n".join(f"- {n}: {d}" for n, (d, _) in skills.items()))
+    if agents:
+        s += ("\n\nThe user's custom agents (hand work to one with the task tool, kind = its name):\n" +
+              "\n".join(f"- {n}: {a['description']}" for n, a in agents.items()))
+    if style:
+        s += "\n\n" + style
     if memory.strip():
         s += "\n\nWhat you remember about the user (from earlier chats):\n" + memory
     if instructions:
@@ -799,8 +804,10 @@ class Chat:
 
     def _subagent(self, args: dict):
         call_id = secrets.token_hex(6)
+        custom = extras.agents(self.cwd).get(str(args.get("kind") or "").lower())
         kind = args.get("kind") if args.get("kind") in SUBAGENT_KINDS else None
-        self.emit("tool", id=call_id, name="task", summary=f"{(kind or 'sub').capitalize()}-agent: {args['description']}")
+        label = f"{custom and args['kind'] or (kind or 'sub').capitalize() + '-agent'}: {args['description']}"
+        self.emit("tool", id=call_id, name="task", summary=label)
         parent = self
 
         class SubUI:
@@ -814,7 +821,11 @@ class Chat:
             def before_request(self): parent.before_request()
 
         tools = [t for t in READONLY_TOOLS if kind in (None, "research") or not t.get("client_web")]
+        if custom and custom["tools"]:  # a custom agent may also change things; those steps still ask the user first
+            wanted = set(custom["tools"])
+            tools = [t for t in TOOLS if t["name"] in wanted and t["kind"] in ("readonly", "mutating")]
         allowed = {t["name"] for t in tools}
+        readonly = {t["name"] for t in READONLY_TOOLS}
 
         def sub_run(name, a):
             parent._check()
@@ -822,15 +833,24 @@ class Chat:
             problem = validate(name, a)
             if problem or name not in allowed:
                 return f"Not available: {problem or name}", True
+            if name not in readonly:
+                return parent.run_tool(name, a)  # approval, checkpoints and the Changes panel, like the main agent
             try:
                 return parent.ws.run(name, a), False
             except Exception as e:
                 return str(e), True
 
         try:
-            sub = self.app.make_provider({**self.app.config, "cwd": self.cwd, "web": self.app.config.get("web") and kind != "explore"},
-                                         tools=tools, system=SUBAGENT_KINDS.get(kind, SUBAGENT_SYSTEM),
-                                         fast=kind in (None, "explore"))
+            cfg = {**self.app.config, "cwd": self.cwd, "web": self.app.config.get("web") and kind != "explore"}
+            fast = kind in (None, "explore")
+            system = SUBAGENT_KINDS.get(kind, SUBAGENT_SYSTEM)
+            if custom:
+                system = (custom["prompt"] or SUBAGENT_SYSTEM) + "\n\nWork on your own and finish with a clear report of what you did and found."
+                model = custom["model"].lower()
+                fast = model in ("haiku", "fast")
+                if model not in ("", "inherit", "haiku", "fast", "sonnet", "opus"):
+                    cfg["model"] = custom["model"]
+            sub = self.app.make_provider(cfg, tools=tools, system=system, fast=fast)
             try:
                 sub.turn(args["prompt"], sub_run, SubUI())
             except StepLimit:  # a sub-agent reports what it found so far
@@ -1234,7 +1254,7 @@ class Session:
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
                        "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code", "services": {},
-                       "github_user": {}, "github_folder": "",
+                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "",
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.set_badge = None  # set by the desktop app (Dock badge)
@@ -1343,7 +1363,8 @@ class Session:
                     "connect_github instead of asking the user for tokens, passwords or their git name and email; continue "
                     "once they say they approved it.\n\n" + text).strip()
         return system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")), cfg.get("language", ""),
-                             extras.skills(cfg["cwd"]))
+                             extras.skills(cfg["cwd"]), extras.agents(cfg["cwd"]),
+                             extras.style_text(cfg.get("style", "normal"), cfg.get("style_custom", "")))
 
     def project_by_id(self, pid):
         return next((p for p in self.config.get("projects") or [] if p["id"] == pid), None) if pid else None
@@ -1582,6 +1603,9 @@ class Session:
         s = self.CHAT_SYSTEM
         if cfg.get("language"):
             s += f" Always reply in {cfg['language']}."
+        st = extras.style_text(cfg.get("style", "normal"), cfg.get("style_custom", ""))
+        if st:
+            s += "\n\n" + st
         mem = extras.read_memory()
         if mem.strip():
             s += "\n\nWhat you remember about the user:\n" + mem

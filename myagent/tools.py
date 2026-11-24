@@ -166,9 +166,10 @@ TOOLS = [
                     "It returns only its final report, so say exactly what to find and what to report.",
      "schema": _schema({"description": {"type": "string", "description": "3-6 word label."},
                         "prompt": {"type": "string", "description": "Full instructions for the sub-agent."},
-                        "kind": {"type": "string", "enum": ["explore", "plan", "research"],
+                        "kind": {"type": "string",
                                  "description": "explore: fast search of the codebase (cheaper model); plan: design an "
-                                                "implementation plan; research: careful investigation incl. the web. "
+                                                "implementation plan; research: careful investigation incl. the web; or the "
+                                                "name of one of the user's custom agents listed in your instructions. "
                                                 "Several task calls in one message run in parallel."}},
                        ["description", "prompt"])},
     {"name": "open_preview", "kind": "session",

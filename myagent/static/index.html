@@ -1325,6 +1325,9 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <div class="row">
         <div class="field"><label>Model for sub-agents &amp; simple steps</label><input id="fastModel" spellcheck="false" list="models"><small id="fastHint"></small></div>
         <div class="field"><label>App language</label><select id="uiLang"><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="pt">Português</option><option value="de">Deutsch</option></select></div>
+        <div class="field"><label>Response style <small>How replies sound: length and tone.</small></label>
+          <select id="style"><option value="normal">Normal</option><option value="concise">Concise: short and direct</option><option value="explanatory">Explanatory: teaches as it goes</option><option value="formal">Formal: professional tone</option><option value="friendly">Friendly: warm and conversational</option><option value="custom">Custom…</option></select>
+          <textarea id="styleCustom" rows="3" placeholder="Describe how replies should sound, e.g. “Short answers, British spelling, end with one next step.”" style="margin-top:8px" hidden></textarea></div>
         <div class="field"><label>Reply language</label><input id="language" placeholder="Same as you write" list="langs"><datalist id="langs"><option>English</option><option>Spanish</option><option>French</option><option>Portuguese</option><option>German</option><option>Arabic</option><option>Hindi</option><option>Chinese</option><option>Japanese</option><option>Yoruba</option><option>Swahili</option></datalist></div>
       </div>
       <div class="field" id="svcField"><label>Service</label><div class="presets" id="svcPresets"></div></div>
@@ -2015,6 +2018,7 @@ async function openSettings(tab) {
   $("allow").value = (config.rules?.allow || []).join("\n"); $("deny").value = (config.rules?.deny || []).join("\n");
   $("mcpRows").innerHTML = ""; (config.mcp || []).forEach(mcpRow);
   $("fastModel").value = config.fast_model || ""; $("fastModel").placeholder = config.fast_model_default || ""; $("fastHint").textContent = "Empty = " + (config.fast_model_default || "same model");
+  $("style").value = config.style || "normal"; $("styleCustom").value = config.style_custom || ""; $("styleCustom").hidden = $("style").value !== "custom";
   $("language").value = config.language || ""; $("sandbox").value = config.sandbox || "off";
   $("sandboxHint").textContent = config.sandbox_available ? "Uses the " + config.sandbox_available + "." : "Not supported on this computer (Windows): with the sandbox on, commands won't run.";
   $("lmcpRows").innerHTML = ""; (config.mcp_local || []).forEach(lmcpRow);
@@ -2041,7 +2045,7 @@ $("saveSettings").onclick = async () => {
   const body = { provider, model: $("model").value.trim(), effort: $("effort").value, base_url: $("baseurl").value.trim(), cwd: $("cwd").value.trim(),
     auto: $("auto").checked, web: $("web").checked, compaction: $("compaction").checked, budget: parseFloat($("budget").value) || 0, mcp,
     rules: { allow: lines("allow"), deny: lines("deny") }, diagnostics: $("diagnostics").checked, sound: $("soundOn").checked, name: $("myName").value.trim(), computer: $("computer").checked,
-    fast_model: $("fastModel").value.trim(), language: $("language").value.trim(), ui_language: $("uiLang").value, sandbox: $("sandbox").value,
+    fast_model: $("fastModel").value.trim(), language: $("language").value.trim(), style: $("style").value, style_custom: $("styleCustom").value.trim(), ui_language: $("uiLang").value, sandbox: $("sandbox").value,
     mcp_local: [...document.querySelectorAll(".lmcp")].map(r => ({ name: r.querySelector(".ln").value.trim(), command: r.querySelector(".lc").value.trim(),
       args: r.querySelector(".la").value.trim(), env: Object.fromEntries(r.querySelector(".le").value.split("\n").map(l => l.trim()).filter(l => l.includes("="))
         .map(l => [l.slice(0, l.indexOf("=")).trim(), l.slice(l.indexOf("=") + 1).trim()])) })).filter(m => m.name && m.command),
@@ -2496,6 +2500,7 @@ function drawRepos() { const q = $("ghSearch").value.trim().toLowerCase(), list 
     row.append(view, open); list.appendChild(row); });
 }
 $("ghSearch").oninput = drawRepos;
+$("style").onchange = () => { $("styleCustom").hidden = $("style").value !== "custom"; if (!$("styleCustom").hidden) $("styleCustom").focus(); };
 let ghSigninOk = true;
 async function ghStatus() { try { const st = await api("/api/github"); ghSigninOk = st.signin; $("ghSignBox").hidden = !st.signin; $("ghAlt").open = !st.signin; } catch {} }
 $("ghSignIn").onclick = async () => { $("ghErr").textContent = ""; $("ghSignIn").disabled = true;
