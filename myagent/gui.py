@@ -14,6 +14,7 @@ import argparse
 import base64
 import fnmatch
 import json
+import mimetypes
 import os
 import platform
 import queue
@@ -2159,9 +2160,25 @@ class Session:
     def team_notes_dir(self, full: str) -> Path:
         return HOME / "team-notes" / full.replace("/", "__") / "files"
 
-    def team_message(self, full: str, text: str) -> dict:
-        self._team_call(teams.post_message, *self._gh(), full, text)
+    def team_message(self, full: str, text: str, files: list[dict] | None = None) -> dict:
+        blobs = [(str(f.get("name") or "file"), base64.b64decode(f.get("data") or "")) for f in files or []]
+        self._team_call(teams.post_message, *self._gh(), full, text, blobs)
         return self.team_sync(full)
+
+    def team_file_save(self, full: str, path: str) -> str:
+        """Copy a file shared in the team to your Downloads folder and show it."""
+        src = self._team_call(teams.attachment, full, path)
+        dl = Path.home() / "Downloads"
+        dl.mkdir(exist_ok=True)
+        dest = dl / src.name
+        n = 1
+        while dest.exists():
+            dest = dl / f"{src.stem} ({n}){src.suffix}"
+            n += 1
+        shutil.copyfile(src, dest)
+        if not os.environ.get("LC4_NO_REVEAL"):
+            px.reveal(str(dl))
+        return str(dest)
 
     def team_note(self, full: str, name: str, text: str | None = None, delete: bool = False, rename: str = "") -> dict:
         d = self.team_notes_dir(full)
@@ -2518,6 +2535,16 @@ def make_handler(session: Session, token: str):
                 return self.send_error(404)
             if not self._authed():
                 return
+            if path == "/api/team/file":  # an image or file shared in team messages (shown inline / opened)
+                q = parse_qs(urlparse(self.path).query)
+                try:
+                    f = teams.attachment(q.get("repo", [""])[0], q.get("path", [""])[0])
+                except teams.TeamError as e:
+                    return self._json({"error": str(e)}, 404)
+                ctype = mimetypes.guess_type(f.name)[0] or "application/octet-stream"
+                if ctype == "image/svg+xml" or not ctype.startswith(("image/", "application/pdf", "text/plain")):
+                    ctype = "application/octet-stream"  # only safe types are shown in the app; others are saved
+                return self._send(f.read_bytes(), ctype)
             if path == "/":
                 self._send(PAGE.replace("__TOKEN__", token).encode(), "text/html; charset=utf-8")
             elif path == "/api/events":
@@ -2715,7 +2742,9 @@ def make_handler(session: Session, token: str):
                 elif path == "/api/team/project":
                     result = {"project": session.team_project(str(data.get("repo", "")), str(data.get("name", "")))}
                 elif path == "/api/team/message":
-                    result = session.team_message(str(data.get("repo", "")), str(data.get("text", "")))
+                    result = session.team_message(str(data.get("repo", "")), str(data.get("text", "")), data.get("files") or [])
+                elif path == "/api/team/file/save":
+                    result = {"path": session.team_file_save(str(data.get("repo", "")), str(data.get("path", "")))}
                 elif path == "/api/team/note":
                     result = session.team_note(str(data.get("repo", "")), str(data.get("name", "")),
                                                None if data.get("text") is None else str(data["text"]), bool(data.get("delete")), str(data.get("rename") or ""))

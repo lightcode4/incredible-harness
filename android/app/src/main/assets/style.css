@@ -42,7 +42,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 .composer { padding: 8px 10px calc(env(safe-area-inset-bottom) + 10px); border-top: 1px solid var(--line); background: var(--bg); }
 .cbox { display: flex; align-items: flex-end; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 6px 6px 6px 14px; }
 .cbox textarea { flex: 1; border: 0; background: none; padding: 8px 0; max-height: 160px; resize: none; outline: none; }
-.send { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; flex: none; }
+.send { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: #2b2722; color: #f4efe6; display: grid; place-items: center; flex: none; }
 .send svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; } .send:disabled { opacity: .4; }
 .opts { display: flex; gap: 8px; align-items: center; padding: 6px 4px 0; color: var(--muted); font-size: 12.5px; } .opts label { display: flex; gap: 6px; align-items: center; }
 .opts input { width: 16px; height: 16px; accent-color: var(--accent); } .opts .spacer { flex: 1; } .opts button { border: 0; background: none; color: var(--muted); font-size: 12.5px; }

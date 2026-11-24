@@ -109,8 +109,8 @@ body:not(.chatting) #scroll, body:not(.chatting) #dock { display: none; }
 .ghost:hover { background: var(--hover); color: var(--text); }
 .ghost svg { width: 16px; height: 16px; }
 .ghost.on { color: var(--plan); background: color-mix(in srgb, var(--plan) 12%, transparent); }
-.send { margin-left: auto; width: 34px; height: 34px; border-radius: 10px; border: 0; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; }
-.send:hover { background: var(--accent-hover); }
+.send { margin-left: auto; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: #2b2722; color: #f4efe6; display: grid; place-items: center; }
+.send svg { stroke-width: 2.1; } .send:hover { background: #38322b; }
 .send:disabled { opacity: .35; cursor: default; }
 .send.stop { background: var(--text); color: var(--bg); }
 #dock { padding: 0 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -566,7 +566,22 @@ body.team-detail #teamsView > .pagehead { display: none; }
 .tmcompose { display: flex; align-items: flex-end; gap: 8px; margin: 8px 12px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 6px 6px 6px 14px; }
 .tmcompose:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
 .tmcompose textarea { flex: 1; border: 0; background: none; color: var(--text); font: inherit; font-size: 14px; resize: none; outline: none; padding: 7px 0; max-height: 140px; }
-.tmsendbtn { width: 34px; height: 34px; border-radius: 11px; border: 0; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; cursor: pointer; flex: none; }
+.tmaddbtn { width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--line); background: var(--soft); color: var(--muted); display: grid; place-items: center; cursor: pointer; flex: none; margin-right: 2px; }
+.tmaddbtn:hover { color: var(--text); background: var(--hover); } .tmaddbtn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.tmcompose { padding-left: 6px !important; }
+#tmPending { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 14px; } #tmPending:empty { display: none; }
+.tmchip { display: flex; align-items: center; gap: 8px; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 5px 6px 5px 5px; font-size: 12.5px; max-width: 240px; }
+.tmchip img { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; } .tmchip .fi { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: var(--bg); font: 700 9.5px var(--monoF); color: var(--accent); text-transform: uppercase; }
+.tmchip span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tmchip button { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 2px 4px; }
+.tmfiles { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin: 4px 0 2px; }
+.tmimg { max-width: 280px; max-height: 220px; border-radius: 12px; border: 1px solid var(--line); cursor: zoom-in; display: block; object-fit: cover; background: var(--soft); }
+.tmfile { display: flex; align-items: center; gap: 10px; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 8px 8px; min-width: 220px; max-width: 320px; }
+.tmfile .fi { width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; background: var(--bg); font: 700 10px var(--monoF); color: var(--accent); text-transform: uppercase; flex: none; }
+.tmfile .fn { flex: 1; min-width: 0; } .tmfile b { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tmfile small { color: var(--muted); font-size: 11.5px; }
+#tmMsgs.drop { outline: 2px dashed color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: -8px; border-radius: 12px; }
+#tmLight { position: fixed; inset: 0; background: rgba(8,6,4,.86); display: grid; place-items: center; z-index: 90; cursor: zoom-out; } #tmLight[hidden] { display: none; }
+#tmLight img { max-width: 92vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+.tmsendbtn { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: #2b2722; color: #f4efe6; display: grid; place-items: center; cursor: pointer; flex: none; }
 .tmsendbtn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; } .tmsendbtn:disabled { opacity: .45; }
 .tmempty { margin: auto; text-align: center; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 30px; max-width: 320px; font-size: 13px; }
 .tmempty svg { width: 40px; height: 40px; fill: none; stroke: var(--accent); stroke-width: 1.4; opacity: .8; } .tmempty b { color: var(--text); font-size: 14.5px; }
@@ -1036,6 +1051,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
   <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
   <symbol id="i-side" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
   <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+  <symbol id="i-enter" viewBox="0 0 24 24"><path d="M19 5v6a3 3 0 0 1-3 3H6"/><path d="M10 9.5 5.5 14l4.5 4.5"/></symbol>
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
@@ -1173,8 +1189,10 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
             <div class="tmtabs" role="tablist"><button class="on" data-tm="msgs" role="tab">Messages</button><button data-tm="notes" role="tab">Notes<em id="tmNoteCount"></em></button></div>
             <div class="tmpane" data-tm="msgs">
               <div id="tmMsgs" aria-live="polite"></div>
-              <div class="tmcompose"><textarea id="tmMsg" rows="1" placeholder="Message the team…"></textarea>
-                <button class="tmsendbtn" id="tmSend" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+              <div id="tmPending"></div>
+              <div class="tmcompose"><button class="tmaddbtn" id="tmAttach" title="Add files, images or documents" aria-label="Add files"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+                <input type="file" id="tmFileInput" multiple hidden><textarea id="tmMsg" rows="1" placeholder="Message the team…"></textarea>
+                <button class="tmsendbtn" id="tmSend" aria-label="Send" title="Send (Enter)"><svg viewBox="0 0 24 24"><path d="M19 5v6a3 3 0 0 1-3 3H6"/><path d="M10 9.5 5.5 14l4.5 4.5"/></svg></button></div>
             </div>
             <div class="tmpane" data-tm="notes" hidden>
               <div class="tmnotes">
@@ -1202,6 +1220,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         </div>
       </div>
     </section>
+    <div id="tmLight" hidden><img alt="Shared image"></div>
     <section id="projectsView" hidden>
       <div class="pagehead"><div><div class="eyebrow">Your work, together</div><h1 class="serif">Projects</h1>
         <p class="sub">Group chats around one folder, with shared instructions and reference files every chat can use.</p></div>
@@ -1266,7 +1285,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         <button class="ghost" id="micBtn" title="Voice typing" aria-label="Voice typing"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
         <button class="ghost" id="sideBtn" title="Side chat (⌘;) — a quick question that doesn't change this chat" aria-label="Side chat"><svg viewBox="0 0 24 24"><path d="M4 12a7 7 0 1 1 3.2 5.9L4 19l1.1-3.1A7 7 0 0 1 4 12z"/><circle cx="16.5" cy="16.5" r="3.6" fill="var(--panel)"/></svg></button>
         <button id="ctxMeter" hidden title="How full the model's memory of this chat is. Click to summarize it (/compact)."><span class="ring"></span><span id="ctxText">0%</span></button>
-        <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg><use href="#i-up"/></svg></button>
+        <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg><use href="#i-enter"/></svg></button>
       </div>
       <input type="file" id="fileInput" multiple hidden>
     </div>
@@ -1785,12 +1804,12 @@ function endBlock() {
 }
 function setBusy(b) {
   busy = b; const s = $("send");
-  s.classList.toggle("stop", b); s.innerHTML = icon(b ? "stop" : "up"); s.title = b ? "Stop" : "Send (Enter)";
+  s.classList.toggle("stop", b); s.innerHTML = icon(b ? "stop" : "enter"); s.title = b ? "Stop" : "Send (Enter)";
   updateSend();
   if (b) showWorking(); else { endBlock(); hideWorking(); }
 }
 function updateSend() { if (!busy) $("send").disabled = !$("input").value.trim() && !pendingFiles.length; else $("send").disabled = false;
-  if (busy) { const q = !!$("input").value.trim(); $("send").classList.toggle("stop", !q); $("send").innerHTML = icon(q ? "up" : "stop"); $("send").title = q ? "Queue: send when the current reply is done" : "Stop"; } }
+  if (busy) { const q = !!$("input").value.trim(); $("send").classList.toggle("stop", !q); $("send").innerHTML = icon(q ? "enter" : "stop"); $("send").title = q ? "Queue: send when the current reply is done" : "Stop"; } }
 
 // ---------- Tool cards ----------
 const tools = {};
@@ -2905,7 +2924,9 @@ function drawTeam(t) {
       g.prepend(avatar(it.who, m.name, m.avatar)); g.querySelector("b").textContent = it.who === me ? "You" : (m.name || it.who);
       ms.appendChild(g); grp = { who: it.who, body: g.querySelector(".gb"), t: it.t };
     }
-    const l = el("div", "tmline"); l.textContent = it.text; l.title = new Date(it.t * 1000).toLocaleString(); grp.body.appendChild(l); grp.t = it.t;
+    if (it.text) { const l = el("div", "tmline"); l.textContent = it.text; l.title = new Date(it.t * 1000).toLocaleString(); grp.body.appendChild(l); }
+    if ((it.files || []).length) { const fl = el("div", "tmfiles"); it.files.forEach(f => fl.appendChild(teamFile(t.repo, f))); grp.body.appendChild(fl); }
+    grp.t = it.t;
   });
   if (stick || !ms.dataset.seen) { ms.scrollTop = ms.scrollHeight; ms.dataset.seen = 1; }
   // notes
@@ -2933,8 +2954,38 @@ $("tmNew").onclick = async () => { if (!tmData.connected) return openSettings("g
 $("tmInvite").onclick = async () => { const who = $("tmWho").value.trim(); if (!who) return $("tmWho").focus(); $("tmInvite").disabled = true;
   try { drawTeam(await api("/api/team/invite", { repo: tmCur, who, role: $("tmRole").value })); $("tmWho").value = ""; $("tmInviteBox").hidden = true; notice(`Invited @${who.replace(/^@/, "")}. They'll see it under Teams in LightCode⁴ (and in their GitHub email).`); }
   catch (e) { notice(e.message); } finally { $("tmInvite").disabled = false; } };
-async function sendTeamMsg() { const t = $("tmMsg").value.trim(); if (!t) return; $("tmSend").disabled = true;
-  try { const r = await api("/api/team/message", { repo: tmCur, text: t }); $("tmMsg").value = ""; tmGrow(); drawTeam({ ...r, synced: Date.now() / 1000 }); $("tmMsgs").scrollTop = 1e9; }
+// ---- files in team messages ----
+const IMG_EXT = /\.(png|jpe?g|gif|webp|bmp|heic)$/i;
+const fext = n => ((n.match(/\.([a-z0-9]{1,5})$/i) || [])[1] || "file").slice(0, 4);
+const fileUrl = (repo, path) => `/api/team/file?token=${encodeURIComponent(TOKEN)}&repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}`;
+function teamFile(repo, f) {
+  if (IMG_EXT.test(f.name)) { const im = el("img", "tmimg"); im.alt = f.name; im.title = f.name; im.src = fileUrl(repo, f.path);
+    im.onload = () => { const ms = $("tmMsgs"); if (ms.scrollHeight - ms.scrollTop - ms.clientHeight < im.height + 120) ms.scrollTop = ms.scrollHeight; };  // stay at the newest message
+    im.onclick = () => { $("tmLight").querySelector("img").src = im.src; $("tmLight").hidden = false; }; return im; }
+  const c = el("div", "tmfile", `<span class="fi"></span><span class="fn"><b></b><small></small></span>`);
+  c.querySelector(".fi").textContent = fext(f.name); c.querySelector("b").textContent = f.name; c.querySelector("small").textContent = fmtSize(f.size || 0);
+  const sv = el("button", "btn small", "Save"); sv.title = "Save to your Downloads folder";
+  sv.onclick = async () => { try { const r = await api("/api/team/file/save", { repo, path: f.path }); notice("Saved to " + r.path); } catch (e) { notice(e.message); } };
+  c.appendChild(sv); return c;
+}
+$("tmLight").onclick = () => { $("tmLight").hidden = true; };
+let tmFiles = [];
+function addTeamFiles(list) {
+  for (const f of list) { if (f.size > 20e6) { notice(`${f.name} is larger than 20 MB.`); continue; }
+    const rd = new FileReader(); rd.onload = () => { tmFiles.push({ name: f.name || "pasted-image.png", data: rd.result.split(",")[1], url: (f.type || "").startsWith("image/") ? rd.result : null, size: f.size }); drawPending(); };
+    rd.readAsDataURL(f); } }
+function drawPending() { const box = $("tmPending"); box.innerHTML = "";
+  tmFiles.forEach((f, i) => { const c = el("div", "tmchip", `${f.url ? `<img alt="">` : `<span class="fi"></span>`}<span></span><button aria-label="Remove">✕</button>`);
+    if (f.url) c.querySelector("img").src = f.url; else c.querySelector(".fi").textContent = fext(f.name);
+    c.querySelector("span:not(.fi)").textContent = f.name; c.querySelector("button").onclick = () => { tmFiles.splice(i, 1); drawPending(); }; box.appendChild(c); }); }
+$("tmAttach").onclick = () => $("tmFileInput").click();
+$("tmFileInput").onchange = e => { addTeamFiles(e.target.files); e.target.value = ""; };
+$("tmMsg").addEventListener("paste", e => { const fs = [...(e.clipboardData?.files || [])]; if (fs.length) { e.preventDefault(); addTeamFiles(fs); } });
+["dragenter", "dragover"].forEach(k => $("tmMsgs").addEventListener(k, e => { if (e.dataTransfer?.types?.includes("Files")) { e.preventDefault(); e.stopPropagation(); $("tmMsgs").classList.add("drop"); } }));
+$("tmMsgs").addEventListener("dragleave", () => $("tmMsgs").classList.remove("drop"));
+$("tmMsgs").addEventListener("drop", e => { e.preventDefault(); e.stopPropagation(); $("tmMsgs").classList.remove("drop"); if (e.dataTransfer?.files?.length) addTeamFiles(e.dataTransfer.files); });
+async function sendTeamMsg() { const t = $("tmMsg").value.trim(); if (!t && !tmFiles.length) return; $("tmSend").disabled = true;
+  try { const r = await api("/api/team/message", { repo: tmCur, text: t, files: tmFiles.map(f => ({ name: f.name, data: f.data })) }); $("tmMsg").value = ""; tmFiles = []; drawPending(); tmGrow(); drawTeam({ ...r, synced: Date.now() / 1000 }); $("tmMsgs").scrollTop = 1e9; }
   catch (e) { notice(e.message); } finally { $("tmSend").disabled = false; $("tmMsg").focus(); } }
 const tmGrow = () => { const a = $("tmMsg"); a.style.height = "auto"; a.style.height = Math.min(a.scrollHeight, 120) + "px"; };
 $("tmSend").onclick = sendTeamMsg; $("tmMsg").oninput = tmGrow;

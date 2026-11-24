@@ -8,6 +8,7 @@
   chats/<id>.json              chats a member shared with the team (only the author writes their own)
   activity/<login>.jsonl       each member's activity lines (one file each, so pushes never clash)
   messages/<login>.jsonl       the team's messages, one file per author
+  attachments/<id>/<name>      files, images and documents shared in messages
   notes/files/<name>.md        shared notes anyone in the team can edit
 Invitations are GitHub collaborator invitations; the app lists them and accepts them for you."""
 from __future__ import annotations
@@ -148,15 +149,35 @@ def _presence(where: Path, user: dict, working_on: str) -> None:
                                                          "avatar": user.get("avatar", ""), "t": time.time(), "working_on": working_on[:120]}))
 
 
-def post_message(token: str, user: dict, full: str, text: str) -> dict:
-    """Send a message to the team right away."""
+MAX_FILE = 20_000_000
+
+
+def _safe_file(name: str) -> str:
+    name = Path(name or "file").name.replace("\x00", "").strip()
+    name = re.sub(r"[^\w .()+-]+", "_", name)[:120].strip(" .")
+    return name or "file"
+
+
+def post_message(token: str, user: dict, full: str, text: str, files: list[tuple[str, bytes]] | None = None) -> dict:
+    """Send a message to the team right away, optionally with files (images, documents, anything up to 20 MB each)."""
     login = _need(token, user)
     text = text.strip()[:4000]
-    if not text:
-        raise TeamError("Write something first.")
+    files = files or []
+    if not text and not files:
+        raise TeamError("Write something or add a file first.")
+    for name, data in files:
+        if len(data) > MAX_FILE:
+            raise TeamError(f"{name} is larger than 20 MB.")
+    mid = f"{int(time.time() * 1000)}-{login}"
     msg = {"t": time.time(), "who": login, "name": user.get("name") or login, "text": text}
+    if files:
+        msg["files"] = [{"name": _safe_file(n), "size": len(d), "path": f"attachments/{mid}/{_safe_file(n)}"} for n, d in files]
     for _ in range(3):
         where, env = _checkout(token, user, full)
+        for (n, data), meta in zip(files, msg.get("files", [])):
+            dest = where / meta["path"]
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(data)
         d = where / "messages"
         d.mkdir(exist_ok=True)
         with open(d / f"{login}.jsonl", "a", encoding="utf-8") as f:
@@ -261,3 +282,14 @@ def note(token: str, user: dict, full: str, text: str) -> None:
 
 def forget(full: str) -> None:
     shutil.rmtree(_home() / full.replace("/", "__"), ignore_errors=True)
+
+
+def attachment(full: str, path: str) -> Path:
+    """A file shared in the team's messages, from your local copy of the team."""
+    base = (_home() / full.replace("/", "__") / "attachments").resolve()
+    p = (_home() / full.replace("/", "__") / path).resolve()
+    if not str(p).startswith(str(base) + "/") and not str(p).startswith(str(base) + "\\"):
+        raise TeamError("That file isn't part of this team.")
+    if not p.is_file():
+        raise TeamError("That file isn't here yet. Sync the team and try again.")
+    return p

@@ -2026,6 +2026,26 @@ def main():
     as_(hA)
     tm.sync_team("tok-octo", octo, full, [pA], lambda pid: hA / "projects" / pid / "files", {}, cA, "", nA)
     assert "bob: pricing page" in (nA / "Meeting.md").read_text(), "a teammate's note edit arrives"
+    # files, images and documents in messages
+    as_(hB)
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    sent = tm.post_message("tok-bob", bob, full, "", [("hero mock.png", png), ("../../brief.pdf", b"%PDF-1.4 fake")])
+    assert [f["name"] for f in sent["files"]] == ["hero mock.png", "brief.pdf"], sent
+    as_(hA)
+    r = tm.sync_team("tok-octo", octo, full, [pA], lambda pid: hA / "projects" / pid / "files", {}, cA, "", nA)
+    got = r["summary"]["messages"][-1]
+    assert got["who"] == "bob" and got["text"] == "" and len(got["files"]) == 2
+    assert tm.attachment(full, got["files"][0]["path"]).read_bytes() == png
+    assert tm.attachment(full, got["files"][1]["path"]).read_bytes() == b"%PDF-1.4 fake"
+    for bad in ("team.json", "attachments/../team.json", "../../etc/passwd"):
+        try:
+            tm.attachment(full, bad); raise AssertionError("only shared files can be read: " + bad)
+        except tm.TeamError:
+            pass
+    try:
+        tm.post_message("tok-octo", octo, full, "big", [("huge.bin", b"x" * (tm.MAX_FILE + 1))]); raise AssertionError("files over 20 MB are refused")
+    except tm.TeamError:
+        pass
     try:
         tm.post_message("tok-octo", octo, full, "   "); raise AssertionError("empty messages are refused")
     except tm.TeamError:
