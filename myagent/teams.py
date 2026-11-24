@@ -7,6 +7,8 @@
   projects/<id>/files/          ... and their reference files
   chats/<id>.json              chats a member shared with the team (only the author writes their own)
   activity/<login>.jsonl       each member's activity lines (one file each, so pushes never clash)
+  messages/<login>.jsonl       the team's messages, one file per author
+  notes/files/<name>.md        shared notes anyone in the team can edit
 Invitations are GitHub collaborator invitations; the app lists them and accepts them for you."""
 from __future__ import annotations
 
@@ -146,8 +148,29 @@ def _presence(where: Path, user: dict, working_on: str) -> None:
                                                          "avatar": user.get("avatar", ""), "t": time.time(), "working_on": working_on[:120]}))
 
 
+def post_message(token: str, user: dict, full: str, text: str) -> dict:
+    """Send a message to the team right away."""
+    login = _need(token, user)
+    text = text.strip()[:4000]
+    if not text:
+        raise TeamError("Write something first.")
+    msg = {"t": time.time(), "who": login, "name": user.get("name") or login, "text": text}
+    for _ in range(3):
+        where, env = _checkout(token, user, full)
+        d = where / "messages"
+        d.mkdir(exist_ok=True)
+        with open(d / f"{login}.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(msg) + "\n")
+        try:
+            sync.publish(where, env, f"{login}: message")
+            return msg
+        except sync.SyncError:
+            time.sleep(1)
+    raise TeamError("Couldn't send the message just now. Try again in a moment.")
+
+
 def sync_team(token: str, user: dict, full: str, team_projects: list[dict], folder_for, shared_chats: dict,
-              chats_dir: Path, working_on: str = "") -> dict:
+              chats_dir: Path, working_on: str = "", notes_dir: Path | None = None) -> dict:
     """One round with the team: my presence, my shared chats and the team projects go up; everyone else's come down.
     team_projects: local projects of this team (dicts, updated in place). folder_for(pid) -> local files folder.
     shared_chats: {chat_id: title} of my chats shared with this team."""
@@ -174,6 +197,9 @@ def sync_team(token: str, user: dict, full: str, team_projects: list[dict], fold
                 new_projects.append({"id": d.name, **{k: v for k, v in _j(d / "project.json", {}).items() if k in ("name", "instructions", "color")}})
         for proj in team_projects + new_projects:
             sync.merge_project(where / "projects" / proj["id"], proj, folder_for(proj["id"]), user, joining=proj in new_projects)
+        if notes_dir is not None:  # shared notes merge like project files: both versions kept if two people edit at once
+            notes_meta = {"name": "Notes"}
+            sync.merge_project(where / "notes", notes_meta, notes_dir, user)
         try:
             sync.publish(where, env, f"{login}: sync {time.strftime('%Y-%m-%d %H:%M')}")
             return {"new_projects": new_projects, "summary": summary(where)}
@@ -202,9 +228,20 @@ def summary(where: Path) -> dict:
                 activity.append(json.loads(line))
             except ValueError:
                 pass
+    messages = []
+    for p in (where / "messages").glob("*.jsonl") if (where / "messages").is_dir() else []:
+        for line in p.read_text(errors="replace").splitlines()[-500:]:
+            try:
+                messages.append(json.loads(line))
+            except ValueError:
+                pass
+    nd = where / "notes" / "files"
+    notes = sorted(({"name": f.name, "size": f.stat().st_size, "first": next((ln.strip("# ").strip() for ln in f.read_text(errors="replace").splitlines() if ln.strip()), "")[:80]}
+                    for f in nd.iterdir() if f.is_file()), key=lambda n: n["name"].lower()) if nd.is_dir() else []
     projects = [{"id": d.name, **_j(d / "project.json", {})} for d in sorted((where / "projects").glob("*"))
                 if d.is_dir()] if (where / "projects").is_dir() else []
     return {"name": team.get("name", "Team"), "members": members, "chats": sorted(chats, key=lambda c: -c["updated"]),
+            "messages": sorted(messages, key=lambda m: m["t"])[-300:], "notes": notes,
             "activity": sorted(activity, key=lambda a: -a["t"])[:60], "projects": projects}
 
 

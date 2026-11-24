@@ -2008,6 +2008,28 @@ def main():
     assert r["summary"]["chats"] == [], "stopping sharing removes the chat from the team"
     who = {m["login"]: m["working_on"] for m in r["summary"]["members"]}
     assert who["bob"] == "Website"
+    # messages and shared notes
+    as_(hB)
+    tm.post_message("tok-bob", bob, full, "Pushed the new hero copy, have a look?")
+    nA, nB = hA / "notes" / "files", hB / "notes" / "files"
+    as_(hA)
+    nA.mkdir(parents=True); (nA / "Meeting.md").write_text("# Monday\n- ship v2")
+    r = tm.sync_team("tok-octo", octo, full, [pA], lambda pid: hA / "projects" / pid / "files", {}, cA, "", nA)
+    msgs = r["summary"]["messages"]
+    assert msgs[-1]["who"] == "bob" and msgs[-1]["text"].startswith("Pushed the new hero copy")
+    assert [n["name"] for n in r["summary"]["notes"]] == ["Meeting.md"] and r["summary"]["notes"][0]["first"] == "Monday"
+    as_(hB)
+    tm.sync_team("tok-bob", bob, full, [pB], lambda pid: hB / "projects" / pid / "files", {}, hB / "chats", "", nB)
+    assert (nB / "Meeting.md").read_text() == "# Monday\n- ship v2"
+    (nB / "Meeting.md").write_text("# Monday\n- ship v2\n- bob: pricing page")
+    tm.sync_team("tok-bob", bob, full, [pB], lambda pid: hB / "projects" / pid / "files", {}, hB / "chats", "", nB)
+    as_(hA)
+    tm.sync_team("tok-octo", octo, full, [pA], lambda pid: hA / "projects" / pid / "files", {}, cA, "", nA)
+    assert "bob: pricing page" in (nA / "Meeting.md").read_text(), "a teammate's note edit arrives"
+    try:
+        tm.post_message("tok-octo", octo, full, "   "); raise AssertionError("empty messages are refused")
+    except tm.TeamError:
+        pass
     tm.remove("tok-octo", octo, full, "bob")
     as_(hA)
     r = tm.sync_team("tok-octo", octo, full, [pA], lambda pid: hA / "projects" / pid / "files", {}, cA)

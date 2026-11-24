@@ -545,6 +545,15 @@ body.teams-open #teamsView { display: block !important; }
 .tminv input, .tminv select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px; font: inherit; font-size: 13px; outline: none; }
 .tminv input:focus, .tminv select:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
 .tmcol > .rsec:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.tmcols2 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 18px; margin-top: 18px; } @media (max-width: 980px) { .tmcols2 { grid-template-columns: 1fr; } }
+#tmMsgs { max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 8px; }
+.tmmsg { max-width: 82%; background: var(--soft); border: 1px solid var(--line-soft); border-radius: 14px 14px 14px 4px; padding: 7px 11px; font-size: 13.5px; white-space: pre-wrap; word-break: break-word; }
+.tmmsg.me { align-self: flex-end; border-radius: 14px 14px 4px 14px; background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
+.tmmsg small { display: block; color: var(--muted); font-size: 11.5px; margin-bottom: 2px; }
+.tmsend { display: flex; gap: 6px; align-items: flex-end; margin-top: 6px; } .tmsend textarea { flex: 1; resize: none; max-height: 120px; }
+.tmsend textarea, #tmNoteEd input, #tmNoteEd textarea { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 13.5px; outline: none; box-sizing: border-box; }
+#tmNoteEd { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; } #tmNoteEd[hidden] { display: none; } #tmNoteEd textarea { resize: vertical; font-family: var(--monoF); font-size: 12.5px; }
+.tmedfoot { display: flex; gap: 6px; align-items: center; }
 .tmact { font-size: 12.5px; color: var(--muted); padding: 6px 2px; border-bottom: 1px solid var(--line-soft); } .tmact b { color: var(--text); font-weight: 600; }
 .tminvite { display: flex; align-items: center; gap: 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, var(--panel)); border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
 #pjGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; padding-bottom: 20px; }
@@ -1101,7 +1110,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     </section>
     <section id="teamsView" hidden>
       <div class="pagehead"><div><div class="eyebrow">Work together</div><h1 class="serif">Teams</h1>
-        <p class="sub">Share projects and chats with the people you work with. Each team lives in a private repository on GitHub.</p></div>
+        <p class="sub">Projects, chats, messages and notes, shared with your team (kept in a private GitHub repository).</p></div>
         <span class="spacer"></span><button class="btn primary" id="tmNew"><svg><use href="#i-plus"/></svg>New team</button><button class="btn" id="tmBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
       <div id="tmInvites"></div>
       <div id="tmGrid" class="pgrid"></div>
@@ -1114,6 +1123,13 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
           <div class="tmcol"><div class="rsec">Projects</div><div id="tmProjects"></div><button class="btn small" id="tmNewProject" style="margin-top:8px"><svg><use href="#i-plus"/></svg>New team project</button>
             <div class="rsec" style="margin-top:18px">Shared chats</div><div id="tmChats"></div><button class="btn small" id="tmShareChat" style="margin-top:8px">Share the chat I have open</button></div>
           <div class="tmcol"><div class="rsec">Activity</div><div id="tmActivity"></div></div>
+        </div>
+        <div class="tmcols2">
+          <div class="tmcol"><div class="rsec">Messages</div><div id="tmMsgs"></div>
+            <div class="tmsend"><textarea id="tmMsg" rows="1" placeholder="Message the team…"></textarea><button class="btn small primary" id="tmSend">Send</button></div></div>
+          <div class="tmcol"><div class="rsec">Notes</div><div id="tmNotes"></div><button class="btn small" id="tmNewNote" style="margin-top:8px"><svg><use href="#i-plus"/></svg>New note</button>
+            <div id="tmNoteEd" hidden><input id="tmNoteName" placeholder="Note title" spellcheck="false"><textarea id="tmNoteText" rows="10" placeholder="Write anything the team should see: plans, meeting notes, decisions…"></textarea>
+              <div class="tmedfoot"><button class="btn small ghost" id="tmNoteDel">Delete</button><span class="spacer"></span><button class="btn small ghost" id="tmNoteClose">Close</button><button class="btn small primary" id="tmNoteSave">Save</button></div></div></div>
         </div>
         <button class="btn small ghost" id="tmLeave" style="margin-top:18px">Leave this team</button>
       </div>
@@ -2783,6 +2799,15 @@ function drawTeam(t) {
     b.onclick = async () => { try { if (c.by === me) drawTeam(await api("/api/team/share-chat", { repo: t.repo, chat: c.id, on: false }));
       else { await api("/api/team/open-chat", { repo: t.repo, id: c.id }); closeTeams(); navSet("navPlay"); } } catch (e) { notice(e.message); } };
     r.appendChild(b); ch.appendChild(r); });
+  const ms = $("tmMsgs"), stick = ms.scrollHeight - ms.scrollTop - ms.clientHeight < 40; ms.innerHTML = "";
+  if (!(t.messages || []).length) ms.appendChild(el("div", "aempty", "No messages yet. Say hello to the team."));
+  (t.messages || []).forEach(m => { const d = el("div", "tmmsg" + (m.who === me ? " me" : ""), "<small></small><span></span>");
+    d.querySelector("small").textContent = (m.who === me ? "You" : "@" + m.who) + " · " + ago(m.t); d.querySelector("span").textContent = m.text; ms.appendChild(d); });
+  if (stick || !ms.dataset.seen) { ms.scrollTop = ms.scrollHeight; ms.dataset.seen = 1; }
+  const nt = $("tmNotes"); nt.innerHTML = "";
+  if (!(t.notes || []).length) nt.appendChild(el("div", "aempty", "No notes yet."));
+  (t.notes || []).forEach(n => { const r = el("button", "chathit", "<b></b><small></small>"); r.querySelector("b").textContent = n.name.replace(/\.(md|txt)$/, "");
+    r.querySelector("small").textContent = n.first || ""; r.onclick = () => openNote(n.name); nt.appendChild(r); });
   const ac = $("tmActivity"); ac.innerHTML = "";
   if (!(t.activity || []).length) ac.appendChild(el("div", "aempty", "Nothing yet."));
   (t.activity || []).slice(0, 40).forEach(a => { const r = el("div", "tmact", `<b></b> <span></span> · ${ago(a.t)}`); r.querySelector("b").textContent = "@" + a.who; r.querySelector("span").textContent = a.text; ac.appendChild(r); });
@@ -2803,6 +2828,27 @@ $("tmNew").onclick = async () => { if (!tmData.connected) return openSettings("g
 $("tmInvite").onclick = async () => { const who = $("tmWho").value.trim(); if (!who) return $("tmWho").focus(); $("tmInvite").disabled = true;
   try { drawTeam(await api("/api/team/invite", { repo: tmCur, who, role: $("tmRole").value })); $("tmWho").value = ""; notice(`Invited @${who.replace(/^@/, "")}. They'll see it under Teams in LightCode⁴ (and in their GitHub email).`); }
   catch (e) { notice(e.message); } finally { $("tmInvite").disabled = false; } };
+async function sendTeamMsg() { const t = $("tmMsg").value.trim(); if (!t) return; $("tmSend").disabled = true;
+  try { const r = await api("/api/team/message", { repo: tmCur, text: t }); $("tmMsg").value = ""; tmGrow(); drawTeam({ ...r, synced: Date.now() / 1000 }); $("tmMsgs").scrollTop = 1e9; }
+  catch (e) { notice(e.message); } finally { $("tmSend").disabled = false; $("tmMsg").focus(); } }
+const tmGrow = () => { const a = $("tmMsg"); a.style.height = "auto"; a.style.height = Math.min(a.scrollHeight, 120) + "px"; };
+$("tmSend").onclick = sendTeamMsg; $("tmMsg").oninput = tmGrow;
+$("tmMsg").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendTeamMsg(); } };
+let noteOrig = null;
+async function openNote(name) { try { const r = name ? await api("/api/team/note", { repo: tmCur, name }) : { name: "", text: "" };
+  noteOrig = name || null; $("tmNoteName").value = (r.name || "").replace(/\.(md|txt)$/, ""); $("tmNoteText").value = r.text; $("tmNoteDel").hidden = !name;
+  $("tmNoteEd").hidden = false; (name ? $("tmNoteText") : $("tmNoteName")).focus(); } catch (e) { notice(e.message); } }
+$("tmNewNote").onclick = () => openNote(null);
+$("tmNoteClose").onclick = () => { $("tmNoteEd").hidden = true; };
+$("tmNoteSave").onclick = async () => { const name = $("tmNoteName").value.trim() || "Untitled"; $("tmNoteSave").disabled = true;
+  try { drawTeam({ ...(await api("/api/team/note", { repo: tmCur, name, text: $("tmNoteText").value, rename: noteOrig || "" })), synced: Date.now() / 1000 }); $("tmNoteEd").hidden = true; notice("Note saved for the team."); }
+  catch (e) { notice(e.message); } finally { $("tmNoteSave").disabled = false; } };
+$("tmNoteDel").onclick = async () => { if (!noteOrig || !confirm("Delete this note for everyone in the team?")) return;
+  try { drawTeam({ ...(await api("/api/team/note", { repo: tmCur, name: noteOrig, delete: true })), synced: Date.now() / 1000 }); $("tmNoteEd").hidden = true; } catch (e) { notice(e.message); } };
+setInterval(async () => {  // while a team is open, fetch new messages and notes every 20 seconds
+  if (!tmCur || $("tmDetail").hidden || !document.body.classList.contains("teams-open") || document.hidden || !$("tmNoteEd").hidden) return;
+  try { const t = await api("/api/team/sync", { repo: tmCur }); drawTeam({ ...t, synced: Date.now() / 1000 }); } catch (e) {}
+}, 20000);
 $("tmWho").onkeydown = e => { if (e.key === "Enter") $("tmInvite").click(); };
 $("tmNewProject").onclick = async () => { const name = prompt("Project name:", ""); if (!name) return;
   try { const r = await api("/api/team/project", { repo: tmCur, name }); closeTeams(); openProjects(r.project.id); } catch (e) { notice(e.message); } };

@@ -2138,7 +2138,13 @@ class Session:
         for c in list(self.chats.values()):
             if c.id in shared and not c.busy:
                 c.save()
-        r = self._team_call(teams.sync_team, token, user, full, mine, projects.folder, shared, CHATS, working)
+        r = self._team_call(teams.sync_team, token, user, full, mine, projects.folder, shared, CHATS, working, self.team_notes_dir(full))
+        seen = (self.config.setdefault("team_seen", {})).get(full, 0)
+        new = [m for m in r["summary"].get("messages", []) if m["t"] > seen and m.get("who") != user.get("login")]
+        if seen and new and not self.focused:  # a teammate wrote while you were elsewhere
+            extras.notify(r["summary"]["name"], f"@{new[-1]['who']}: {new[-1]['text'][:160]}")
+        if r["summary"].get("messages"):
+            self.config["team_seen"][full] = r["summary"]["messages"][-1]["t"]
         for np in r["new_projects"]:  # a teammate's new project appears here too
             if not re.fullmatch(r"p[0-9a-f]{8}", np["id"]):
                 continue
@@ -2149,6 +2155,30 @@ class Session:
         self.team_cache = {**getattr(self, "team_cache", {}), full: {**r["summary"], "synced": time.time()}}
         self.save()
         return {"repo": full, **r["summary"]}
+
+    def team_notes_dir(self, full: str) -> Path:
+        return HOME / "team-notes" / full.replace("/", "__") / "files"
+
+    def team_message(self, full: str, text: str) -> dict:
+        self._team_call(teams.post_message, *self._gh(), full, text)
+        return self.team_sync(full)
+
+    def team_note(self, full: str, name: str, text: str | None = None, delete: bool = False, rename: str = "") -> dict:
+        d = self.team_notes_dir(full)
+        d.mkdir(parents=True, exist_ok=True)
+        safe = re.sub(r"[^\w .()-]+", "", (name or "").strip())[:80].strip() or "Untitled"
+        if not safe.lower().endswith((".md", ".txt")):
+            safe += ".md"
+        f = d / safe
+        if text is None and not delete:  # read
+            return {"name": safe, "text": f.read_text(errors="replace") if f.is_file() else ""}
+        if delete:
+            f.unlink(missing_ok=True)
+        else:
+            if rename and rename != safe:
+                (d / rename).unlink(missing_ok=True)
+            f.write_text(text, encoding="utf-8")
+        return self.team_sync(full)
 
     def team_project(self, full: str, name: str) -> dict:
         proj = self.save_project({"name": name or "Team project"})
@@ -2684,6 +2714,11 @@ def make_handler(session: Session, token: str):
                     result = session.team_sync(str(data.get("repo", "")))
                 elif path == "/api/team/project":
                     result = {"project": session.team_project(str(data.get("repo", "")), str(data.get("name", "")))}
+                elif path == "/api/team/message":
+                    result = session.team_message(str(data.get("repo", "")), str(data.get("text", "")))
+                elif path == "/api/team/note":
+                    result = session.team_note(str(data.get("repo", "")), str(data.get("name", "")),
+                                               None if data.get("text") is None else str(data["text"]), bool(data.get("delete")), str(data.get("rename") or ""))
                 elif path == "/api/team/share-chat":
                     result = session.team_share_chat(str(data.get("chat") or (chat.id if chat else "")), str(data.get("repo", "")), bool(data.get("on", True)))
                 elif path == "/api/team/open-chat":
