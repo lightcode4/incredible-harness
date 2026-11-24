@@ -1202,7 +1202,7 @@ def main():
     sent = []
     import myagent.extras as exm
     real_notify = exm.notify
-    exm.notify = lambda t, m: sent.append((t, m))
+    exm.notify = lambda t, m, chat=None: sent.append((t, m))
     try:
         s.new_chat()
         s.focused = False  # LightCode4 is in the background
@@ -1226,6 +1226,44 @@ def main():
     s2.load()
     assert s2.resume() and s2.current.id == last and any(e["kind"] == "user" for e in s2.current.transcript)
     print("65 notifications, titles, resume OK")
+    # 66. @-mentions attach project files; messages sent while busy are queued; checkpoint history restores any point
+    s.set_mode("code")
+    s.new_chat()
+    cw = Path(s.current.cwd)
+    (cw / "notes").mkdir(exist_ok=True)
+    (cw / "notes" / "spec.md").write_text("The button must be gold.")
+    assert s.current.ws.find_files("spec")[0] == "notes/spec.md" and "notes/spec.md" in s.current.ws.find_files("nsp")
+    d.run("follow @notes/spec.md please", script=[("text", "ok")])
+    body = json.dumps(REQUESTS[-1][2]["messages"][-1])
+    assert "The button must be gold." in body and "notes/spec.md" in body, body[:300]
+    # queue: second message waits for the first reply, then runs
+    SCRIPT[:] = [("tool", "bash", {"command": "sleep 1"}), ("text", "first done"), ("text", "second done")]
+    d.policy = "allow"
+    n0 = len(REQUESTS)
+    s.current.send("first")
+    time.sleep(0.3)
+    s.current.send("second")
+    assert s.current.queue and s.current.queue[0]["text"] == "second"
+    t0 = time.time()
+    while (s.current.busy or s.current.queue) and time.time() - t0 < 20:
+        time.sleep(0.1)
+    texts = [e.get("text") for e in s.current.transcript if e["kind"] == "user"]
+    assert texts[-2:] == ["first", "second"] and "second done" in json.dumps([e for e in s.current.transcript if e["kind"] == "text"]), texts
+    # checkpoints: two edits, restore to before the first
+    d.run("v1", script=[("tool", "write_file", {"path": "cp.txt", "content": "one"}), ("text", "ok")])
+    d.run("v2", script=[("tool", "write_file", {"path": "cp.txt", "content": "two"}), ("text", "ok")])
+    cps = s.current.checkpoint_list()
+    assert [c["text"] for c in cps[-2:]] == ["v1", "v2"] and cps[-1]["files"] == ["cp.txt"]
+    s.current.restore_to(cps[-2]["turn"])
+    assert not (cw / "cp.txt").exists() and len(s.current.checkpoint_list()) == len(cps) - 2
+    # Dock badge counts waiting approvals
+    counts = []
+    s.set_badge = counts.append
+    d.policy = "allow"
+    d.run("ask", script=[("tool", "bash", {"command": "touch badge.txt"}), ("text", "ok")])
+    assert 1 in counts and counts[-1] == 0, counts
+    s.set_badge = None
+    print("66 mentions, queue, checkpoints, badge OK")
     print("ALL TESTS PASSED")
 
 

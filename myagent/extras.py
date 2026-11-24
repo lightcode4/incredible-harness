@@ -279,7 +279,16 @@ def downloads_dir() -> Path:
 
 
 # ---------------------------------------------------------------- notifications
-def notify(title: str, message: str) -> None:
+NOTIFIER = None  # the desktop app sets a native notifier (clicking it opens the chat)
+
+
+def notify(title: str, message: str, chat: str | None = None) -> None:
+    if NOTIFIER:
+        try:
+            if NOTIFIER(title, message, chat):
+                return
+        except Exception:
+            pass
     try:
         if sys.platform == "darwin":
             script = f'display notification {json.dumps(message[:200])} with title {json.dumps(title)}'

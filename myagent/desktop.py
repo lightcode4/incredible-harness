@@ -27,6 +27,58 @@ class Bridge:
 DEFAULT_HOTKEY = "<ctrl>+<alt>+<space>"
 
 
+def mac_extras(session, focus_main):
+    """macOS only: a number on the Dock icon for waiting approvals, and notifications that open their chat when clicked."""
+    if sys.platform != "darwin":
+        return
+    try:
+        import AppKit
+        import Foundation
+        from PyObjCTools import AppHelper
+    except Exception:
+        return
+
+    def set_badge(n: int):
+        AppHelper.callAfter(lambda: AppKit.NSApp.dockTile().setBadgeLabel_(str(n) if n else ""))
+    session.set_badge = set_badge
+
+    center = Foundation.NSUserNotificationCenter.defaultUserNotificationCenter() if hasattr(Foundation, "NSUserNotificationCenter") else None
+    if center is None:  # not running as an app bundle: keep the simple notifications
+        return
+
+    class Delegate(Foundation.NSObject):
+        def userNotificationCenter_shouldPresentNotification_(self, c, n):
+            return True
+
+        def userNotificationCenter_didActivateNotification_(self, c, n):
+            info = n.userInfo() or {}
+            chat = info.get("chat")
+            try:
+                if chat and (session.current is None or session.current.id != chat):
+                    session.open_chat(str(chat))
+            except Exception:
+                pass
+            focus_main()
+            AppKit.NSApp.activateIgnoringOtherApps_(True)
+
+    delegate = Delegate.alloc().init()
+    center.setDelegate_(delegate)
+    session._notify_delegate = delegate  # keep it alive
+
+    def notifier(title, message, chat=None):
+        def show():
+            n = Foundation.NSUserNotification.alloc().init()
+            n.setTitle_(title)
+            n.setInformativeText_(message[:240])
+            if chat:
+                n.setUserInfo_({"chat": chat})
+            center.deliverNotification_(n)
+        AppHelper.callAfter(show)
+        return True
+    from . import extras
+    extras.NOTIFIER = notifier
+
+
 def hotkey_for_pynput(text: str) -> str:
     """'ctrl+alt+space' / '⌃⌥Space' / '<ctrl>+<alt>+<space>' -> pynput's '<ctrl>+<alt>+<space>'."""
     t = (text or "").strip().lower()
@@ -126,6 +178,7 @@ def main():
     quick = QuickChat(url, main_win)
     session.quick_toggle, session.quick_hide, session.focus_main = quick.toggle, quick.hide, quick.focus_main
     session.on_hotkey = quick.listen
+    mac_extras(session, quick.focus_main)
     webview.start(lambda: quick.listen(session.config.get("quick_hotkey", DEFAULT_HOTKEY)))
     quick.stop()
     session.shutdown()

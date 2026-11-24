@@ -475,6 +475,29 @@ class Workspace:
                         "started": job.get("started", 0), "pid": job["proc"].pid, "tail": tail})
         return out
 
+    def find_files(self, q: str, limit: int = 30) -> list[str]:
+        """Project files matching q (for @-mentions): best matches first."""
+        q = q.lower().strip().lstrip("@")
+        hits = []
+        for i, f in enumerate(self._walk(self.cwd)):
+            if i > 20000:
+                break
+            rel = f.relative_to(self.cwd).as_posix()
+            low = rel.lower()
+            if not q:
+                score = len(rel)
+            elif q in f.name.lower():
+                score = (0 if f.name.lower().startswith(q) else 100) + len(rel)
+            elif q in low:
+                score = 300 + len(rel)
+            else:
+                it = iter(low)
+                if not all(ch in it for ch in q):
+                    continue
+                score = 600 + len(rel)
+            hits.append((score, rel))
+        return [r for _, r in sorted(hits)[:limit]]
+
     def list_dir(self, rel: str) -> list[dict]:
         p = self.path(rel or ".")
         self._inside(p)

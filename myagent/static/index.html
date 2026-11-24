@@ -693,6 +693,19 @@ body.models-open #modelsView { display: block !important; }
 .chips { display: none !important; }
 #welcome .empty { font-size: 34px; }
 #dock { border-top: 0 !important; }
+#composer { position: relative; }
+#queueBar { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 8px; } #queueBar[hidden] { display: none; }
+.qchip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 12px; color: var(--body); background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 8px; }
+.qchip b { font-weight: 600; color: var(--accent); font-size: 11px; } .qchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 420px; }
+.qchip button { border: 0; background: none; color: var(--muted); padding: 2px; border-radius: 5px; display: grid; } .qchip button svg { width: 12px; height: 12px; }
+#atMenu { position: absolute; left: 12px; bottom: calc(100% + 6px); width: min(460px, calc(100% - 24px)); max-height: 260px; overflow-y: auto; z-index: 33; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 5px; box-shadow: 0 12px 40px rgba(0,0,0,.14); }
+#atMenu[hidden] { display: none; } .wslot #atMenu { bottom: auto; top: calc(100% + 6px); }
+.atrow { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 6px 9px; border-radius: 8px; text-align: left; color: var(--text); font: 12.5px var(--monoF); cursor: pointer; }
+.atrow.on, .atrow:hover { background: var(--hover); } .atrow svg { width: 14px; height: 14px; color: var(--muted); flex: none; } .atrow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+#cpDlg { width: min(560px, 94vw); } #cpList { display: flex; flex-direction: column; gap: 6px; max-height: 60vh; overflow-y: auto; }
+.cprow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.cprow > div { flex: 1; min-width: 0; } .cprow b { display: block; font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cprow small { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ---- steps as slim rows (Claude-style); details open on click ---- */
 #log details.toolcard { background: none; border: 0; border-radius: 8px; box-shadow: none; margin: -4px 0; }
 #log details.toolcard > summary { padding: 4px 6px; gap: 8px; border-radius: 8px; color: var(--muted); }
@@ -1012,6 +1025,8 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         </div>
         <div id="dock">
 <div class="composer" id="composer">
+      <div id="queueBar" hidden></div>
+      <div id="atMenu" role="listbox" aria-label="Project files" hidden></div>
       <div id="cmdMenu"></div>
       <div id="files"></div>
       <textarea id="input" aria-label="Message" rows="1" placeholder="Ask LightCode⁴ to build, fix or explain something…"></textarea>
@@ -1172,6 +1187,8 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <div class="err" id="wlErr"></div></section>
   <div class="wlfoot"><button class="btn" id="wlBack" hidden>Back</button><span class="spacer"></span><button class="btn primary" id="wlNext" disabled>Continue</button></div>
 </dialog>
+<dialog id="cpDlg" aria-label="Checkpoints"><div class="dlg-head"><h2 class="serif">Checkpoints</h2><button class="iconbtn" id="cpClose" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
+  <div class="dlg-body"><p style="margin:0 0 12px;color:var(--muted);font-size:13px">Every message that changed files is saved here. Restore puts your files back to how they were before that message (later changes are undone too).</p><div id="cpList"></div></div></dialog>
 <dialog id="keys" aria-label="Keyboard shortcuts"><div class="dlg-head"><h2 class="serif">Keyboard shortcuts</h2><button class="iconbtn" id="closeKeys" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
   <div class="dlg-body"><table>
     <tr><td><kbd>Enter</kbd></td><td>Send</td></tr><tr><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>New line</td></tr>
@@ -1454,7 +1471,8 @@ function setBusy(b) {
   updateSend();
   if (b) showWorking(); else { endBlock(); $("working")?.remove(); }
 }
-function updateSend() { if (!busy) $("send").disabled = !$("input").value.trim() && !pendingFiles.length; else $("send").disabled = false; }
+function updateSend() { if (!busy) $("send").disabled = !$("input").value.trim() && !pendingFiles.length; else $("send").disabled = false;
+  if (busy) { const q = !!$("input").value.trim(); $("send").classList.toggle("stop", !q); $("send").innerHTML = icon(q ? "up" : "stop"); $("send").title = q ? "Queue: send when the current reply is done" : "Stop"; } }
 
 // ---------- Tool cards ----------
 const tools = {};
@@ -1659,6 +1677,7 @@ function handle(ev) {
     case "turn_end": endBlock(); turnEnd(ev); onFsChanged(); jobsRefresh(); if (!replaying) setTimeout(autoOpenArtifact, 50); break;
     case "fs_changed": if (!replaying) onFsChanged(); break;
     case "jobs_changed": if (!replaying) jobsRefresh(); break;
+    case "queued": if (!replaying) showQueue(ev.items || []); break;
     case "lsp_install": lspBusy.delete(ev.lang); renderLsp(ev.langs); if (!ev.ok) notice("Language server install: " + ev.error); break;
     case "preview": endBlock(); { const s = add(el("div", "srv", icon("eye"))); s.appendChild(document.createTextNode("Opened preview: " + ev.target)); } break;
     case "plan_ready": planReady(); break;
@@ -1689,7 +1708,7 @@ function hookRow(ev) {
 }
 let compactions = 0;
 function replay(ev) {
-  if (ev.chat?.mode) setModeUI(ev.chat.mode);
+  if (ev.chat?.mode) setModeUI(ev.chat.mode); if (typeof showQueue === "function") showQueue(ev.queue || []);
   if ((ev.chat?.id || null) !== currentChat) { $("scLog").innerHTML = ""; scAdd(el("div", "aempty", "Ask anything about this session. Side chat can read and search, but never edits files or runs commands.")); sideCur = null; }
   currentChat = ev.chat?.id || null; compactions = ev.compactions || 0;
   document.body.classList.remove("projects-open", "usage-open", "gallery-open");
@@ -2131,6 +2150,36 @@ document.addEventListener("pointerdown", e => { if (!$("folderMenu").hidden && !
 // ---------- tell the app whether you're looking at it (for notifications) ----------
 const reportFocus = () => new URLSearchParams(location.search).get("quick") ? 0 : api("/api/focus", { focused: document.hasFocus() && !document.hidden }).catch(() => {});
 addEventListener("focus", reportFocus); addEventListener("blur", reportFocus); document.addEventListener("visibilitychange", reportFocus); setTimeout(reportFocus, 500);
+// ---------- queued messages ----------
+function showQueue(items) {
+  const bar = $("queueBar"); bar.innerHTML = ""; bar.hidden = !items.length;
+  items.forEach((t, i) => { const c = el("span", "qchip", `<b>Queued${items.length > 1 ? " " + (i + 1) : ""}</b><span></span>`); c.querySelector("span").textContent = t; c.title = t; bar.appendChild(c); });
+  if (items.length) { const x = el("button", "", icon("x")); x.title = "Cancel queued messages"; x.setAttribute("aria-label", "Cancel queued messages");
+    x.onclick = () => api("/api/queue/clear").catch(e => notice(e.message)); bar.lastChild.appendChild(x); }
+}
+// ---------- @-mention project files ----------
+let atSel = 0, atItems = [], atTimer = null;
+function atToken() { const t = $("input"), v = t.value.slice(0, t.selectionStart); const m = v.match(/(^|\s)@([^\s@]*)$/); return m ? { q: m[2], start: t.selectionStart - m[2].length - 1 } : null; }
+function closeAt() { $("atMenu").hidden = true; atItems = []; }
+function renderAt() { const m = $("atMenu"); m.innerHTML = "";
+  if (!atItems.length) { closeAt(); return; }
+  atItems.forEach((f, i) => { const r = el("button", "atrow" + (i === atSel ? " on" : ""), `<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4"/></svg><span></span>`); r.setAttribute("role", "option");
+    r.querySelector("span").textContent = f; r.onmousedown = e => { e.preventDefault(); pickAt(i); }; m.appendChild(r); });
+  m.hidden = false; }
+function pickAt(i) { const tok = atToken(); if (!tok) return closeAt(); const t = $("input"), f = atItems[i];
+  t.value = t.value.slice(0, tok.start) + "@" + f + " " + t.value.slice(t.selectionStart); const pos = tok.start + f.length + 2; t.setSelectionRange(pos, pos); closeAt(); autosize(); t.focus(); }
+$("input").addEventListener("input", () => {
+  const tok = curMode() === "code" ? atToken() : null; clearTimeout(atTimer);
+  if (!tok) return closeAt();
+  atTimer = setTimeout(async () => { try { atItems = (await api("/api/files/find", { q: tok.q })).files.slice(0, 12); atSel = 0; renderAt(); } catch (e) { closeAt(); } }, 120);
+});
+$("input").addEventListener("keydown", e => {
+  if ($("atMenu").hidden) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); e.stopImmediatePropagation(); atSel = (atSel + (e.key === "ArrowDown" ? 1 : -1) + atItems.length) % atItems.length; renderAt(); }
+  else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); e.stopImmediatePropagation(); pickAt(atSel); }
+  else if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); closeAt(); }
+}, true);
+$("input").addEventListener("blur", () => setTimeout(closeAt, 150));
 // ---------- Artifact panel ----------
 $("artClose").onclick = closeArtifact;
 $("artPrev").onclick = () => artView("preview"); $("artShowCode").onclick = () => artView("code");
@@ -2256,7 +2305,7 @@ function startChatting() { if (!document.body.classList.contains("chatting")) { 
 function dockComposer() { if (!$("dock").contains($("composer"))) $("dock").appendChild($("composer")); }
 function undockComposer() { $("welcome").insertBefore($("composer"), $("welcome").querySelector(".chips")); }
 async function sendMsg() {
-  if (busy) { api("/api/stop"); return; }
+  if (busy && !$("input").value.trim()) { api("/api/stop"); return; }
   const text = $("input").value.trim(); if (!text && !pendingFiles.length) return;
   $("cmdMenu").classList.remove("show");
   const um = text.match(/^\/([\w-]+)\s*(.*)$/);
@@ -2731,11 +2780,20 @@ $("viewCodeBtn").onclick = () => openPanel("git");
 $("newSessionBtn").onclick = () => $("newchat").click();
 $("exportBtn").onclick = () => uiCommand("export");
 
-$("checkpointsBtn").onclick = $("railUndo").onclick = () => {
-  const btns = [...document.querySelectorAll(".turnfoot button")];
-  if (btns.length) { btns[btns.length - 1].scrollIntoView({ behavior: "smooth", block: "center" }); btns[btns.length - 1].focus(); }
-  else { startChatting(); notice("No changes to undo yet. Every message that edits files gets an Undo button."); }
-};
+async function openCheckpoints() {
+  let cps = []; try { cps = (await api("/api/checkpoints")).checkpoints; } catch (e) { return notice(e.message); }
+  const list = $("cpList"); list.innerHTML = "";
+  if (!cps.length) list.appendChild(el("div", "pempty", `<svg><use href="#i-undo"/></svg><b>No checkpoints yet</b><span>When the agent changes files, each message gets a checkpoint you can go back to.</span>`));
+  [...cps].reverse().forEach(c => { const r = el("div", "cprow", "<div><b></b><small></small></div>");
+    r.querySelector("b").textContent = c.text || "Message"; r.querySelector("small").textContent = (c.t ? fmtTime(c.t) + " · " : "") + c.files.join(", ");
+    const b = el("button", "btn small"); b.textContent = "Restore to before this"; b.onclick = async () => {
+      if (!confirm(`Put your files back to how they were before “${c.text || "this message"}”? Later changes are undone too.`)) return;
+      try { await api("/api/checkpoints/restore", { turn: c.turn }); $("cpDlg").close(); notice("Files restored."); } catch (e) { notice(e.message); } };
+    r.appendChild(b); list.appendChild(r); });
+  $("cpDlg").showModal();
+}
+$("cpClose").onclick = () => $("cpDlg").close();
+$("checkpointsBtn").onclick = $("railUndo").onclick = openCheckpoints;
 let lastTodos = [];
 const _setTodos = setTodos;
 setTodos = function (todos) {
@@ -2785,7 +2843,7 @@ let palSel = 0, palItems = [];
 function palRender() {
   const q = $("palIn").value.toLowerCase();
   const nav = [["New session", () => $("newchat").click(), "chat new start"], ["Parallel session (worktree)", () => $("parallelChat").click(), "branch agent"],
-    ["Source control", () => openPanel("git"), "git commit branch push diff files"], ["Terminal", () => openPanel("term"), "shell console command run logs"], ["Changes", () => openPanel("git"), "diff changed files"],
+    ["Checkpoints", () => openCheckpoints(), "undo restore rewind files history"], ["Source control", () => openPanel("git"), "git commit branch push diff files"], ["Terminal", () => openPanel("term"), "shell console command run logs"], ["Changes", () => openPanel("git"), "diff changed files"],
     ["Files", () => openPanel("files"), "browse project folder tree open file"], ["Background tasks", () => openPanel("tasks"), "jobs servers running processes"],
     ["Preview (browser)", () => openPanel("browser"), "web page localhost"], ["Project folder", () => openFolderPicker(), "workspace directory open"],
     ["Choose model", () => openModelPicker(), "model gpt claude switch"], ["Settings", () => openSettings(), "preferences options"],

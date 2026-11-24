@@ -327,6 +327,8 @@ class Chat:
         self.touched = time.time()  # last time this chat was used (for "most recent")
         self.allow_edits = False  # set when the user picks "allow all edits for this session"
         self.unread = False  # finished while you were looking elsewhere
+        self.queue: list[dict] = []  # messages sent while busy; they run one after another
+        self.checkpoint_meta: dict[str, dict] = {}  # turn -> {t, text}: for the checkpoint list
         self.project = project  # id of the Project this chat belongs to (shared instructions and files)
         self.side = side  # a side chat: read-only quick questions that never touch the main chat
         self.id = chat_id or time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
@@ -445,6 +447,22 @@ class Chat:
         if key not in self.turn_changes:
             self.turn_changes[key] = old if (old is None or len(old) < 2_000_000) else "\0too-large"
 
+    def checkpoint_list(self) -> list[dict]:
+        out = []
+        for t in sorted(self.checkpoints, key=lambda k: int(k[1:])):
+            meta = self.checkpoint_meta.get(t, {})
+            out.append({"turn": t, "files": [Path(p).name for p in self.checkpoints[t]], "t": meta.get("t"), "text": meta.get("text", "")})
+        return out
+
+    def restore_to(self, turn: str) -> list[str]:
+        """Undo this turn and every later one, newest first: files go back to how they were before `turn`."""
+        if self.busy:
+            raise RuntimeError("Stop this chat first.")
+        later = sorted((k for k in self.checkpoints if int(k[1:]) >= int(turn[1:])), key=lambda k: -int(k[1:]))
+        if not later:
+            raise ValueError("Nothing to restore from that point.")
+        return [self.undo(k) for k in later]
+
     def undo(self, turn: str) -> str:
         changes = self.checkpoints.pop(turn, None)
         if not changes:
@@ -562,16 +580,18 @@ class Chat:
         ev = {**info, "rule": rule}
         self.app.pending[info["id"]] = (done, answer)
         self.pending_info[info["id"]] = ev
+        self.app.update_badge()
         self.emit("approve", **ev)
         if (self.app.current is not self or not self.app.focused) and not self.side:
             what = "run a command" if info.get("name") == "bash" else "make a change" if info.get("edits") else "do something"
-            extras.notify("LightCode⁴ needs you", f"Allow it to {what} in “{self.title or 'a chat'}”? {info.get('summary', '')[:90]}")
+            extras.notify("LightCode⁴ needs you", f"Allow it to {what} in “{self.title or 'a chat'}”? {info.get('summary', '')[:90]}", chat=self.id)
         try:
             while not done.wait(0.25):
                 self._check()
         finally:
             self.app.pending.pop(info["id"], None)
             self.pending_info.pop(info["id"], None)
+            self.app.update_badge()
         return answer
 
     # ---------------------------------------------------------------- tools
@@ -824,6 +844,31 @@ class Chat:
         return out, err
 
     # ---------------------------------------------------------------- messages
+    MENTION = re.compile(r"(?<![\w@])@([\w./\\~-][^\s,;:!?\"'()]*)")
+
+    def _mentions(self, text: str) -> list[dict]:
+        """@path mentions of files in the project become attachments (text files, images, PDFs)."""
+        if self.kind != "code":
+            return []
+        out, seen = [], set()
+        for m in self.MENTION.finditer(text):
+            rel = m.group(1).rstrip(".")
+            try:
+                p = self.ws.path(rel)
+                p.resolve().relative_to(self.ws.cwd)
+            except (ValueError, OSError):
+                continue
+            if not p.is_file() or str(p) in seen or p.stat().st_size > 5_000_000 or len(out) >= 10:
+                continue
+            seen.add(str(p))
+            raw = p.read_bytes()
+            mime = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp",
+                    ".pdf": "application/pdf"}.get(p.suffix.lower(), "text/plain")
+            if mime == "text/plain" and b"\0" in raw[:4000]:
+                continue
+            out.append({"name": rel, "mime": mime, "data": base64.b64encode(raw[:200_000] if mime == "text/plain" else raw).decode()})
+        return out
+
     def _parts(self, text: str, attachments: list[dict]) -> list[dict]:
         parts = []
         for a in attachments or []:
@@ -847,10 +892,12 @@ class Chat:
         return parts
 
     def send(self, text: str, attachments: list[dict] | None = None) -> None:
-        if self.busy:
-            raise RuntimeError("This chat is still working. Press Stop first, or start another chat.")
+        if self.busy:  # queue it: it runs as soon as the current reply is done
+            self.queue.append({"text": text, "attachments": attachments or []})
+            self.emit("queued", items=[q["text"] for q in self.queue])
+            return
         expanded = extras.expand_command(text, self.cwd) if text.startswith("/") else None
-        parts = self._parts(expanded or text, attachments or [])
+        parts = self._parts(expanded or text, (attachments or []) + self._mentions(text))
         self.busy = True
         self.cancel.clear()
         if not self.title:
@@ -980,6 +1027,7 @@ class Chat:
             self.end_block()
             if self.turn_changes:
                 self.checkpoints[turn_id] = self.turn_changes
+                self.checkpoint_meta[turn_id] = {"t": round(time.time()), "text": clean_title(text) or "(message)"}
             self.emit("turn_end", turn=turn_id, files=[Path(p).name for p in self.turn_changes],
                       cost=round(self.turn_cost, 4), t=round(time.time()), secs=round(time.time() - started, 1))
             if self.app.config["plan"]:
@@ -987,9 +1035,13 @@ class Chat:
             self.busy = False
             self.emit("status", busy=False)
             self.save()
-            if (self.app.current is not self or self.unattended or not self.app.focused) and not self.side:
+            if self.queue and not self.cancel.is_set():  # next queued message
+                nxt = self.queue.pop(0)
+                self.emit("queued", items=[q["text"] for q in self.queue])
+                self.send(nxt["text"], nxt["attachments"])
+            elif (self.app.current is not self or self.unattended or not self.app.focused) and not self.side:
                 self.unread = self.app.current is not self or not self.app.focused
-                extras.notify("LightCode⁴", f"“{self.title}” is done.")
+                extras.notify("LightCode⁴", f"“{self.title}” is done.", chat=self.id)
 
     def _finish_hook(self):
         hook = self.app.hooks_for(self.rules_dir).get("before_finish", "").strip()
@@ -1013,7 +1065,7 @@ class Chat:
             data = {"id": self.id, "title": self.title or "Untitled", "updated": time.time(),
                     "provider": self._provider_kind, "model": self.app.config["model"], "cwd": self.cwd,
                     "worktree": self.worktree, "messages": self.provider.serialize(), "transcript": self.transcript,
-                    "checkpoints": self.checkpoints, "cost": self.cost, "tokens": self.tokens, "todos": self.todos,
+                    "checkpoints": self.checkpoints, "checkpoint_meta": self.checkpoint_meta, "cost": self.cost, "tokens": self.tokens, "todos": self.todos,
                     "turn": self.turn, "context": self.context, "project": self.project, "kind": self.kind, "compactions": getattr(self.provider, "compactions", 0)}
             path = CHATS / f"{self.id}.json"
             path.write_text(json.dumps(data, default=str))
@@ -1023,7 +1075,7 @@ class Chat:
 
     def replay_event(self) -> dict:
         proj = self.app.project_by_id(self.project)
-        return {"kind": "replay", "chat": {"id": self.id, "title": self.title, "worktree": self.worktree,
+        return {"queue": [q["text"] for q in self.queue], "kind": "replay", "chat": {"id": self.id, "title": self.title, "worktree": self.worktree,
                                            "cwd": self.cwd, "project": proj["name"] if proj else None, "mode": self.kind},
                 "events": list(self.transcript), "cost": round(self.cost, 4), "tokens": self.tokens, "todos": self.todos,
                 **self.context_info(), "compactions": getattr(self.provider, "compactions", 0),
@@ -1045,6 +1097,7 @@ class Session:
                        "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code",
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
+        self.set_badge = None  # set by the desktop app (Dock badge)
         self.quick_toggle = self.quick_hide = self.focus_main = self.on_hotkey = None  # set by the desktop app
         self.side_chats: dict[str, Chat] = {}  # main chat id -> its side chat
         self.mcp = McpManager()
@@ -1313,6 +1366,7 @@ class Session:
                     project=d.get("project"), kind=d.get("kind", "code"))
         chat.provider.restore(d["messages"])
         chat.transcript, chat.checkpoints = d.get("transcript", []), d.get("checkpoints", {})
+        chat.checkpoint_meta = d.get("checkpoint_meta", {})
         chat.cost, chat.tokens, chat.todos, chat.turn = d.get("cost", 0), d.get("tokens", 0), d.get("todos", []), d.get("turn", 0)
         chat.context = d.get("context", 0)
         chat.provider.compactions = d.get("compactions", 0)
@@ -1816,6 +1870,14 @@ class Session:
         self.remote_url = base + "/?" + self.phone_url.split("?", 1)[1]
         return self.remote_url
 
+    def update_badge(self):
+        """Number on the Dock icon: approvals waiting for you."""
+        if self.set_badge:
+            try:
+                self.set_badge(len(self.pending))
+            except Exception:
+                pass
+
     def resume(self) -> bool:
         """Reopen the chat you had open when LightCode4 was last closed."""
         cid = self.config.get("last_chat")
@@ -1937,6 +1999,15 @@ def make_handler(session: Session, token: str):
                         target.cancel.set()
                 elif path in ("/api/clear", "/api/chat/new"):
                     session.new_chat(worktree=bool(data.get("worktree")), client=client, kind=data.get("kind"))
+                elif path == "/api/files/find":
+                    result = {"files": chat.ws.find_files(str(data.get("q", "")))}
+                elif path == "/api/queue/clear":
+                    chat.queue.clear()
+                    chat.emit("queued", items=[])
+                elif path == "/api/checkpoints":
+                    result = {"checkpoints": chat.checkpoint_list()}
+                elif path == "/api/checkpoints/restore":
+                    result = {"restored": chat.restore_to(str(data.get("turn")))}
                 elif path == "/api/focus":
                     session.focused = bool(data.get("focused"))
                 elif path == "/api/mode":

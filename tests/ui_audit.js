@@ -295,6 +295,21 @@ async function overlaps(pg, label) {
       await overlaps(pg, 'pinned chats');
       await pg.locator('#chatList .chatitem').first().hover(); await pg.locator('#chatList .chatitem').first().locator('.pin').click(); await pg.waitForTimeout(500);
       check('Unpin works', !(await pg.isVisible('#chatList .pinsep')));
+      // @-mentions and checkpoints
+      await pg.click('#navPlay'); await pg.waitForTimeout(150);
+      await pg.click('#input'); await pg.keyboard.type('look at @app');
+      await pg.waitForSelector('#atMenu:not([hidden]) .atrow', { timeout: 8000 });
+      check('Typing @ suggests project files', (await pg.innerText('#atMenu')).includes('app.py'));
+      await overlaps(pg, 'mention menu');
+      await pg.keyboard.press('Enter'); await pg.waitForTimeout(150);
+      check('Enter inserts the file mention', (await pg.inputValue('#input')).includes('@app.py '));
+      await pg.fill('#input', '');
+      await pg.evaluate(() => openCheckpoints()); await pg.waitForSelector('#cpDlg[open]', { timeout: 5000 }); await pg.waitForTimeout(300);
+      check('Checkpoints opens with its list (or a clear empty state)', (await pg.locator('#cpList .cprow').count()) >= 1 ? (await pg.innerText('#cpList')).includes('Restore to before this') : (await pg.innerText('#cpList')).includes('No checkpoints yet'));
+      await overlaps(pg, 'checkpoints'); await pg.click('#cpClose');
+      await pg.evaluate(() => showQueue(['add tests next'])); await pg.waitForTimeout(100);
+      check('Queued messages show above the message box', (await pg.innerText('#queueBar')).includes('add tests next'));
+      await pg.evaluate(() => showQueue([]));
       // artifacts, diagrams and math in replies
       check('While working, the mascot hops', await pg.evaluate(() => { showWorking(); const ok = !!document.querySelector('#working .mascot.work'); document.getElementById('working')?.remove(); return ok; }));
       await pg.click('#navPlay'); await pg.waitForTimeout(200);
