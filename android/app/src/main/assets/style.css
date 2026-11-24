@@ -52,3 +52,4 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 .list button.it { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--text); padding: 11px 8px; border-radius: 12px; }
 .list button.it.on { background: var(--soft); } .list button.it small { display: block; color: var(--faint); font-size: 12px; }
 .empty { text-align: center; color: var(--muted); margin-top: 22vh; } .empty .sun { width: 46px; height: 46px; }
+[hidden] { display: none !important; }
