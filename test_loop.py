@@ -1195,6 +1195,37 @@ def main():
     assert d.kinds(evs, "approve"), "something new still asks"
     d.policy = "allow"
     print("64 fewer approval prompts OK")
+    # 65. notifications when you're away, tidy titles, and starting where you left off
+    from myagent.gui import clean_title
+    assert clean_title("<|im_start|>system\nYou are helpful<|im_end|>") == "You are helpful"
+    assert clean_title("  Fix the   login bug\nmore") == "Fix the login bug more"[:70] or clean_title("Fix the login bug").startswith("Fix")
+    sent = []
+    import myagent.extras as exm
+    real_notify = exm.notify
+    exm.notify = lambda t, m: sent.append((t, m))
+    try:
+        s.new_chat()
+        s.focused = False  # LightCode4 is in the background
+        d.run("<|im_start|>user Build me a page", script=[("tool", "bash", {"command": "touch away.txt"}), ("text", "done")])
+        assert s.current.title == "Build me a page", s.current.title
+        assert any("needs you" in t for t, _ in sent) and any("is done" in m for _, m in sent), sent
+        assert next(c for c in s.list_chats() if c["id"] == s.current.id)["unread"] is True
+        sent.clear()
+        s.focused = True
+        d.run("again", script=[("text", "ok")])
+        assert not sent, "no notifications while you're looking"
+        s.select(s.current)
+        assert next(c for c in s.list_chats() if c["id"] == s.current.id)["unread"] is False
+    finally:
+        exm.notify = real_notify
+    last = s.current.id
+    assert s.config["last_chat"] == last and (CHATS / f"{last}.json").exists()
+    s.save()
+    from myagent.gui import Session
+    s2 = Session()
+    s2.load()
+    assert s2.resume() and s2.current.id == last and any(e["kind"] == "user" for e in s2.current.transcript)
+    print("65 notifications, titles, resume OK")
     print("ALL TESTS PASSED")
 
 

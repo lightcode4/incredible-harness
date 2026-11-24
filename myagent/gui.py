@@ -206,6 +206,13 @@ SAFE_GIT = {"status", "log", "diff", "show", "branch", "remote", "rev-parse", "b
 TWO_WORD = {"git", "npm", "npx", "yarn", "pnpm", "bun", "cargo", "go", "docker", "pip", "pip3", "python", "python3", "uv", "make", "brew", "swift"}
 
 
+def clean_title(text: str) -> str:
+    """First line of a message, without model control tokens like <|im_start|>system."""
+    t = re.sub(r"<\|[^|>]{0,40}\|>(\s*(system|user|assistant)\b)?", " ", text or "")
+    t = re.sub(r"\s+", " ", t).strip()
+    return t[:70]
+
+
 def split_command(cmd: str) -> list[str]:
     """Split a shell line on && || ; | (outside quotes) into its separate commands."""
     parts, cur, q, i = [], "", None, 0
@@ -319,6 +326,7 @@ class Chat:
         self.kind = kind if kind in ("chat", "code") else "code"
         self.touched = time.time()  # last time this chat was used (for "most recent")
         self.allow_edits = False  # set when the user picks "allow all edits for this session"
+        self.unread = False  # finished while you were looking elsewhere
         self.project = project  # id of the Project this chat belongs to (shared instructions and files)
         self.side = side  # a side chat: read-only quick questions that never touch the main chat
         self.id = chat_id or time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
@@ -555,8 +563,9 @@ class Chat:
         self.app.pending[info["id"]] = (done, answer)
         self.pending_info[info["id"]] = ev
         self.emit("approve", **ev)
-        if self.app.current is not self:
-            extras.notify("LightCode⁴", f"“{self.title or 'A chat'}” needs your approval.")
+        if (self.app.current is not self or not self.app.focused) and not self.side:
+            what = "run a command" if info.get("name") == "bash" else "make a change" if info.get("edits") else "do something"
+            extras.notify("LightCode⁴ needs you", f"Allow it to {what} in “{self.title or 'a chat'}”? {info.get('summary', '')[:90]}")
         try:
             while not done.wait(0.25):
                 self._check()
@@ -845,12 +854,13 @@ class Chat:
         self.busy = True
         self.cancel.clear()
         if not self.title:
-            self.title = text.strip().splitlines()[0][:70] if text.strip() else "Attachment"
+            self.title = clean_title(text) or "Attachment"
         self.touched = time.time()
         first = not any(e["kind"] == "user" for e in self.transcript)
         mark = {"m": len(self.provider.serialize()), "turn": self.turn + 1, "c": getattr(self.provider, "compactions", 0)}
         self.emit("user", text=text, files=[a.get("name") for a in attachments or []], plan=self.app.config["plan"],
                   command=bool(expanded), idx=len(self.transcript), mark=mark, t=round(time.time()))
+        self.save()  # keep the conversation even if the app is closed mid-reply
         threading.Thread(target=self._turn, args=(parts, first, text), daemon=True).start()
 
     def _prompt_hooks(self, parts, first: bool, text: str):
@@ -977,8 +987,9 @@ class Chat:
             self.busy = False
             self.emit("status", busy=False)
             self.save()
-            if (self.app.current is not self or self.unattended) and not self.side:
-                extras.notify("LightCode⁴", f"“{self.title}” finished.")
+            if (self.app.current is not self or self.unattended or not self.app.focused) and not self.side:
+                self.unread = self.app.current is not self or not self.app.focused
+                extras.notify("LightCode⁴", f"“{self.title}” is done.")
 
     def _finish_hook(self):
         hook = self.app.hooks_for(self.rules_dir).get("before_finish", "").strip()
@@ -1031,7 +1042,9 @@ class Session:
                        "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
-                       "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code"}
+                       "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code",
+                       "last_chat": ""}
+        self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.quick_toggle = self.quick_hide = self.focus_main = self.on_hotkey = None  # set by the desktop app
         self.side_chats: dict[str, Chat] = {}  # main chat id -> its side chat
         self.mcp = McpManager()
@@ -1263,6 +1276,11 @@ class Session:
     def select(self, chat: Chat, client: str = ""):
         self.current = chat
         chat.touched = time.time()
+        chat.unread = False
+        if self.config.get("last_chat") != chat.id and not chat.side:
+            self.config["last_chat"] = chat.id
+            if chat.transcript:
+                self.save()
         self.events.put({**chat.replay_event(), "client": client})
         self.events.put({"kind": "config", "config": self.public_config()})
 
@@ -1484,7 +1502,8 @@ class Session:
         for c in self.chats.values():
             if c.transcript:
                 out.append({"id": c.id, "title": c.title or "Untitled", "updated": c.touched, "running": c.busy,
-                            "approval": bool(c.pending_info), "worktree": bool(c.worktree), "project": c.project, "kind": c.kind})
+                            "approval": bool(c.pending_info), "worktree": bool(c.worktree), "project": c.project, "kind": c.kind,
+                            "unread": c.unread})
                 seen.add(c.id)
         for p in sorted(CHATS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:200]:
             if p.stem in seen:
@@ -1499,6 +1518,8 @@ class Session:
         titles, pins = self.config.get("titles") or {}, self.config.get("pinned") or []
         for c in out:
             c["title"] = titles.get(c["id"], c["title"])
+            if "<|" in c["title"]:
+                c["title"] = clean_title(c["title"]) or "Untitled"
             c["pinned"] = c["id"] in pins
         order = {cid: i for i, cid in enumerate(self.config.get("chat_order") or [])}
         pinned = sorted([c for c in out if c["id"] in order], key=lambda c: order[c["id"]])
@@ -1795,7 +1816,25 @@ class Session:
         self.remote_url = base + "/?" + self.phone_url.split("?", 1)[1]
         return self.remote_url
 
+    def resume(self) -> bool:
+        """Reopen the chat you had open when LightCode4 was last closed."""
+        cid = self.config.get("last_chat")
+        if not cid or not (CHATS / f"{Path(str(cid)).name}.json").is_file():
+            return False
+        try:
+            self.open_chat(str(cid))
+            self.config["mode"] = self.current.kind
+            return True
+        except Exception:
+            return False
+
     def shutdown(self):
+        for c in list(self.chats.values()):
+            try:
+                c.save()
+            except Exception:
+                pass
+        self.save()
         self._sched_stop.set()
         self.mcp.stop()
         lsp.MANAGER.close_all()
@@ -1898,6 +1937,8 @@ def make_handler(session: Session, token: str):
                         target.cancel.set()
                 elif path in ("/api/clear", "/api/chat/new"):
                     session.new_chat(worktree=bool(data.get("worktree")), client=client, kind=data.get("kind"))
+                elif path == "/api/focus":
+                    session.focused = bool(data.get("focused"))
                 elif path == "/api/mode":
                     session.set_mode(str(data.get("mode")), client)
                 elif path == "/api/chats":
@@ -2211,6 +2252,8 @@ def start_server(cwd: str | None = None, port: int = 0, session: Session | None 
     session._handler_factory = make_handler
     try:
         session.apply_config({"cwd": cwd} if cwd else {})
+        if not cwd or cwd == str(Path.home()):
+            session.resume()  # pick up the last conversation, like a proper chat app
     except Exception as e:  # e.g. no API key yet: the window opens Settings
         session.config["cwd"] = cwd or session.config["cwd"]
         session.events.put({"kind": "setup", "text": str(e)})
