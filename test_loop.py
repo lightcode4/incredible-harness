@@ -1606,6 +1606,25 @@ def main():
     os.environ.pop("LC4_GITHUB_WEB", None)
     gs.shutdown()
     print("74 GitHub connect, clone and tools OK")
+    # 75. text files in every common encoding: attached or read from the folder
+    from myagent.tools import decode_text
+    sample = "Café – “quotes” ✓ naïve\nline two"
+    variants = {"utf8.txt": sample.encode("utf-8"), "bom.txt": sample.encode("utf-8-sig"), "notepad-unicode.txt": sample.encode("utf-16"),
+                "utf16-nobom.txt": sample.encode("utf-16-le"), "utf16be.txt": sample.encode("utf-16-be")}
+    for n, raw in variants.items():
+        assert decode_text(raw) == sample, (n, decode_text(raw))
+    old_win = "Café naïve – old Windows".encode("cp1252")
+    assert decode_text(old_win) == "Café naïve – old Windows"
+    assert decode_text(bytes(range(256)) * 4) is None
+    s.set_mode("code")
+    s.new_chat()
+    cw = Path(s.current.cwd)
+    for n, raw in variants.items():
+        (cw / n).write_bytes(raw)
+        assert "Café – “quotes” ✓ naïve" in s.current.ws.run("read_file", {"path": n}), n
+    parts = s.current._parts("read this", [{"name": "notes.txt", "mime": "text/plain", "data": base64.b64encode(sample.encode("utf-16")).decode()}])
+    assert sample in parts[0]["text"]
+    print("75 text files in any encoding OK")
     print("ALL TESTS PASSED")
 
 

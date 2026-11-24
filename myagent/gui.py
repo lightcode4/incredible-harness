@@ -991,10 +991,11 @@ class Chat:
                 except (ServiceError, KeyError) as e:
                     raise ValueError(f"{name}: {e}")
             else:
-                try:
-                    parts.append({"type": "file", "name": name, "text": raw.decode("utf-8")[:200_000]})
-                except UnicodeDecodeError:
-                    raise ValueError(f"{name}: only images, PDFs and text files can be attached.")
+                from .tools import decode_text
+                txt = decode_text(raw)
+                if txt is None:
+                    raise ValueError(f"{name}: only images, PDFs, Word/Excel/PowerPoint and text files can be attached.")
+                parts.append({"type": "file", "name": name, "text": txt[:200_000]})
         if self.app.config["plan"]:
             text = ("[Plan mode is ON: research and read as needed, but do not change anything. End with a clear, "
                     "numbered plan for the user to approve.]\n\n" + text)

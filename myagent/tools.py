@@ -260,6 +260,29 @@ def validate(name: str, args: object) -> str | None:
     return _check(args, tool["schema"], "input")
 
 
+def decode_text(raw: bytes) -> str | None:
+    """Text from a file in any common encoding: UTF-8 (with or without BOM), UTF-16/32 (Windows Notepad "Unicode"),
+    Windows-1252 / Latin-1 (older Windows and Mac files). None when it is really binary."""
+    for bom, enc in ((b"\xef\xbb\xbf", "utf-8-sig"), (b"\xff\xfe\x00\x00", "utf-32"), (b"\x00\x00\xfe\xff", "utf-32"),
+                     (b"\xff\xfe", "utf-16"), (b"\xfe\xff", "utf-16")):
+        if raw.startswith(bom):
+            return raw.decode(enc, errors="replace")
+    head = raw[:4000]
+    if head and head.count(b"\x00") > len(head) // 4:  # UTF-16 without a BOM: every other byte is zero
+        zeros_odd = head[1::2].count(b"\x00") > head[0::2].count(b"\x00")
+        try:
+            return raw.decode("utf-16-le" if zeros_odd else "utf-16-be")
+        except UnicodeDecodeError:
+            return None
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    if b"\x00" in head:
+        return None
+    return raw.decode("cp1252", errors="replace")
+
+
 def describe(name: str, args: dict) -> str:
     """One-line summary of a tool call, shown to the user."""
     if name == "bash":
@@ -629,7 +652,10 @@ class Workspace:
                 raise ToolError(f"Not a valid notebook: {e}")
         if p.suffix.lower() == ".pdf":
             return pdf_extract(p.read_bytes())[0] + "\n\n(Tip: read_pdf shows the real pages, including tables and images.)"
-        lines = p.read_text(errors="replace").splitlines()
+        text = decode_text(p.read_bytes())
+        if text is None:
+            raise ToolError(f"{p.name} is a binary file, not text. (Images: use read_media; Word/Excel/PowerPoint: read_document.)")
+        lines = text.splitlines()
         start = max(offset, 1)
         chunk = lines[start - 1: start - 1 + limit]
         body = "\n".join(f"{i:6}\t{line}" for i, line in enumerate(chunk, start))
