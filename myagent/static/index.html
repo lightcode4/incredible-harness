@@ -415,7 +415,7 @@ body:not(.chatting) #scroll { display: none; } body.chatting #welcome { display:
 body:not(.chatting) #dock, #dock { display: flex; }
 #scroll { flex: 1; } .col { max-width: 900px; padding: 0 22px; }
 #panel { display: none; flex: 1; min-height: 0; flex-direction: column; width: auto; max-width: none; min-width: 0; border-left: 0; position: static; }
-body.panel-open #panel { display: flex; } body.panel-open #scroll, body.panel-open #welcome { display: none !important; }
+body.panel-open #panel { display: flex; }
 #dock { border-top: 1px solid var(--line); padding: 12px 16px 10px; flex-direction: column; align-items: stretch; gap: 6px; }
 .composer { max-width: none; border-radius: 12px; box-shadow: none; }
 .send { border-radius: 9px; }
@@ -691,6 +691,28 @@ body.models-open #modelsView { display: block !important; }
 .chips { display: none !important; }
 #welcome .empty { font-size: 34px; }
 #dock { border-top: 0 !important; }
+/* ---- side panel beside the conversation (Claude app layout) ---- */
+body.panel-open .grid { grid-template-columns: minmax(380px, 1fr) var(--pw, 46%); gap: 0; }
+.grid > #panel { display: none; flex-direction: column; min-width: 0; min-height: 0; position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin: 6px 0 4px 12px; box-shadow: var(--shadow); }
+body.panel-open .grid > #panel { display: flex; }
+.grid > #panel > .ptabs { display: flex; align-items: center; gap: 2px; padding: 6px 6px 0 10px; border-bottom: 1px solid var(--line-soft); min-height: 46px; overflow-x: auto; scrollbar-width: none; }
+.grid > #panel > .ptabs::-webkit-scrollbar { display: none; }
+.ptabs .tab { flex: none; border: 0; background: none; padding: 8px 10px 9px; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; display: flex; gap: 6px; align-items: center; border-radius: 8px 8px 0 0; }
+.ptabs .tab:hover { color: var(--text); background: var(--hover); } .ptabs .tab.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.ptabs .tab svg { width: 15px; height: 15px; } .ptabs .tab em { font-style: normal; font-size: 10.5px; background: var(--line-soft); border-radius: 5px; padding: 0 5px; color: var(--muted); } .ptabs .tab em:empty { display: none; }
+.ptabs #jobCount { background: var(--sun); color: #2b2418; }
+.ptabs #closePanel { margin: 0 2px 4px 4px; flex: none; }
+.grid > #panel > #resizer { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 4; }
+.grid > #panel > #resizer:hover, .grid > #panel > #resizer.drag { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.grid > #panel .pview { flex: 1; min-height: 0; }
+.pempty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 40px 24px; text-align: center; color: var(--muted); }
+.pempty svg { width: 30px; height: 30px; color: var(--faint); margin-bottom: 4px; } .pempty b { color: var(--text); font-size: 14px; font-weight: 600; } .pempty span { font-size: 12.5px; max-width: 300px; line-height: 1.5; }
+body.panel-open #railDock { display: none; }
+body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear of the sun button */  /* the panel takes that corner; the overview is back when it closes */
+.grid > #panel .gitbar { flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 8px 10px; }
+.grid > #panel .gitbar::-webkit-scrollbar { display: none; } .grid > #panel .gitbar > * { flex: none; }
+.grid > #panel #gitSync { font-size: 11.5px !important; }
+@media (max-width: 900px) { body.panel-open .grid { grid-template-columns: 1fr; } body.panel-open .chatcard { display: none; } .grid > #panel { margin: 6px 0; } }
 #ctxMeter:not([hidden]) + #send { margin-left: 6px; }
 #side .who { display: none; } #side .who:has(.dot.off) { display: flex; }
 #compbar { display: flex; justify-content: flex-end; align-items: center; gap: 6px; padding: 6px 4px 0; position: relative; }
@@ -872,14 +894,9 @@ body.models-open #modelsView { display: block !important; }
           <span class="spacer"></span><span class="status" id="chatStatus">Ready</span>
 <button class="iconbtn" id="shareBtn" title="Share this session (GitHub gist)" aria-label="Share"><svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg></button>
           <button class="iconbtn" id="exportBtn" title="Export conversation" aria-label="Export conversation"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></button></div>
-        <nav class="ctabs" role="tablist">
-          <button class="ctab on" data-c="chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Conversation</button>
-          <button class="ctab" data-c="git"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v6M9 11h6M9 16.5h6"/></svg>Changes<em id="fileCount"></em></button>
-          <button class="ctab" data-c="term"><svg><use href="#i-term"/></svg>Terminal</button>
-          <button class="ctab" data-c="browser"><svg><use href="#i-globe"/></svg>Browser</button>
-          <button class="ctab" data-c="files"><svg><use href="#i-folder"/></svg>Files</button>
-          <button class="ctab" data-c="tasks"><svg viewBox="0 0 24 24"><path d="M8.5 12 13 7.5 17.5 12 13 16.5zM4 12l4.5-4.5M4 12l4.5 4.5"/></svg>Tasks<em id="jobCount" hidden></em></button>
-          <span class="spacer"></span>
+        <nav class="ctabs" role="tablist" hidden>
+          <button class="ctab on" data-c="chat">Conversation</button><button class="ctab" data-c="git">Changes</button><button class="ctab" data-c="term">Terminal</button>
+          <button class="ctab" data-c="browser">Browser</button><button class="ctab" data-c="files">Files</button><button class="ctab" data-c="tasks">Tasks</button>
         </nav>
         <div class="cbody">
           <section id="welcome">
@@ -889,45 +906,6 @@ body.models-open #modelsView { display: block !important; }
             </div>
           </section>
           <div id="scroll"><div class="col"><div id="log" role="log" aria-live="polite" aria-label="Conversation"></div></div></div>
-          <section id="panel">
-            <div class="ptabs" hidden>
-              <button class="tab" data-v="term">Terminal</button><button class="tab" data-v="browser">Browser</button><button class="tab" data-v="git">Git</button>
-              <button class="iconbtn" id="closePanel" aria-label="Close"><svg><use href="#i-x"/></svg></button>
-            </div>
-            <div id="resizer" hidden></div>
-  <div class="pview" data-v="term">
-    <div class="termbar"><span id="termInfo">Terminal</span><span class="spacer"></span><button class="btn small" id="termRestart">New terminal</button></div>
-    <div id="termBox"></div>
-  </div>
-  <div class="pview" data-v="git"><div id="gitView">
-    <div class="gitbar"><select id="gitBranch" title="Switch branch"></select><button class="btn small" id="gitNewBranch">New branch</button>
-      <span class="spacer"></span><span id="gitSync" style="color:var(--muted);font-size:12.5px"></span>
-      <button class="btn small" id="gitPull">Pull</button><button class="btn small" id="gitPush">Push</button><button class="btn small" id="gitPr">Pull request</button>
-      <button class="iconbtn" id="gitRefresh" title="Refresh"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button></div>
-    <div id="gitFiles"></div>
-    <pre id="gitDiff">Select a file to see its changes.</pre>
-    <div class="gitcommit"><textarea id="gitMsg" placeholder="Commit message (or ask the agent: /commit)"></textarea><button class="btn primary" id="gitCommit">Commit all</button></div>
-  </div></div>
-  <div class="pview" data-v="files"><div id="filesView">
-    <div class="fbar"><span id="fCrumbs"></span><span class="spacer"></span><span class="livedot" title="Updates as the agent works">Live</span>
-      <button class="iconbtn" id="fRefresh" title="Refresh"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button></div>
-    <div class="fsplit"><div id="fTree"></div><div id="fShow"><div class="fhead"><b id="fName">Select a file</b><small id="fMeta"></small><span class="spacer"></span><button class="btn small" id="fEditBtn" hidden>Edit</button><button class="btn small" id="fCancel" hidden>Cancel</button><button class="btn small primary" id="fSave" hidden>Save</button></div><pre id="fBody"></pre><textarea id="fEdit" spellcheck="false" hidden></textarea><div class="err" id="fErr"></div></div></div>
-  </div></div>
-  <div class="pview" data-v="tasks"><div id="tasksView">
-    <div class="fbar"><b>Background tasks</b><span class="spacer"></span><span class="livedot">Live</span></div>
-    <div id="jobList"></div>
-  </div></div>
-  <div class="pview" data-v="browser">
-    <div class="bbar">
-      <button class="iconbtn" data-b="back" title="Back"><svg><use href="#i-undo"/></svg></button>
-      <button class="iconbtn" data-b="forward" title="Forward" style="transform:scaleX(-1)"><svg><use href="#i-undo"/></svg></button>
-      <button class="iconbtn" data-b="reload" title="Reload"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
-      <input id="burl" spellcheck="false" placeholder="Enter a URL or localhost:3000">
-    </div>
-    <div id="bview" tabindex="0"><span class="agentbadge">Agent is browsing</span><img id="bimg" alt="Browser view" draggable="false">
-      <div id="bempty"><b>LightCode⁴ browser</b>Type a URL above, or ask the agent to open a page. You can click and type here too.<div id="bstatus" style="margin-top:10px"></div></div></div>
-  </div>
-          </section>
         </div>
         <div id="dock">
 <div class="composer" id="composer">
@@ -963,6 +941,49 @@ body.models-open #modelsView { display: block !important; }
           <span id="footMode" hidden></span></div>
         </div>
       </section>
+          <section id="panel">
+            <div class="ptabs" role="tablist" aria-label="Panel">
+              <button class="tab" data-v="git" role="tab" title="Changes (⇧⌘D)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v6M9 11h6M9 16.5h6"/></svg><span>Changes</span><em id="fileCount"></em></button>
+              <button class="tab" data-v="term" role="tab" title="Terminal (⌘J)"><svg><use href="#i-term"/></svg><span>Terminal</span></button>
+              <button class="tab" data-v="browser" role="tab" title="Browser (⇧⌘B)"><svg><use href="#i-globe"/></svg><span>Browser</span></button>
+              <button class="tab" data-v="files" role="tab" title="Files (⇧⌘F)"><svg><use href="#i-folder"/></svg><span>Files</span></button>
+              <button class="tab" data-v="tasks" role="tab" title="Background tasks (⇧⌘T)"><svg viewBox="0 0 24 24"><path d="M8.5 12 13 7.5 17.5 12 13 16.5zM4 12l4.5-4.5M4 12l4.5 4.5"/></svg><span>Tasks</span><em id="jobCount" hidden></em></button>
+              <span class="spacer"></span>
+              <button class="iconbtn" id="closePanel" title="Close panel (⌘.)" aria-label="Close panel"><svg><use href="#i-x"/></svg></button>
+            </div>
+            <div id="resizer" title="Drag to resize"></div>
+  <div class="pview" data-v="term">
+    <div class="termbar"><span id="termInfo">Terminal</span><span class="spacer"></span><button class="btn small" id="termRestart">New terminal</button></div>
+    <div id="termBox"></div>
+  </div>
+  <div class="pview" data-v="git"><div id="gitView">
+    <div class="gitbar"><select id="gitBranch" title="Switch branch"></select><button class="btn small" id="gitNewBranch">New branch</button>
+      <span class="spacer"></span><span id="gitSync" style="color:var(--muted);font-size:12.5px"></span>
+      <button class="btn small" id="gitPull">Pull</button><button class="btn small" id="gitPush">Push</button><button class="btn small" id="gitPr">Pull request</button>
+      <button class="iconbtn" id="gitRefresh" title="Refresh"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button></div>
+    <div id="gitFiles"></div>
+    <pre id="gitDiff">Select a file to see its changes.</pre>
+    <div class="gitcommit"><textarea id="gitMsg" placeholder="Commit message (or ask the agent: /commit)"></textarea><button class="btn primary" id="gitCommit">Commit all</button></div>
+  </div></div>
+  <div class="pview" data-v="files"><div id="filesView">
+    <div class="fbar"><span id="fCrumbs"></span><span class="spacer"></span><span class="livedot" title="Updates as the agent works">Live</span>
+      <button class="iconbtn" id="fRefresh" title="Refresh"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button></div>
+    <div class="fsplit"><div id="fTree"></div><div id="fShow"><div class="fhead"><b id="fName">Select a file</b><small id="fMeta"></small><span class="spacer"></span><button class="btn small" id="fEditBtn" hidden>Edit</button><button class="btn small" id="fCancel" hidden>Cancel</button><button class="btn small primary" id="fSave" hidden>Save</button></div><pre id="fBody"></pre><textarea id="fEdit" spellcheck="false" hidden></textarea><div class="err" id="fErr"></div></div></div>
+  </div></div>
+  <div class="pview" data-v="tasks"><div id="tasksView">
+    <div id="jobList"></div>
+  </div></div>
+  <div class="pview" data-v="browser">
+    <div class="bbar">
+      <button class="iconbtn" data-b="back" title="Back"><svg><use href="#i-undo"/></svg></button>
+      <button class="iconbtn" data-b="forward" title="Forward" style="transform:scaleX(-1)"><svg><use href="#i-undo"/></svg></button>
+      <button class="iconbtn" data-b="reload" title="Reload"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+      <input id="burl" spellcheck="false" placeholder="Enter a URL or localhost:3000">
+    </div>
+    <div id="bview" tabindex="0"><span class="agentbadge">Agent is browsing</span><img id="bimg" alt="Browser view" draggable="false">
+      <div id="bempty"><b>LightCode⁴ browser</b>Type a URL above, or ask the agent to open a page. You can click and type here too.<div id="bstatus" style="margin-top:10px"></div></div></div>
+  </div>
+          </section>
       <div id="railDock">
       <button id="railFab" title="Run overview — click to open, drag to move, double-click to put it back" aria-label="Run overview" aria-expanded="false" aria-controls="railPop">
         <svg class="sun" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M17 35a15 15 0 0 1 30 0M8 43h48M15 52h34M23 60h18M32 5v9M9 15l7 7M55 15l-7 7"/></g><path d="M17 35a15 15 0 0 1 30 0Z" fill="currentColor"/></svg><span class="fdot" id="railFabDot"></span></button>
@@ -1754,10 +1775,13 @@ window.addEventListener("drop", e => { e.preventDefault(); dragDepth = 0; docume
   pop.addEventListener("click", e => { if (e.target.closest("#railModelBtn, #railWsBtn, #railUndo")) openRail(false); });
 })();
 // ---------- Side panel button + Activity panel ----------
-const syncSideBtn = () => { const on = $("railDock").classList.contains("open"); $("sidePanelBtn").classList.toggle("on", on); $("sidePanelBtn").setAttribute("aria-pressed", on); };
-new MutationObserver(syncSideBtn).observe($("railDock"), { attributes: true, attributeFilter: ["class"] });
-$("sidePanelBtn").onclick = e => { e.stopPropagation(); openRail(); };
-document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key === ".") { e.preventDefault(); openRail(); } });
+// side panel button (⌘.): shows or hides the work panel beside the conversation, like the Claude app
+const syncSideBtn = () => { const on = document.body.classList.contains("panel-open"); $("sidePanelBtn").classList.toggle("on", on); $("sidePanelBtn").setAttribute("aria-pressed", on);
+  $("sidePanelBtn").title = (on ? "Hide" : "Show") + " side panel (⌘.)"; };
+new MutationObserver(syncSideBtn).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+const togglePanel = () => { if (panelTab) closePanel(); else { if (typeof closeModelsView === "function") { closeModelsView(); closeProjects(); closeUsage(); closeGallery(); } openPanel(lastPanel || "git"); } };
+$("sidePanelBtn").onclick = e => { e.stopPropagation(); togglePanel(); };
+document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key === ".") { e.preventDefault(); togglePanel(); } });
 function activityItems() {
   return [...document.querySelectorAll("#log .toolcard, #log .hookrow")].map(c => {
     const badge = c.querySelector(".badge")?.textContent || "", hook = c.classList.contains("hookrow");
@@ -2124,6 +2148,8 @@ async function gitRefresh() {
     st.files.forEach(f => { const r = el("div", "gfile" + (f.path === gitSel ? " on" : ""), `<i class="${f.status}">${f.status[0].toUpperCase()}</i><span></span>`);
       r.querySelector("span").textContent = f.path; r.onclick = () => { gitSel = f.path; gitShow(f.path); gitRefresh(); }; $("gitFiles").appendChild(r); });
     if (gitSel && !st.files.some(f => f.path === gitSel)) { gitSel = null; $("gitDiff").textContent = "Select a file to see its changes."; }
+    if (!gitSel && st.files.length) { gitSel = st.files[0].path; gitShow(gitSel); $("gitFiles").querySelector(".gfile")?.classList.add("on"); }
+    if (!st.files.length) $("gitDiff").innerHTML = '<div class="pempty"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v6M9 11h6M9 16.5h6"/></svg><b>No changes</b><span>Files the agent edits show up here with their differences.</span></div>';
   } catch (e) { $("gitDiff").textContent = e.message; }
 }
 async function gitShow(path) { try { const d = (await git("diff", { path })).diff; $("gitDiff").innerHTML = d ? diffHtml(d) : "(no textual changes)"; } catch (e) { $("gitDiff").textContent = e.message; } }
@@ -2227,8 +2253,10 @@ $("chatList").addEventListener("drop", e => {
 
 // ---------- Side panel ----------
 let panelTab = null, term = null, termId = null, fit = null, browserViewing = false;
+let lastPanel = null;
+try { lastPanel = localStorage.getItem("lc4.panel"); const w = localStorage.getItem("lc4.pw"); if (w) document.documentElement.style.setProperty("--pw", w); } catch (e) {}
 function openPanel(tab) {
-  document.body.classList.add("panel-open"); panelTab = tab;
+  document.body.classList.add("panel-open"); panelTab = tab; lastPanel = tab; try { localStorage.setItem("lc4.panel", tab); } catch (e) {}
   document.querySelectorAll(".ptabs .tab").forEach(b => b.classList.toggle("on", b.dataset.v === tab));
   document.querySelectorAll(".pview").forEach(v => v.classList.toggle("on", v.dataset.v === tab));
   if (tab === "term") startTerm(); setViewing(tab === "browser"); if (tab === "git") gitRefresh();
@@ -2304,7 +2332,7 @@ function renderJobs() {
   if (panelTab !== "tasks") return;
   const list = $("jobList"), keep = {}; list.querySelectorAll(".job").forEach(j => keep[j.dataset.id] = j.querySelector("pre")?.scrollTop);
   list.innerHTML = "";
-  if (!lastJobs.length) { list.appendChild(el("div", "aempty", "No background tasks yet. When the agent starts a server, a build or another long job in the background, it shows up here with its live output.")); return; }
+  if (!lastJobs.length) { list.appendChild(el("div", "pempty", `<svg viewBox="0 0 24 24"><path d="M8.5 12 13 7.5 17.5 12 13 16.5zM4 12l4.5-4.5M4 12l4.5 4.5"/></svg><b>No background tasks</b><span>Servers, builds and other long jobs the agent starts show up here with live output.</span>`)); return; }
   [...lastJobs].reverse().forEach(j => {
     const card = el("div", "job"); card.dataset.id = j.id;
     const mins = Math.max(0, Math.round((Date.now() / 1000 - j.started) / 60));
@@ -2317,12 +2345,15 @@ function renderJobs() {
 let fsTimer = null;
 function onFsChanged() { clearTimeout(fsTimer); fsTimer = setTimeout(() => { if (panelTab === "git") gitRefresh(); if (panelTab === "files") filesRefresh(true); }, 250); }
 $("resizer").onmousedown = e => {
-  e.preventDefault();
-  const move = ev => { const w = Math.min(Math.max(window.innerWidth - ev.clientX, 340), window.innerWidth * .75); document.documentElement.style.setProperty("--pw", w + "px"); fit?.fit(); };
-  const up = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); fit?.fit(); };
+  e.preventDefault(); $("resizer").classList.add("drag");
+  const right = $("panel").getBoundingClientRect().right, gridLeft = document.querySelector(".grid").getBoundingClientRect().left;
+  const move = ev => { const w = Math.round(Math.min(Math.max(right - ev.clientX, 340), right - gridLeft - 380)); document.documentElement.style.setProperty("--pw", w + "px"); fit?.fit(); };
+  const up = () => { window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); $("resizer").classList.remove("drag"); fit?.fit();
+    try { localStorage.setItem("lc4.pw", getComputedStyle(document.documentElement).getPropertyValue("--pw").trim()); } catch (err) {} };
   window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
 };
 new ResizeObserver(() => { if (panelTab === "term") fit?.fit(); }).observe($("termBox"));
+new ResizeObserver(() => { const w = $("panel").getBoundingClientRect().width; if (w) document.documentElement.style.setProperty("--pwpx", Math.round(w) + "px"); }).observe($("panel"));
 
 // Terminal
 async function startTerm() {
@@ -2377,7 +2408,7 @@ const _openPanel = openPanel, _closePanel = closePanel;
 openPanel = function (tab) { _openPanel(tab); setTab(tab); };
 closePanel = function () { _closePanel(); setTab("chat"); };
 function setTab(t) { document.querySelectorAll(".ctab").forEach(b => b.classList.toggle("on", b.dataset.c === t));
-  $("modeChat").classList.toggle("on", t !== "git"); $("modeCode").classList.toggle("on", t === "git"); $("crumbHere").textContent = { chat: $("chatHead").textContent || "New session", git: "Changes", term: "Terminal", browser: "Browser", files: "Files", tasks: "Background tasks" }[t] || "Agent playground"; }
+  $("modeChat").classList.toggle("on", t !== "git"); $("modeCode").classList.toggle("on", t === "git"); $("crumbHere").textContent = $("chatHead").textContent || "New session"; }
 document.querySelectorAll(".ctab").forEach(b => b.onclick = () => b.dataset.c === "chat" ? closePanel() : openPanel(b.dataset.c));
 $("greet").textContent = "Begin, a little brighter.";
 const navSet = (id) => { document.querySelectorAll("aside .navbtn").forEach(b => b.classList.toggle("on", !!id && b.id === id)); };

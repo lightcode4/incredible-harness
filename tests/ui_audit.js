@@ -2,6 +2,11 @@
 const { chromium } = require('playwright');
 const url = process.argv[2];
 const problems = [], passed = [];
+async function tab(pg, t) {
+  if (t === 'chat') { if (await pg.evaluate(() => !!panelTab)) await pg.click('#closePanel'); await pg.waitForTimeout(150); return; }
+  if (!(await pg.isVisible('#panel .ptabs'))) { await pg.click('#sidePanelBtn'); await pg.waitForTimeout(200); }
+  await pg.click(`#panel .ptabs .tab[data-v="${t}"]`); await pg.waitForTimeout(150);
+}
 async function navTo(pg, sel) { if (!(await pg.isVisible(sel))) { await pg.hover('#moreBtn'); await pg.waitForTimeout(300); } await pg.click(sel); }
 const check = (name, ok, detail = '') => (ok ? passed : problems).push(name + (detail ? ' — ' + detail : ''));
 async function overlaps(pg, label) {
@@ -116,7 +121,7 @@ async function overlaps(pg, label) {
       check('Back to Asks first', (await pg.innerText('#modeLabel')) === 'Asks first');
       await pg.click('#termToggle'); check('Terminal button opens the Terminal', await pg.isVisible('#termBox'));
       await pg.click('#browserToggle'); check('Browser button opens the Browser', await pg.isVisible('#bview'));
-      for (const t of ['git', 'term', 'browser', 'chat']) { await pg.click(`.ctab[data-c="${t}"]`); await overlaps(pg, `tab ${t}`); }
+      for (const t of ['git', 'term', 'browser', 'chat']) { await tab(pg, t); await overlaps(pg, `tab ${t}`); }
       // --- right rail
 
       { const fb = await pg.locator('#railFab').boundingBox(); await pg.mouse.move(fb.x + 20, fb.y + 20); await pg.mouse.down(); await pg.mouse.move(fb.x - 300, fb.y + 200, { steps: 8 }); await pg.mouse.up(); await pg.waitForTimeout(200);
@@ -162,30 +167,37 @@ async function overlaps(pg, label) {
       await pg.locator('.hunk input').nth(1).uncheck(); await pg.getByRole('button', { name: 'Apply selected' }).click();
       await pg.waitForFunction(() => document.querySelectorAll('.turnfoot').length >= 2, null, { timeout: 15000 });
       check('Apply selected applies only the chosen change', (await pg.innerText('#log')).includes('Applied 1 of 2'));
-      check('Tabs are named Changes, Terminal, Browser, Files, Tasks', (await pg.innerText('.ctabs')).replace(/\s+/g, ' ').includes('Changes') && (await pg.innerText('.ctabs')).includes('Terminal') && (await pg.innerText('.ctabs')).includes('Browser') && (await pg.innerText('.ctabs')).includes('Files') && (await pg.innerText('.ctabs')).includes('Tasks'));
-      await pg.click('.ctab[data-c="files"]'); await pg.waitForSelector('#fTree .fitem', { timeout: 8000 });
+      await tab(pg, 'git');
+      const pt = await pg.innerText('#panel .ptabs');
+      check('Side panel has Changes, Terminal, Browser, Files and Tasks', ['Changes', 'Terminal', 'Browser', 'Files', 'Tasks'].every(x => pt.includes(x)), pt);
+      check('The conversation stays visible beside the panel', await pg.isVisible('#log') && await pg.isVisible('#composer') && await pg.isVisible('#panel'));
+      check('Changes shows the first diff right away', (await pg.innerText('#gitDiff')).includes('+') && !(await pg.innerText('#gitDiff')).includes('Select a file'));
+      { const g = await pg.locator('.chatcard').boundingBox(), pb = await pg.locator('#panel').boundingBox(); check('Panel sits to the right of the chat', pb.x >= g.x + g.width - 2, JSON.stringify([g.x + g.width, pb.x])); }
+      await overlaps(pg, 'side panel');
+      await tab(pg, 'files'); await pg.waitForSelector('#fTree .fitem', { timeout: 8000 });
       check('Files tab lists the project folder', (await pg.innerText('#fTree')).includes('app.py'));
       await pg.locator('#fTree .fitem', { hasText: 'app.py' }).click(); await pg.waitForTimeout(400);
       check('Clicking a file shows its contents', (await pg.innerText('#fBody')).includes('def total'));
       await overlaps(pg, 'files tab');
-      await pg.click('.ctab[data-c="tasks"]'); await pg.waitForTimeout(400);
+      await tab(pg, 'tasks'); await pg.waitForTimeout(400);
       check('Tasks tab shows background tasks', await pg.isVisible('#jobList') && (await pg.innerText('#jobList')).includes('No background tasks'));
       await overlaps(pg, 'tasks tab');
-      await pg.click('.ctab[data-c="git"]'); await pg.waitForTimeout(500);
+      await tab(pg, 'git'); await pg.waitForTimeout(500);
       check('Changes tab shows changed files', (await pg.innerText('#gitFiles')).includes('app.py'));
-      await pg.click('.ctab[data-c="chat"]'); await pg.waitForTimeout(200);
+      await tab(pg, 'chat'); await pg.waitForTimeout(200);
       // Activity panel and side panel button
       await pg.click('#activityBtn'); await pg.waitForTimeout(250);
       check('Activity panel lists what the agent did', await pg.isVisible('#activityPop') && (await pg.locator('#actList .arow').count()) >= 2, String(await pg.locator('#actList .arow').count()));
       await overlaps(pg, 'activity panel');
       await pg.locator('#actList .arow').first().click(); await pg.waitForTimeout(400);
       check('Clicking a step closes the panel and jumps to it', !(await pg.isVisible('#activityPop')));
+      await tab(pg, 'chat'); await pg.click('#sidePanelBtn'); await pg.waitForTimeout(250);
+      check('Show side panel opens the work panel beside the chat', await pg.isVisible('#panel') && await pg.isVisible('#log') && await pg.evaluate(() => document.getElementById('sidePanelBtn').classList.contains('on')));
+      check('The sun button steps aside while the panel is open', !(await pg.isVisible('#railFab')));
       await pg.click('#sidePanelBtn'); await pg.waitForTimeout(250);
-      check('Show side panel opens the overview', await pg.isVisible('#railPop') && await pg.evaluate(() => document.getElementById('sidePanelBtn').classList.contains('on')));
-      await pg.click('#sidePanelBtn'); await pg.waitForTimeout(250);
-      check('Clicking it again hides it', !(await pg.isVisible('#railPop')));
+      check('Clicking it again hides it', !(await pg.isVisible('#panel')) && await pg.isVisible('#railFab'));
       await pg.keyboard.press('Control+.'); await pg.waitForTimeout(250);
-      check('Ctrl/Cmd+. toggles the side panel', await pg.isVisible('#railPop')); await pg.keyboard.press('Escape'); await pg.waitForTimeout(250);
+      check('Ctrl/Cmd+. toggles the side panel', await pg.isVisible('#panel')); await pg.keyboard.press('Control+.'); await pg.waitForTimeout(250);
       await pg.locator('.umsg').first().hover(); await pg.waitForTimeout(250);
       check('Hovering a message shows Edit and Fork', await pg.locator('.umsg').first().getByRole('button', { name: 'Edit' }).isVisible());
       const before = await pg.innerText('#chatHead');
@@ -216,7 +228,7 @@ async function overlaps(pg, label) {
       check('Ctrl+S saves the file', !(await pg.isVisible('#fEdit')) && (await pg.innerText('#fBody')).includes('# edited by hand'), await pg.innerText('#fErr'));
       await pg.click('#fRefresh'); await pg.waitForTimeout(300); await pg.locator('#fTree .fitem', { hasText: 'app.py' }).click(); await pg.waitForTimeout(400);
       check('The saved change is really on disk', (await pg.innerText('#fBody')).includes('# edited by hand'));
-      await pg.click('.ctab[data-c="chat"]'); await pg.waitForTimeout(200);
+      await tab(pg, 'chat'); await pg.waitForTimeout(200);
       // side chat
       await pg.keyboard.press('Control+;'); await pg.waitForTimeout(250);
       check('Ctrl+; opens the side chat', await pg.isVisible('#sideChat'));
