@@ -12,7 +12,7 @@ const check = (name, ok, detail = '') => (ok ? passed : problems).push(name + (d
 async function overlaps(pg, label) {
   const found = await pg.evaluate(() => {
     const sel = 'button, a, input, select, textarea, .pill, .card, .status, .badge, h1, .eyebrow, .sub, .navbtn, .chatitem, .modelchip, .sdk, .wsbox, .who, .composer, .ctab, kbd, .rrow, .nums span, .savednote';
-    const FLOATERS = ['railFab']; const modal = document.querySelector('dialog[open]') || document.querySelector('#provMenu:not([hidden])') || document.querySelector('#railDock.open #railPop') || document.querySelector('#activityPop.open') || document.querySelector('#sideChat:not([hidden])') || document.querySelector('#modeMenu:not([hidden])');
+    const FLOATERS = ['railFab']; const modal = document.querySelector('dialog[open]') || document.querySelector('#provMenu:not([hidden])') || document.querySelector('#railDock.open #railPop') || document.querySelector('#activityPop.open') || document.querySelector('#sideChat:not([hidden])') || document.querySelector('#modeMenu:not([hidden])') || document.querySelector('#folderMenu:not([hidden])');
     const clip = el => { // the part of the element that is visible inside scrolling/clipping ancestors
       let r = el.getBoundingClientRect(); r = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
       for (let p = el.parentElement; p; p = p.parentElement) {
@@ -88,6 +88,12 @@ async function overlaps(pg, label) {
       await pg.fill('#palIn', 'git'); check('Palette search finds Source control', (await pg.innerText('#palList')).includes('Source control')); await pg.keyboard.press('Escape');
       await pg.click('#keysBtn'); check('Help button opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
       // --- header & model bar
+      check('New chat shows the mascot and a greeting', await pg.isVisible('#helloMascot .mascot') && (await pg.innerText('#hello')).length > 3);
+      check('The mascot is animated', await pg.evaluate(() => getComputedStyle(document.querySelector('#helloMascot .mascot .bob')).animationName === 'mbob'));
+      check('The message box sits in the middle on a new chat', await pg.evaluate(() => document.getElementById('wslot').contains(document.getElementById('composer'))) && (await pg.getAttribute('#input', 'placeholder')) === 'How can I help you today?');
+      await pg.click('#folderBtn'); await pg.waitForTimeout(300);
+      check('Project or folder menu lists folders and a way to choose another', await pg.isVisible('#folderMenu') && (await pg.innerText('#folderMenu')).includes('Choose another folder'));
+      await overlaps(pg, 'folder menu'); await pg.keyboard.press('Escape');
       check('Front page is clean: no big heading, no suggestion chips, no footer slogan', !(await pg.isVisible('.page > .pagehead')) && !(await pg.isVisible('.chip')) && !(await pg.innerText('body')).includes('Your machine. Your rules'));
       const mp = await pg.locator('#modelPill').boundingBox(), cb = await pg.locator('#composer').boundingBox();
       check('Model and mode sit under the message box', mp && cb && mp.y > cb.y + cb.height - 2 && await pg.isVisible('#planBtn'), JSON.stringify([mp?.y, cb?.y, cb?.height]));
@@ -279,10 +285,17 @@ async function overlaps(pg, label) {
       await pg.locator('#chatList .chatitem').first().hover(); await pg.locator('#chatList .chatitem').first().locator('.pin').click(); await pg.waitForTimeout(500);
       check('Unpin works', !(await pg.isVisible('#chatList .pinsep')));
       // artifacts, diagrams and math in replies
+      check('While working, the mascot hops', await pg.evaluate(() => { showWorking(); const ok = !!document.querySelector('#working .mascot.work'); document.getElementById('working')?.remove(); return ok; }));
       await pg.click('#navPlay'); await pg.waitForTimeout(200);
       await pg.fill('#input', 'Show me a demo'); await pg.keyboard.press('Enter');
       await pg.waitForSelector('#artifact:not([hidden])', { timeout: 15000 });
       check('An HTML reply opens as a live artifact', (await pg.innerText('#artTitle')) === 'Sunrise counter');
+      await pg.click('#artClose'); await pg.click('#side > .newchat'); await pg.waitForTimeout(900);
+      await pg.waitForSelector('#recGrid .reccard', { timeout: 8000 });
+      check('New chat lists recent artifacts with live previews', (await pg.innerText('#recents')).includes('Recent artifacts') && (await pg.innerText('#recGrid')).includes('Sunrise counter') && await pg.locator('#recGrid iframe').count() >= 1);
+      await overlaps(pg, 'recent artifacts');
+      await pg.locator('#recGrid .reccard', { hasText: 'Sunrise counter' }).click(); await pg.waitForSelector('#artifact:not([hidden])', { timeout: 8000 });
+      check('Clicking a recent artifact opens it again', (await pg.innerText('#artTitle')) === 'Sunrise counter');
       const fr = pg.frameLocator('#artFrame'); await fr.locator('button').click(); await fr.locator('button').click();
       check('The artifact runs (its button counts clicks)', (await fr.locator('button').innerText()) === 'Clicks: 2');
       check('The artifact cannot reach the app', await pg.evaluate(() => { try { return !document.getElementById('artFrame').contentWindow.document; } catch (e) { return true; } }));

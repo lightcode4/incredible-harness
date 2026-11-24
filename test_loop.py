@@ -1134,6 +1134,15 @@ def main():
     assert json.loads(CONFIG_FILE.read_text())["theme"] == "dark"
     srv3.shutdown()
     print("61 rename, pin, times, display settings OK")
+    # 62. recent artifacts for the new-chat screen: newest first, titled from the page, from saved chats
+    s.new_chat()
+    d.run("make a page", script=[("text", "Here:\n\n```html\n<!doctype html><title>Launch page</title><h1>Hi</h1>\n```\nDone.")])
+    arts = s.recent_artifacts(6)
+    assert arts and arts[0]["title"] == "Launch page" and arts[0]["lang"] == "html" and "<h1>Hi</h1>" in arts[0]["code"], arts[:1]
+    assert arts == sorted(arts, key=lambda a: -a["updated"])
+    pc = s.public_config()
+    assert pc["has_chats"] is True and "name" in pc
+    print("62 recent artifacts OK")
     print("ALL TESTS PASSED")
 
 

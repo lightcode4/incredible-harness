@@ -691,6 +691,53 @@ body.models-open #modelsView { display: block !important; }
 .chips { display: none !important; }
 #welcome .empty { font-size: 34px; }
 #dock { border-top: 0 !important; }
+/* ---- new-chat screen: mascot + greeting, centered message box, recent artifacts ---- */
+body:not(.chatting) .chatcard { justify-content: flex-start; }
+#welcome { justify-content: flex-start !important; padding: 13vh 24px 32px !important; overflow-y: auto; gap: 0; align-items: center; }
+.hello { display: flex; align-items: center; gap: 16px; margin-bottom: 26px; }
+.hello h1 { margin: 0; font-size: 44px; font-weight: 400; letter-spacing: -.02em; color: var(--text); }
+.wslot { width: min(760px, 100%); display: flex; flex-direction: column; }
+.wslot #composer { min-height: 118px; border-radius: 18px; padding: 14px 16px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.04), 0 14px 40px rgba(91,65,21,.08); }
+.wslot #composer textarea { font-size: 16px; min-height: 52px; }
+.wslot #compbar { padding: 10px 6px 0; }
+#compbar { justify-content: flex-end; } .wslot #compbar { justify-content: space-between; }
+.fwrap { position: relative; display: none; margin-right: auto; } .wslot .fwrap { display: block; }
+#folderBtn { display: flex; align-items: center; gap: 7px; border: 0; background: none; padding: 5px 8px; border-radius: 9px; font-size: 13.5px; color: var(--text); max-width: 320px; }
+#folderBtn:hover, #folderBtn[aria-expanded="true"] { background: var(--hover); } #folderBtn svg { width: 15px; height: 15px; } #folderBtn .chev { transform: rotate(90deg); opacity: .6; width: 13px; height: 13px; }
+#folderBtn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#folderMenu { position: absolute; left: 0; top: calc(100% + 6px); width: 300px; z-index: 32; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,.14); max-height: 360px; overflow-y: auto; }
+#folderMenu[hidden] { display: none; }
+#folderMenu .fmsec { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 8px 10px 4px; }
+#folderMenu button { display: flex; align-items: center; gap: 9px; width: 100%; border: 0; background: none; padding: 7px 10px; border-radius: 9px; text-align: left; color: var(--text); font-size: 13px; cursor: pointer; }
+#folderMenu button:hover, #folderMenu button:focus-visible { background: var(--hover); outline: none; } #folderMenu button svg { width: 15px; height: 15px; color: var(--muted); flex: none; }
+#folderMenu button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } #folderMenu button small { color: var(--faint); margin-left: auto; font-size: 11px; flex: none; }
+#folderMenu button.on { background: var(--soft); }
+.recents { width: min(760px, 100%); margin-top: 56px; }
+.rhead { display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px 12px; } .rhead span { color: var(--muted); font-size: 14px; } .rhead .linkbtn { font-size: 13px; }
+#recGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.reccard { border: 1px solid var(--line); background: var(--panel); border-radius: 14px; overflow: hidden; cursor: pointer; text-align: left; padding: 0; display: flex; flex-direction: column; transition: border-color .15s, transform .15s; color: var(--text); }
+.reccard:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); transform: translateY(-1px); }
+.recthumb { height: 118px; position: relative; overflow: hidden; background: var(--side); border-bottom: 1px solid var(--line-soft); }
+.recthumb iframe { position: absolute; left: 50%; top: 14px; width: 1000px; height: 700px; border: 0; background: #fff; transform: translateX(-50%) scale(.27); transform-origin: top center; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 30px var(--side); }
+.recthumb .sess { position: absolute; inset: 16px 22px 0; border-radius: 10px 10px 0 0; background: var(--panel); border: 1px solid var(--line); border-bottom: 0; padding: 12px; font-size: 11px; color: var(--muted); line-height: 1.5; overflow: hidden; }
+.recfoot { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 10px 12px 11px; } .recfoot b { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .recfoot small { color: var(--muted); font-size: 12px; flex: none; }
+@media (max-height: 760px) { #welcome { padding-top: 7vh !important; } .hello h1 { font-size: 36px; } .recents { margin-top: 32px; } }
+/* ---- the LightCode4 mascot: a little pixel sun ---- */
+.mascot { display: block; image-rendering: pixelated; shape-rendering: crispEdges; overflow: visible; stroke: none !important; fill: none; } .mascot rect { stroke: none !important; }
+.mascot .body { fill: #e8c46a; } .mascot .shade { fill: #c99a3e; } .mascot .ink { fill: #5b4115; } .mascot .ray { fill: #e8c46a; } .mascot .cheek { fill: #e9946a; } .mascot .eye { fill: #2b2012; } .mascot .shine { fill: #fff6dc; }
+.mascot .bob { animation: mbob 1.4s steps(1) infinite; }
+.mascot .eyes { animation: mblink 4.2s steps(1) infinite; transform-box: fill-box; transform-origin: center; }
+.mascot .r1 { animation: mray 1.6s steps(1) infinite; } .mascot .r2 { animation: mray 1.6s steps(1) .53s infinite; } .mascot .r3 { animation: mray 1.6s steps(1) 1.06s infinite; }
+@keyframes mbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+@keyframes mblink { 0%, 93%, 100% { transform: scaleY(1); } 94%, 97% { transform: scaleY(.2); } }
+@keyframes mray { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.mascot.work .bob { animation: mhop .5s steps(1) infinite; } .mascot.work .fl { animation: mfoot .5s steps(1) infinite; } .mascot.work .fr { animation: mfoot .5s steps(1) .25s infinite; }
+.mascot.work .r1, .mascot.work .r2, .mascot.work .r3 { animation-duration: .6s; }
+@keyframes mhop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes mfoot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+.mascot-slot .mascot { width: 72px; height: 64px; }
+.working .mascot { width: 26px; height: 23px; } .working i { display: none; }
+@media (prefers-reduced-motion: reduce) { .mascot * { animation: none !important; } }
 /* ---- side panel beside the conversation (Claude app layout) ---- */
 body.panel-open .grid { grid-template-columns: minmax(380px, 1fr) var(--pw, 46%); gap: 0; }
 .grid > #panel { display: none; flex-direction: column; min-width: 0; min-height: 0; position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin: 6px 0 4px 12px; box-shadow: var(--shadow); }
@@ -900,9 +947,11 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         </nav>
         <div class="cbody">
           <section id="welcome">
-            <div class="empty serif">What would you like to build?</div>
-            <div class="chips">
-
+            <div class="hello"><span class="mascot-slot" id="helloMascot"></span><h1 class="serif" id="hello">Back at it</h1></div>
+            <div class="wslot" id="wslot"></div>
+            <div class="recents" id="recents" hidden>
+              <div class="rhead"><span id="recTitle">Recent artifacts</span><button class="linkbtn" id="recAll">View all</button></div>
+              <div id="recGrid"></div>
             </div>
           </section>
           <div id="scroll"><div class="col"><div id="log" role="log" aria-live="polite" aria-label="Conversation"></div></div></div>
@@ -922,6 +971,8 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <input type="file" id="fileInput" multiple hidden>
     </div>
           <div id="compbar">
+            <div class="fwrap"><button class="ghost" id="folderBtn" aria-haspopup="menu" aria-expanded="false" title="Project or folder this chat works in"><svg><use href="#i-folder"/></svg><span id="folderBtnName">Project or folder</span><svg class="chev"><use href="#i-chev"/></svg></button>
+              <div id="folderMenu" role="menu" hidden></div></div>
             <div class="modelbar">
       <div id="provMenu" class="card" hidden role="menu" aria-label="Choose a provider">
         <div class="pmhead">A model for every possibility</div><div id="provList"></div>
@@ -1109,6 +1160,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <div class="field"><label>Working folder</label><div style="display:flex;gap:8px"><input id="cwd" spellcheck="false"><button class="btn" id="pick" hidden>Browse…</button></div></div>
     </div>
     <div class="pane" data-p="tools">
+      <div class="field"><label for="myName">What should LightCode⁴ call you? <small>(used in the greeting)</small></label><input id="myName" maxlength="40" placeholder="Your first name"></div>
       <div class="field"><label for="themeSel">Appearance</label><div class="artseg" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content"><button data-t="system">System</button><button data-t="light">Light</button><button data-t="dark">Dark</button></div></div>
       <label class="toggle"><span>Sound when a task finishes<small>A soft chime when a longer task is done, or when LightCode⁴ is in the background.</small></span><span class="switch"><input type="checkbox" id="soundOn"><span></span></span></label>
       <div class="field"><label for="quickKey">Quick chat shortcut <small>(opens a small LightCode⁴ box over any app; leave empty to turn off)</small></label>
@@ -1207,11 +1259,23 @@ const nearBottom = () => { const s = $("scroll"); return s.scrollHeight - s.scro
 function scroll(force) { const s = $("scroll"); if (force || nearBottom()) s.scrollTop = s.scrollHeight; }
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
 function add(node) { const stick = nearBottom(); $("working")?.remove(); log.appendChild(node); if (stick || replaying) scroll(true); if (busy && !replaying) showWorking(); return node; }
-function showWorking() { $("working")?.remove(); const w = el("div", "working", "<i></i>Working…"); w.id = "working"; log.appendChild(w); }
+function showWorking() { $("working")?.remove(); const w = el("div", "working", mascot(true) + "<span>Working…</span>"); w.id = "working"; log.appendChild(w); }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const money = v => v < 0.01 && v > 0 ? "<$0.01" : "$" + v.toFixed(2);
 const fmtTok = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(n);
 
+// ---------- Mascot: an original pixel sun ("Sunny") ----------
+function mascot(work = false) {
+  // 18 x 16 pixel sun: three rays, a round gold body with an outline, eyes, cheeks, a horizon line and two feet
+  const R = (x, y, w = 1, h = 1, c = "body") => `<rect class="${c}" x="${x}" y="${y}" width="${w}" height="${h}"/>`;
+  const rays = `<g class="r1">${R(8, 0, 2, 3, "ray")}</g><g class="r2">${R(2, 2, 2, 2, "ray")}${R(4, 4, 1, 1, "ray")}</g><g class="r3">${R(14, 2, 2, 2, "ray")}${R(13, 4, 1, 1, "ray")}</g>`;
+  const outline = R(6, 4, 6, 1, "ink") + R(4, 5, 2, 1, "ink") + R(12, 5, 2, 1, "ink") + R(3, 6, 1, 1, "ink") + R(14, 6, 1, 1, "ink")
+    + R(2, 7, 1, 5, "ink") + R(15, 7, 1, 5, "ink") + R(3, 12, 12, 1, "ink");
+  const fill = R(6, 5, 6, 1) + R(4, 6, 10, 1) + R(3, 7, 12, 5) + R(3, 11, 12, 1, "shade") + R(5, 6, 2, 1, "shine");
+  const face = `<g class="eyes">${R(6, 8, 1, 2, "eye")}${R(11, 8, 1, 2, "eye")}</g>` + R(4, 10, 2, 1, "cheek") + R(12, 10, 2, 1, "cheek") + R(8, 10, 2, 1, "ink");
+  const feet = `<g class="fl">${R(5, 13, 3, 1, "ink")}</g><g class="fr">${R(10, 13, 3, 1, "ink")}</g>`;
+  return `<svg class="mascot${work ? " work" : ""}" viewBox="0 -1 18 16" aria-hidden="true"><g class="bob">${rays}${fill}${outline}${face}</g>${feet}</svg>`;
+}
 // ---------- Markdown ----------
 function inline(s) {
   return esc(s).replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
@@ -1602,7 +1666,7 @@ function setPlanTr() { if (typeof uiLang !== "undefined" && uiLang !== "en") { c
 function setPlan(on) { config.plan = on; $("planBtn").classList.toggle("on", on); $("composer").classList.toggle("plan", on); if (typeof updateModeBtn === "function") updateModeBtn();
   $("input").placeholder = on ? "Describe what you want. The agent will research and propose a plan first…" : "Ask LightCode⁴ to build, fix or explain something…"; setPlanTr(); }
 function showConfig(c) {
-  config = c; if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
+  config = c; setTimeout(() => { if (typeof folderLabel === "function") { folderLabel(); if (!document.body.classList.contains("chatting")) $("hello").textContent = greeting(); } }, 0); if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
   if (c.theme && !$("settings").open) applyTheme(c.theme);
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
   $("modelName").textContent = c.model + (c.provider === "claude" ? ` · ${c.effort}` : "");
@@ -1642,7 +1706,7 @@ async function openSettings(tab) {
   $("language").value = config.language || ""; $("sandbox").value = config.sandbox || "off";
   $("sandboxHint").textContent = config.sandbox_available ? "Uses the " + config.sandbox_available + "." : "Not supported on this computer (Windows): with the sandbox on, commands won't run.";
   $("lmcpRows").innerHTML = ""; (config.mcp_local || []).forEach(lmcpRow);
-  $("soundOn").checked = !!config.sound; markTheme(config.theme || "system");
+  $("soundOn").checked = !!config.sound; markTheme(config.theme || "system"); $("myName").value = config.name || "";
   $("diagnostics").checked = config.diagnostics !== false; $("computer").checked = !!config.computer; $("phone").checked = !!config.phone;
   $("voiceKey").value = ""; $("voiceKey").placeholder = config.voice_key ? "Saved — leave empty to keep" : "sk-… (only needed if voice typing isn't built into your system)";
   $("hookEdit").value = config.hooks?.after_edit || ""; $("hookFinish").value = config.hooks?.before_finish || "";
@@ -1663,7 +1727,7 @@ $("saveSettings").onclick = async () => {
   const mcp = [...document.querySelectorAll("#mcpRows .lmcp")].map(r => ({ name: r.querySelector(".n").value.trim(), url: r.querySelector(".u").value.trim(), token: r.querySelector(".t").value.trim() })).filter(m => m.name && m.url);
   const body = { provider, model: $("model").value.trim(), effort: $("effort").value, base_url: $("baseurl").value.trim(), cwd: $("cwd").value.trim(),
     auto: $("auto").checked, web: $("web").checked, compaction: $("compaction").checked, budget: parseFloat($("budget").value) || 0, mcp,
-    rules: { allow: lines("allow"), deny: lines("deny") }, diagnostics: $("diagnostics").checked, sound: $("soundOn").checked, computer: $("computer").checked,
+    rules: { allow: lines("allow"), deny: lines("deny") }, diagnostics: $("diagnostics").checked, sound: $("soundOn").checked, name: $("myName").value.trim(), computer: $("computer").checked,
     fast_model: $("fastModel").value.trim(), language: $("language").value.trim(), ui_language: $("uiLang").value, sandbox: $("sandbox").value,
     mcp_local: [...document.querySelectorAll(".lmcp")].map(r => ({ name: r.querySelector(".ln").value.trim(), command: r.querySelector(".lc").value.trim(),
       args: r.querySelector(".la").value.trim(), env: Object.fromEntries(r.querySelector(".le").value.split("\n").map(l => l.trim()).filter(l => l.includes("="))
@@ -1908,6 +1972,70 @@ $("wlNext").onclick = async () => {
   } catch (e) { $("wlErr").textContent = e.message; $("wlNext").disabled = false; }
 };
 window.addEventListener("pywebviewready", () => { $("wlPick").hidden = false; $("wlPick").onclick = async () => { const f = await window.pywebview.api.pick_folder(); if (f) $("wlFolder").value = f; }; });
+// ---------- New-chat screen ----------
+const WELCOME_PH = "How can I help you today?", CHAT_PH = "Ask LightCode⁴ to build, fix or explain something…";
+function greeting() {
+  const h = new Date().getHours(), name = (config.name || "").trim();
+  const base = (config.has_chats ? "Back at it" : h < 5 ? "Up late" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
+  return name ? `${base}, ${name}` : base;
+}
+function placeComposer() {
+  const chatting = document.body.classList.contains("chatting");
+  if (chatting) { if (!$("dock").contains($("composer"))) { $("dock").prepend($("compbar")); $("dock").prepend($("composer")); } }
+  else if (!$("wslot").contains($("composer"))) { $("wslot").append($("composer"), $("compbar")); }
+  if (!config.plan) $("input").placeholder = chatting ? CHAT_PH : WELCOME_PH;
+  if (!chatting) { $("hello").textContent = greeting(); loadRecents(); }
+}
+dockComposer = () => { document.body.classList.add("chatting"); placeComposer(); };
+undockComposer = () => placeComposer();
+$("helloMascot").innerHTML = mascot();
+let recAll = false;
+async function loadRecents() {
+  let arts = [];
+  try { arts = (await api("/api/artifacts/recent", { limit: recAll ? 24 : 3 })).artifacts; } catch (e) {}
+  const grid = $("recGrid"); grid.innerHTML = "";
+  const day = t => new Date(t * 1000).toLocaleDateString([], { month: "short", day: "numeric" });
+  if (arts.length) {
+    $("recTitle").textContent = "Recent artifacts";
+    arts.forEach(a => { const c = el("button", "reccard", `<div class="recthumb"><iframe tabindex="-1" loading="lazy" sandbox="allow-scripts" title=""></iframe></div><div class="recfoot"><b></b><small></small></div>`);
+      c.querySelector("iframe").srcdoc = artifactDoc(a.code, a.lang); c.querySelector("b").textContent = a.title; c.querySelector("small").textContent = day(a.updated);
+      c.title = `${a.title} — from “${a.chat_title}”`;
+      c.onclick = async () => { try { await api("/api/chat/open", { id: a.chat }); openArtifact(a.code, a.lang); } catch (e) { notice(e.message); } };
+      grid.appendChild(c); });
+  } else {
+    let chats = []; try { chats = (await api("/api/chats")).chats; } catch (e) {}
+    chats = chats.slice(0, recAll ? 24 : 3);
+    $("recTitle").textContent = "Recent sessions";
+    chats.forEach(ch => { const c = el("button", "reccard", `<div class="recthumb"><div class="sess"></div></div><div class="recfoot"><b></b><small></small></div>`);
+      c.querySelector(".sess").textContent = ch.title; c.querySelector("b").textContent = ch.title; c.querySelector("small").textContent = ch.updated ? day(ch.updated) : "";
+      c.onclick = () => api("/api/chat/open", { id: ch.id }).catch(e => notice(e.message)); grid.appendChild(c); });
+  }
+  $("recents").hidden = !grid.children.length; $("recAll").textContent = recAll ? "Show less" : "View all";
+}
+$("recAll").onclick = () => { recAll = !recAll; loadRecents(); };
+// folder / project picker under the message box
+function folderLabel() { const p = (config.chat_project && (PJ_CACHE || []).find(x => x.id === config.chat_project)); const f = config.chat_cwd || config.cwd || "";
+  $("folderBtnName").textContent = p ? p.name : (f ? f.split(/[\\/]/).filter(Boolean).pop() || f : "Project or folder"); }
+let PJ_CACHE = [];
+async function toggleFolderMenu(on = $("folderMenu").hidden) {
+  $("folderMenu").hidden = !on; $("folderBtn").setAttribute("aria-expanded", on); if (!on) return;
+  try { PJ_CACHE = (await api("/api/projects")).projects; } catch (e) {}
+  const m = $("folderMenu"), cur = config.chat_cwd || config.cwd; m.innerHTML = "";
+  const item = (iconHtml, label, small, on, fn) => { const b = el("button", on ? "on" : "", iconHtml + "<span></span><small></small>"); b.setAttribute("role", "menuitem"); b.querySelector("span").textContent = label; b.querySelector("small").textContent = small || ""; b.title = small || label; b.onclick = () => { toggleFolderMenu(false); fn(); }; m.appendChild(b); };
+  if (PJ_CACHE.length) { m.appendChild(el("div", "fmsec", "Projects"));
+    PJ_CACHE.forEach(p => item('<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>', p.name, "", config.chat_project === p.id,
+      () => api("/api/project/chat", { id: p.id }).catch(e => notice(e.message)))); }
+  m.appendChild(el("div", "fmsec", "Folders"));
+  [...new Set([cur, ...(config.recent_folders || [])].filter(Boolean))].slice(0, 8).forEach(f => item('<svg><use href="#i-folder"/></svg>', f.split(/[\\/]/).filter(Boolean).pop() || f, f.replace(/^\/Users\/[^/]+/, "~"), f === cur && !config.chat_project, () => useFolder(f)));
+  item('<svg><use href="#i-plus"/></svg>', "Choose another folder…", "", false, () => openFolderPicker());
+  item('<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M12 11v6M9 14h6"/></svg>', "New project…", "", false, () => openProjects());
+  setTimeout(() => m.querySelector("button")?.focus(), 10);
+}
+$("folderBtn").onclick = e => { e.stopPropagation(); toggleFolderMenu(); };
+$("folderMenu").addEventListener("keydown", e => { const items = [...$("folderMenu").querySelectorAll("button")], i = items.indexOf(document.activeElement);
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); items[(i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus(); }
+  if (e.key === "Escape") { e.preventDefault(); toggleFolderMenu(false); $("folderBtn").focus(); } });
+document.addEventListener("pointerdown", e => { if (!$("folderMenu").hidden && !e.target.closest("#folderMenu, #folderBtn")) toggleFolderMenu(false); });
 // ---------- Artifact panel ----------
 $("artClose").onclick = closeArtifact;
 $("artPrev").onclick = () => artView("preview"); $("artShowCode").onclick = () => artView("code");

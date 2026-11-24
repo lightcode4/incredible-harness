@@ -932,7 +932,7 @@ class Session:
                        "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
-                       "theme": "system", "sound": False, "onboarded": False}
+                       "theme": "system", "sound": False, "onboarded": False, "name": ""}
         self.quick_toggle = self.quick_hide = self.focus_main = self.on_hotkey = None  # set by the desktop app
         self.side_chats: dict[str, Chat] = {}  # main chat id -> its side chat
         self.mcp = McpManager()
@@ -1120,6 +1120,7 @@ class Session:
         c["instructions"] = chat.instruction_files if chat else []
         c["chat_cwd"] = chat.cwd if chat else c["cwd"]
         c["chat_project"] = chat.project if chat else None
+        c["has_chats"] = CHATS.is_dir() and any(CHATS.glob("*.json"))
         c["build"], c["version"], c["phone_url"] = BUILD, __version__, self.phone_url
         c["remote_url"] = self.remote_url
         c["context_window"] = self.config.get("context_window") or 0
@@ -1237,6 +1238,37 @@ class Session:
         if self.focus_main:
             self.focus_main()
         return chat.id
+
+    # ---------------------------------------------------------------- recent artifacts (new-chat screen)
+    ART_RX = re.compile(r"^```(html|svg)[ \t]*\n(.*?)^```", re.S | re.M)
+
+    def recent_artifacts(self, limit: int = 6) -> list[dict]:
+        out = []
+        for p in sorted(CHATS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:300]:
+            try:
+                d = json.loads(p.read_text())
+            except (OSError, ValueError):
+                continue
+            live = self.chats.get(d.get("id"))
+            events = live.transcript if live else d.get("transcript", [])
+            title = (self.config.get("titles") or {}).get(d.get("id")) or (live.title if live else d.get("title")) or "Untitled"
+            for e in reversed(events):
+                if e.get("kind") != "text":
+                    continue
+                for m in reversed(list(self.ART_RX.finditer(e.get("text", "")))):
+                    code = m.group(2)
+                    if len(code) > 300_000:
+                        continue
+                    tm = re.search(r"<title>([^<]{1,80})</title>", code, re.I)
+                    out.append({"chat": d["id"], "chat_title": title, "title": tm.group(1).strip() if tm else title,
+                                "lang": m.group(1), "code": code, "updated": d.get("updated", p.stat().st_mtime)})
+                    break
+                else:
+                    continue
+                break
+            if len(out) >= limit:
+                break
+        return sorted(out, key=lambda a: -a["updated"])
 
     # ---------------------------------------------------------------- search
     def search_chats(self, q: str, limit: int = 40) -> list[dict]:
@@ -1755,6 +1787,8 @@ def make_handler(session: Session, token: str):
                     side = session.side_chats.get(session.chat_id)
                     if side:
                         side.cancel.set()
+                elif path == "/api/artifacts/recent":
+                    result = {"artifacts": session.recent_artifacts(int(data.get("limit", 6)))}
                 elif path == "/api/chats/search":
                     result = {"hits": session.search_chats(str(data.get("q", "")))}
                 elif path == "/api/projects":
@@ -1831,10 +1865,11 @@ def make_handler(session: Session, token: str):
                     result = {"url": session.set_remote(bool(data.get("on")))}
                     session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/config":
-                    if set(data) <= {"auto", "plan", "theme", "sound", "onboarded"}:  # display choices: no restart needed
+                    if set(data) <= {"auto", "plan", "theme", "sound", "onboarded", "name"}:  # display choices: no restart needed
                         for k, v in data.items():
-                            session.config[k] = (str(v) if str(v) in ("system", "light", "dark") else "system") if k == "theme" else bool(v)
-                        if set(data) & {"theme", "sound", "onboarded"}:
+                            session.config[k] = ((str(v) if str(v) in ("system", "light", "dark") else "system") if k == "theme"
+                                                 else " ".join(str(v).split())[:40] if k == "name" else bool(v))
+                        if set(data) & {"theme", "sound", "onboarded", "name"}:
                             session.save()
                     else:
                         if chat and chat.busy:
