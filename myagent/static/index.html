@@ -738,6 +738,8 @@ mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); colo
 .ghsign { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 6px 0 14px; } .ghsign small { color: var(--muted); font-size: 12.5px; }
 .ghcode { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; } .ghcode code, .ghbig { font: 600 20px var(--monoF); letter-spacing: .12em; padding: 6px 12px; border-radius: 10px; background: var(--soft); border: 1px solid var(--line); color: var(--text); }
 .ghalt > summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; } .ghcard { flex-wrap: wrap; }
+.mkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .mkbar input { width: 200px; }
+.mkkind { font-style: normal; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; margin-left: 6px; text-transform: capitalize; }
 .ghme { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); margin-bottom: 14px; }
 .ghme img { width: 40px; height: 40px; border-radius: 50%; } .ghme b { display: block; font-size: 14.5px; } .ghme small { color: var(--muted); font-size: 12.5px; }
 .ghstep { display: flex; gap: 12px; padding: 12px 0; } .ghstep > span { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); border: 1px solid var(--line); font: 600 12px var(--monoF); color: var(--accent); }
@@ -1052,6 +1054,12 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         <span class="spacer"></span><button class="btn" id="gaBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
       <div class="rsec" style="border:0;margin-top:14px">Skills</div><div class="gagrid" id="gaSkills"></div>
       <div class="rsec" style="border:0;margin-top:22px">Connectors</div><div class="gagrid" id="gaConn"></div>
+      <div class="rsec" style="border:0;margin-top:22px">Marketplace</div>
+      <p class="sub" style="margin:2px 0 10px">Skills, agents, slash commands and Claude Code plugins from GitHub. Add any repository that has them.</p>
+      <div class="mkbar"><div class="artseg" id="mkSources" role="tablist" aria-label="Marketplaces"></div><span class="spacer"></span>
+        <input id="mkRepo" placeholder="owner/repo" spellcheck="false"><button class="btn small" id="mkAdd">Add marketplace</button></div>
+      <input id="mkSearch" placeholder="Search this marketplace" spellcheck="false" style="margin:10px 0 4px;width:100%">
+      <div class="gagrid" id="mkItems"><div class="ghempty">Open this page to load the marketplace.</div></div>
       <p class="sub" style="margin-top:16px">Your own skills: add a folder with a SKILL.md file to <code>~/.incredible-herness/skills/</code> (or <code>.herness/skills/</code> inside a project). <span id="gaCustom"></span></p>
     </section>
     <section id="usageView" hidden>
@@ -3086,6 +3094,7 @@ async function openGallery() {
 function closeGallery() { document.body.classList.remove("gallery-open"); }
 async function loadGallery() {
   let g; try { g = await api("/api/gallery"); } catch (e) { notice(e.message); return; }
+  loadMarket(mk.source);
   const sk = $("gaSkills"); sk.innerHTML = "";
   g.skills.forEach(x => { const c = el("div", "gacard", "<b></b><p></p><div class=\"gafoot\"></div>"); c.querySelector("b").textContent = x.name; c.querySelector("p").textContent = x.blurb;
     const f = c.querySelector(".gafoot");
@@ -3101,6 +3110,33 @@ async function loadGallery() {
     else { f.appendChild(el("span")); const a = el("button", "btn small primary"); a.textContent = "Set up"; a.onclick = async () => { await openSettings("mcp"); [...$("presets").querySelectorAll("button")].find(b => b.textContent === p.label)?.click(); }; f.appendChild(a); }
     cn.appendChild(c); });
 }
+// ---------- Marketplace (GitHub repositories of skills, agents, commands and plugins) ----------
+let mk = { source: "", items: [] };
+async function loadMarket(source) {
+  const box = $("mkItems"); box.innerHTML = '<div class="ghempty">Loading…</div>';
+  try { const r = await api("/api/market", source ? { source } : {}); mk = r; drawSources(); drawMarket(); }
+  catch (e) { box.innerHTML = ""; box.appendChild(el("div", "ghempty", esc(e.message))); }
+}
+function drawSources() { const bar = $("mkSources"); bar.innerHTML = "";
+  (mk.sources || []).forEach(src => { const b = el("button", src === mk.source ? "on" : "", esc(src)); b.title = "Right-click to remove this marketplace";
+    b.onclick = () => loadMarket(src);
+    b.oncontextmenu = async e => { e.preventDefault(); if (!confirm(`Remove the marketplace ${src}? Installed items stay.`)) return; await api("/api/market/source", { repo: src, remove: true }); loadMarket(); };
+    bar.appendChild(b); }); }
+function drawMarket() { const q = $("mkSearch").value.trim().toLowerCase(), box = $("mkItems"); box.innerHTML = "";
+  const rows = (mk.items || []).filter(x => !q || (x.name + " " + x.description).toLowerCase().includes(q));
+  if (!rows.length) { box.appendChild(el("div", "ghempty", mk.items?.length ? "Nothing matches." : "This repository has no skills, agents or commands.")); return; }
+  rows.forEach(x => { const c = el("div", "gacard", `<b></b><em class="mkkind">${esc(x.kind)}</em><p></p><div class="gafoot"></div>`);
+    c.querySelector("b").textContent = x.name; c.querySelector("p").textContent = x.description || "";
+    const f = c.querySelector(".gafoot");
+    const go = async (remove) => { b.disabled = true; try { await api("/api/market/install", { repo: mk.source, id: x.id, remove }); x.installed = !remove; drawMarket(); notice(remove ? `Removed ${x.name}.` : `Installed ${x.name}.`); } catch (e) { notice(e.message); b.disabled = false; } };
+    let b;
+    if (x.installed) { f.appendChild(el("span", "added", "✓ Installed")); b = el("button", "btn small"); b.textContent = "Remove"; b.onclick = () => go(true); }
+    else { f.appendChild(el("span")); b = el("button", "btn small primary"); b.textContent = "Install"; b.onclick = () => go(false); }
+    f.appendChild(b); box.appendChild(c); }); }
+$("mkSearch").oninput = drawMarket;
+$("mkAdd").onclick = async () => { const repo = $("mkRepo").value.trim(); if (!repo) return $("mkRepo").focus(); $("mkAdd").disabled = true;
+  try { await api("/api/market/source", { repo }); $("mkRepo").value = ""; await loadMarket(repo.replace("https://github.com/", "").replace(/\/$/, "")); } catch (e) { notice(e.message); } finally { $("mkAdd").disabled = false; } };
+$("mkRepo").onkeydown = e => { if (e.key === "Enter") $("mkAdd").click(); };
 $("navGallery").onclick = e => { e.stopPropagation(); openGallery(); };
 $("gaBack").onclick = () => { closeGallery(); navSet("navPlay"); setTab("chat"); };
 let usDays = 30, usData = null, usTable = false;

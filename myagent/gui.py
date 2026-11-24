@@ -30,7 +30,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, extras, gallery, github, gitops, lsp, projects
+from . import __version__, extras, gallery, github, gitops, lsp, market, projects
 from .catalog import BY_ID as PROVIDER_BY_ID, PROVIDERS, guess_service
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
@@ -2449,6 +2449,32 @@ def make_handler(session: Session, token: str):
                     if not session.quick_toggle:
                         raise RuntimeError("Quick chat works in the LightCode⁴ desktop app.")
                     session.quick_toggle()
+                elif path == "/api/market":
+                    tok = session.config.get("github_token", "")
+                    st = market.load_state()
+                    src = str(data.get("source") or (st["sources"][0] if st["sources"] else ""))
+                    try:
+                        items = market.browse(src, tok) if src else []
+                    except market.MarketError as e:
+                        raise ValueError(str(e))
+                    result = {"sources": st["sources"], "source": src, "items": items}
+                elif path == "/api/market/source":
+                    try:
+                        result = {"sources": market.remove_source(str(data.get("repo", ""))) if data.get("remove")
+                                  else market.add_source(str(data.get("repo", "")), session.config.get("github_token", ""))}
+                    except market.MarketError as e:
+                        raise ValueError(str(e))
+                elif path == "/api/market/install":
+                    try:
+                        if data.get("remove"):
+                            market.uninstall(str(data.get("repo", "")), str(data.get("id", "")))
+                            result = {}
+                        else:
+                            result = market.install(str(data.get("repo", "")), str(data.get("id", "")), session.config.get("github_token", ""))
+                    except market.MarketError as e:
+                        raise ValueError(str(e))
+                    if chat and not chat.busy:
+                        chat.build(keep_history=True)  # the agent sees new skills and agents right away
                 elif path == "/api/gallery":
                     result = {"skills": gallery.catalog(), "skills_custom": [n for n in extras.skills(session.config["cwd"]) if n not in gallery.BY_ID],
                               "connectors": [m["name"] for m in session.config.get("mcp") or []] + [m["name"] for m in session.config.get("mcp_local") or []]}

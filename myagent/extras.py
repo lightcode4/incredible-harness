@@ -148,7 +148,8 @@ def _load_dir(d: Path) -> dict:
 
 def commands(cwd: str) -> dict:
     """name -> (description, prompt template). Project commands override personal ones, which override built-ins."""
-    return {**BUILTIN_COMMANDS, **_load_dir(HOME / "commands"), **_load_dir(Path(cwd) / ".herness" / "commands")}
+    return {**BUILTIN_COMMANDS, **_load_dir(Path.home() / ".claude" / "commands"), **_load_dir(HOME / "commands"),
+            **_load_dir(Path(cwd) / ".claude" / "commands"), **_load_dir(Path(cwd) / ".herness" / "commands")}
 
 
 def skills(cwd: str) -> dict:

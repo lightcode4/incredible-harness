@@ -1681,6 +1681,64 @@ def main():
     assert desktop.forward_link(["LightCode4"]) is False
     srv78.shutdown()
     print("78 notification click opens its chat OK")
+    # 79. marketplace: browse a GitHub repo of skills/agents/commands and a Claude Code plugin marketplace; install + remove
+    from myagent import market
+    repos = {
+        "acme/skills": {"skills/pdf-tools/SKILL.md": "---\nname: pdf-tools\ndescription: Work with PDF files\n---\nUse pypdf.",
+                        "skills/pdf-tools/scripts/split.py": "print('split')",
+                        "agents/reviewer.md": "---\nname: reviewer\ndescription: Strict code reviewer\n---\nReview hard.",
+                        "commands/ship.md": "---\ndescription: Ship it\n---\nRun the release for $ARGUMENTS", "README.md": "# hi"},
+        "acme/plugins": {".claude-plugin/marketplace.json": json.dumps({"plugins": [{"name": "dev-kit", "description": "Dev helpers", "source": "./plugins/dev"},
+                                                                                     {"name": "elsewhere", "source": {"source": "github", "repo": "x/y"}}]}),
+                         "plugins/dev/skills/lint/SKILL.md": "---\nname: lint\ndescription: Lint code\n---\nRun the linter.",
+                         "plugins/dev/agents/fixer.md": "---\nname: fixer\ndescription: Fixes lint\n---\nFix.",
+                         "plugins/dev/hooks/hooks.json": "{}"}}
+    class MK(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+        def do_GET(self):
+            m = re.match(r"^/api/repos/([\w.-]+/[\w.-]+)/git/trees/HEAD", self.path)
+            if m and m.group(1) in repos:
+                body = json.dumps({"tree": [{"path": k, "type": "blob"} for k in repos[m.group(1)]]}).encode()
+            else:
+                m = re.match(r"^/raw/([\w.-]+/[\w.-]+)/HEAD/(.+)$", self.path)
+                if not m or m.group(2) not in repos.get(m.group(1), {}):
+                    self.send_response(404); self.end_headers(); return
+                body = repos[m.group(1)][m.group(2)].encode()
+            self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+    ms = ThreadingHTTPServer(("127.0.0.1", 0), MK)
+    threading.Thread(target=ms.serve_forever, daemon=True).start()
+    os.environ["LC4_MARKET_API"] = f"http://127.0.0.1:{ms.server_port}/api"
+    os.environ["LC4_MARKET_RAW"] = f"http://127.0.0.1:{ms.server_port}/raw"
+    market.HOME = ex.HOME
+    market.STATE = ex.HOME / "market.json"
+    assert market.load_state()["sources"] == ["anthropics/skills"]
+    try:
+        market.add_source("nobody/missing")
+        raise AssertionError("a missing repository is refused")
+    except market.MarketError:
+        pass
+    market.add_source("https://github.com/acme/skills/")
+    items = {i["id"]: i for i in market.browse("acme/skills")}
+    assert items["skill:skills/pdf-tools"]["description"] == "Work with PDF files" and "agent:agents/reviewer.md" in items and "command:commands/ship.md" in items
+    market.install("acme/skills", "skill:skills/pdf-tools")
+    market.install("acme/skills", "agent:agents/reviewer.md")
+    market.install("acme/skills", "command:commands/ship.md")
+    assert (ex.HOME / "skills" / "pdf-tools" / "scripts" / "split.py").is_file()
+    s.new_chat()
+    assert "pdf-tools" in ex.skills(s.current.cwd) and "reviewer" in ex.agents(s.current.cwd) and "ship" in ex.commands(s.current.cwd)
+    assert ex.expand_command("/ship v2", s.current.cwd) == "Run the release for v2"
+    assert all(i["installed"] for i in market.browse("acme/skills") if i["kind"] != "plugin")
+    market.uninstall("acme/skills", "skill:skills/pdf-tools")
+    assert not (ex.HOME / "skills" / "pdf-tools").exists() and "pdf-tools" not in ex.skills(s.current.cwd)
+    plug = market.browse("acme/plugins")
+    assert [p["name"] for p in plug] == ["dev-kit"], plug
+    assert market.install("acme/plugins", "plugin:plugins/dev")["installed"] == 2
+    assert "lint" in ex.skills(s.current.cwd) and "fixer" in ex.agents(s.current.cwd)
+    market.uninstall("acme/plugins", "plugin:plugins/dev")
+    assert "lint" not in ex.skills(s.current.cwd) and "fixer" not in ex.agents(s.current.cwd)
+    ms.shutdown()
+    print("79 marketplace OK")
     print("ALL TESTS PASSED")
 
 
