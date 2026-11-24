@@ -30,7 +30,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, extras, gallery, gitops, lsp, projects
+from . import __version__, extras, gallery, github, gitops, lsp, projects
 from .catalog import BY_ID as PROVIDER_BY_ID, PROVIDERS, guess_service
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
@@ -47,7 +47,7 @@ PAGE = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf
 HOME = Path.home() / ".incredible-herness"
 CONFIG_FILE = HOME / "settings.json"
 CHATS = HOME / "chats"
-CHAT_TOOL_NAMES = {"web_search", "fetch_url", "remember", "use_skill", "geocode", "places_nearby", "generate_image"}
+CHAT_TOOL_NAMES = {"web_search", "fetch_url", "remember", "use_skill", "geocode", "places_nearby", "generate_image", "github_get", "github_api"}
 CHAT_HOME = Path.home() / ".incredible-herness" / "chat-space"  # a private folder for Chat conversations (no project files)
 HOOK_KINDS = ("session_start", "on_prompt", "before_tool", "after_edit", "before_finish")
 DEFAULT_MODELS = {"claude": "claude-opus-5-5", "openai": "gpt-5", "local": "llama3.1"}
@@ -185,6 +185,24 @@ def explain_error(e: Exception, cfg: dict) -> str:
     if code and code >= 500:
         return f"The provider had a server error ({code}). Try again in a moment."
     return f"{type(e).__name__}: {msg[:400]}"
+
+
+def ask_fields(name: str, args: dict, cwd: str) -> list[list[str]]:
+    """Label/value rows for the approval prompt: what exactly the agent wants to do."""
+    a = args if isinstance(args, dict) else {}
+    rows = []
+    if name == "bash":
+        rows.append(["Command", str(a.get("command", ""))[:4000]])
+    elif a.get("path"):
+        rows.append(["File", str(a.get("path"))])
+    elif a.get("url"):
+        rows.append(["Address", str(a.get("url"))])
+    else:
+        rows.append(["Action", describe(name, a)])
+    if a.get("description"):
+        rows.append(["Description", str(a["description"])[:500]])
+    rows.append(["Folder", cwd])
+    return rows
 
 
 def _rule_kind(name: str) -> str:
@@ -386,6 +404,8 @@ class Chat:
         self.ws.on_job = lambda: self.emit("jobs_changed")
         self.ws.sandbox = self.app.config.get("sandbox", "off")
         self.ws.services = self.app.services_for_tools()
+        self.ws.github_token = self.app.config.get("github_token", "")
+        self.ws.env_extra = github.git_env(self.ws.github_token)
         self.instruction_files = project_instructions(self.cwd)[1]
 
     # ---------------------------------------------------------------- events
@@ -704,7 +724,7 @@ class Chat:
             return self._desktop_tool(name, args)
 
         call_id = secrets.token_hex(6)
-        info = {"id": call_id, "name": name, "summary": describe(name, args)}
+        info = {"id": call_id, "name": name, "summary": describe(name, args), "fields": ask_fields(name, args, self.cwd)}
         diff = self.ws.preview_diff(name, args)
         if diff:
             info["diff"] = diff
@@ -1199,6 +1219,7 @@ class Session:
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
                        "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code", "services": {},
+                       "github_user": {}, "github_folder": "",
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.set_badge = None  # set by the desktop app (Dock badge)
@@ -1295,6 +1316,10 @@ class Session:
         proj = self.project_by_id(cfg.get("project"))
         if proj:
             text = (projects.context(proj) + ("\n\n" + text if text else ""))
+        gh = (self.config.get("github_user") or {}).get("login") if self.config.get("github_token") else ""
+        if gh:
+            text = (f"GitHub is connected as @{gh}. git push/pull over https and the gh command line are already signed in; "
+                    "github_get / github_api reach GitHub's REST API (issues, pull requests, Actions).\n\n" + text).strip()
         return system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")), cfg.get("language", ""),
                              extras.skills(cfg["cwd"]))
 
@@ -1757,6 +1782,11 @@ class Session:
             b.press(str(d.get("key", "")))
         elif kind == "scroll":
             b.scroll(int(d.get("dy", 0)))
+        elif kind in ("down", "move", "up", "dblclick"):
+            b.mouse(kind, int(d["x"]), int(d["y"]))
+        elif kind == "selection":
+            return {"text": b.selection()[:200_000]}
+        return {}
 
     def open_terminal(self, cols: int, rows: int) -> str:
         cwd = self.current.cwd if self.current else self.config["cwd"]
@@ -2013,6 +2043,54 @@ class Session:
         self.remote_url = base + "/?" + self.phone_url.split("?", 1)[1]
         return self.remote_url
 
+    # ---------------------------------------------------------------- GitHub (Settings > GitHub)
+    def github_status(self) -> dict:
+        u = self.config.get("github_user") or {}
+        return {"connected": bool(self.config.get("github_token")), "user": u, "token_url": github.TOKEN_URL}
+
+    def github_connect(self, token: str) -> dict:
+        token = (token or "").strip()
+        if not token:
+            raise ValueError("Paste a GitHub token first.")
+        try:
+            user = github.whoami(token)
+        except github.GitHubError as e:
+            raise ValueError(str(e))
+        self.config.update(github_token=token, github_user=user)
+        self.save()
+        self._rebuild_tools()
+        return self.github_status()
+
+    def github_disconnect(self) -> dict:
+        self.config.update(github_token="", github_user={})
+        self.save()
+        self._rebuild_tools()
+        return self.github_status()
+
+    def _rebuild_tools(self):
+        for c in self.chats.values():  # new sign-in for commands, without losing the conversation
+            if c.ws and not c.busy:
+                c.ws.github_token = self.config.get("github_token", "")
+                c.ws.env_extra = github.git_env(c.ws.github_token)
+
+    def github_repos(self) -> list[dict]:
+        try:
+            return github.repos(self.config.get("github_token", ""))
+        except github.GitHubError as e:
+            raise ValueError(str(e))
+
+    def github_clone(self, full_name: str, client: str = "") -> str:
+        parent = Path(self.config.get("github_folder") or (Path.home() / "LightCode4"))
+        try:
+            dest = github.clone(self.config.get("github_token", ""), full_name, parent)
+        except github.GitHubError as e:
+            raise ValueError(str(e))
+        self.config.update(mode="code", cwd=str(dest),
+                           recent_folders=([str(dest)] + [f for f in self.config.get("recent_folders", []) if f != str(dest)])[:10])
+        self.save()
+        self.select(self._new_chat_obj(str(dest), kind="code"), client)  # a fresh chat in the cloned project
+        return str(dest)
+
     SERVICE_KEYS = ("tavily", "brave", "exa", "replicate", "fal")
 
     def services_for_tools(self) -> dict:
@@ -2177,6 +2255,18 @@ def make_handler(session: Session, token: str):
                         target.cancel.set()
                 elif path in ("/api/clear", "/api/chat/new"):
                     session.new_chat(worktree=bool(data.get("worktree")), client=client, kind=data.get("kind"))
+                elif path == "/api/github":
+                    result = session.github_status()
+                elif path == "/api/github/connect":
+                    result = session.github_connect(str(data.get("token", "")))
+                    session.events.put({"kind": "config", "config": session.public_config()})
+                elif path == "/api/github/disconnect":
+                    result = session.github_disconnect()
+                    session.events.put({"kind": "config", "config": session.public_config()})
+                elif path == "/api/github/repos":
+                    result = {"repos": session.github_repos()}
+                elif path == "/api/github/clone":
+                    result = {"path": session.github_clone(str(data.get("repo", "")), client)}
                 elif path == "/api/services":
                     session.save_services(data)
                     session.events.put({"kind": "config", "config": session.public_config()})
@@ -2414,7 +2504,7 @@ def make_handler(session: Session, token: str):
                         session.browser.call(lambda page: None)
                 elif path == "/api/browser/input":
                     try:
-                        session.browser_input(data)
+                        result = session.browser_input(data) or {}
                     except NeedsBrowser as e:
                         session.events.put({"kind": "browser_status", "text": str(e), "install": True})
                 elif path == "/api/browser/install":

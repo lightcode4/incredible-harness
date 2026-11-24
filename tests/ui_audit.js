@@ -127,6 +127,8 @@ async function overlaps(pg, label) {
       check('Back to Asks first', (await pg.innerText('#modeLabel')) === 'Asks first');
       await pg.click('#termToggle'); check('Terminal button opens the Terminal', await pg.isVisible('#termBox'));
       await pg.click('#browserToggle'); check('Browser button opens the Browser', await pg.isVisible('#bview'));
+      await pg.click('#maxPanel'); check('Maximize gives the panel the whole window', await pg.evaluate(() => document.body.classList.contains('panel-max') && getComputedStyle(document.querySelector('.chatcard')).display === 'none' && document.getElementById('panel').getBoundingClientRect().width > innerWidth * 0.6));
+      await pg.click('#maxPanel'); check('Restore puts the chat back', await pg.evaluate(() => !document.body.classList.contains('panel-max') && getComputedStyle(document.querySelector('.chatcard')).display !== 'none'));
       for (const t of ['git', 'term', 'browser', 'chat']) { await tab(pg, t); await overlaps(pg, `tab ${t}`); }
       // --- right rail
 
@@ -141,17 +143,22 @@ async function overlaps(pg, label) {
         check('Double-click puts it back in its corner', Math.abs(hb.x - fb.x) < 3 && Math.abs(hb.y - fb.y) < 3 && !(await pg.isVisible('#railPop'))); }
       // --- settings tabs
       await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
-      for (const t of ['model', 'tools', 'perms', 'instr', 'memory', 'sched', 'mcp', 'services', 'phone', 'about']) {
+      for (const t of ['model', 'tools', 'perms', 'instr', 'memory', 'sched', 'mcp', 'services', 'github', 'phone', 'about']) {
         await pg.click(`#tabs button[data-p="${t}"]`); await pg.waitForTimeout(120); await overlaps(pg, `settings ${t}`);
       }
+      await pg.click('#tabs button[data-p="github"]');
+      check('GitHub pane walks you through connecting (create token, paste, connect)', await pg.isVisible('#ghMakeToken') && await pg.isVisible('#ghNewToken') && await pg.isVisible('#ghConnectBtn'));
       await pg.click('#tabs button[data-p="services"]');
       check('Services pane has search, image and cloud upload settings', await pg.isVisible('#svSearch') && await pg.isVisible('#svImage') && await pg.isVisible('#s3Bucket')
         && (await pg.evaluate(() => [...document.querySelectorAll('#svSearch option')].map(o => o.value).join(','))).includes('tavily'));
       await pg.click('#cancelSettings');
       // --- conversation flow
       await pg.fill('#input', 'Make total() handle an empty list'); await pg.keyboard.press('Enter');
-      await pg.waitForSelector('.ask .askopt', { timeout: 15000 });
-      check('Approval offers numbered choices: Yes / don\'t ask again / No', (await pg.locator('.ask .askopt').count()) === 3 && (await pg.innerText('.ask')).includes("Yes, allow all edits"));
+      await pg.waitForSelector('.ask .askbtn', { timeout: 15000 });
+      check('Approval shows what it will do, with Deny / Always allow / Allow once', (await pg.locator('.ask .askbtn').count()) === 3 && (await pg.innerText('.ask .askinfo')).includes('app.py')
+        && (await pg.getAttribute('.ask .askbtn:nth-of-type(2)', 'title')).includes('allow all edits'));
+      { const r = await pg.evaluate(() => { const a = document.querySelector('.ask').getBoundingClientRect(); return { h: a.height, w: a.width, vh: innerHeight }; });
+        check('Approval prompt is compact (does not take the whole screen)', r.h < r.vh * 0.6 && r.w <= 900, JSON.stringify(r)); }
       await overlaps(pg, 'approval card');
       await pg.keyboard.press('1');  // keyboard answers work
       await pg.waitForSelector('.turnfoot', { timeout: 15000 });

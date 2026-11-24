@@ -226,6 +226,24 @@ class Browser:
             return f"Pressed {key}. Now at {page.url}"
         return self.call(go)
 
+    def mouse(self, kind: str, x: int, y: int) -> None:
+        """Mouse down / move / up / double-click from the Browser panel, so you can drag to select text."""
+        def go(page):
+            page.mouse.move(x, y)
+            if kind == "down":
+                page.mouse.down()
+            elif kind == "up":
+                page.mouse.up()
+            elif kind == "dblclick":
+                page.mouse.dblclick(x, y)
+        self.call(go)
+
+    def selection(self) -> str:
+        """The text currently selected on the page (or in the focused text box)."""
+        return self.call(lambda page: page.evaluate("""() => { const a = document.activeElement;
+            if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.selectionStart != null) return a.value.slice(a.selectionStart, a.selectionEnd);
+            return String(getSelection() || ''); }""")) or ""
+
     def scroll(self, dy: int) -> str:
         def go(page):
             page.mouse.wheel(0, dy)

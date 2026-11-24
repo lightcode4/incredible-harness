@@ -315,8 +315,19 @@ def main():
         shot_result = REQUESTS[-2][2]["messages"][-1]["content"][0]["content"]
         assert any(b["type"] == "image" for b in shot_result), shot_result
         assert "Clicked" in results[-1]["output"] and "Done!" in results[-1]["output"]
+        # you can select text in the Browser panel and copy it; pasted text lands in the page's text box
+        (site / "sel.html").write_text("<p id=p style='font:20px monospace;margin:0;position:absolute;left:10px;top:10px'>CopyThisWord and more</p>"
+                                       "<input id=i style='position:absolute;left:10px;top:80px'>")
+        s.browser_input({"type": "navigate", "url": page + "sel.html"})
+        s.browser_input({"type": "dblclick", "x": 40, "y": 22})
+        assert s.browser_input({"type": "selection"})["text"].strip() == "CopyThisWord"
+        s.browser_input({"type": "down", "x": 11, "y": 22}); s.browser_input({"type": "move", "x": 200, "y": 22}); s.browser_input({"type": "up", "x": 200, "y": 22})
+        assert s.browser_input({"type": "selection"})["text"].startswith("CopyThisWord an")
+        s.browser_input({"type": "click", "x": 30, "y": 90}); s.browser_input({"type": "text", "text": "pasted text"})
+        s.browser_input({"type": "key", "key": "ControlOrMeta+a"})
+        assert s.browser_input({"type": "selection"})["text"] == "pasted text"
         s.browser.close()
-        print("16 built-in browser OK")
+        print("16 built-in browser OK (incl. select and copy)")
     # 17. PDFs: Claude gets the real pages, read_file and other providers get the text
     def make_pdf(pages):
         objs = ["<< /Type /Catalog /Pages 2 0 R >>",
@@ -1109,6 +1120,13 @@ def main():
     from myagent.desktop import hotkey_for_pynput
     assert hotkey_for_pynput("ctrl+alt+space") == "<ctrl>+<alt>+<space>" == hotkey_for_pynput("⌃⌥Space") == hotkey_for_pynput("<ctrl>+<alt>+<space>")
     assert hotkey_for_pynput("cmd+shift+k") == "<cmd>+<shift>+k"
+    from myagent.desktop import parse_hotkey, hotkey_matches, MAC_FLAGS
+    m, k = parse_hotkey("⌃⌥Space")
+    assert (m, k) == (MAC_FLAGS["ctrl"] | MAC_FLAGS["alt"], "space")
+    assert hotkey_matches(m, k, m | 0x100, 49, " ") and not hotkey_matches(m, k, MAC_FLAGS["ctrl"], 49, " ")
+    assert not hotkey_matches(m, k, m | (1 << 16), 57, "")  # Caps Lock alone never fires it
+    m2, k2 = parse_hotkey("cmd+shift+k")
+    assert hotkey_matches(m2, k2, m2, 40, "K") and not hotkey_matches(m2, k2, m2, 40, "j")
     print("60 quick chat OK")
     # 61. rename and pin chats; replies carry their time; display settings save without restarting
     s.new_chat()
@@ -1500,6 +1518,69 @@ def main():
     Path(out).unlink()
     ds.shutdown()
     print("73 update download resumes through drops OK")
+    # 74. GitHub: connect with a token, list repositories, clone + open, git/gh signed in for commands, API tools
+    from myagent import github as ghm
+    gh_hits = []
+    class GH(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+        def _out(self, obj, code=200):
+            b = json.dumps(obj).encode(); self.send_response(code); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        def do_GET(self):
+            gh_hits.append(("GET", self.path, self.headers.get("Authorization")))
+            if self.headers.get("Authorization") != "Bearer tok123":
+                return self._out({"message": "Bad credentials"}, 401)
+            if self.path == "/user":
+                return self._out({"login": "octo", "name": "Octo Cat", "avatar_url": "", "html_url": "https://github.com/octo"})
+            if self.path.startswith("/user/repos"):
+                return self._out([{"full_name": "octo/demo", "private": True, "description": "Demo repo", "pushed_at": "2026-11-20T00:00:00Z",
+                                   "html_url": "https://github.com/octo/demo", "default_branch": "main"}])
+            return self._out([{"number": 7, "title": "Bug"}])
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            gh_hits.append(("POST", self.path, body))
+            self._out({"number": 8, "title": body.get("title")}, 201)
+    gs = ThreadingHTTPServer(("127.0.0.1", 0), GH)
+    threading.Thread(target=gs.serve_forever, daemon=True).start()
+    ghm.API = f"http://127.0.0.1:{gs.server_port}"
+    try:
+        s.github_connect("wrong")
+        raise AssertionError("a bad token must be refused")
+    except ValueError as e:
+        assert "rejected" in str(e)
+    st = s.github_connect("tok123")
+    assert st["connected"] and st["user"]["login"] == "octo"
+    assert s.public_config()["github_token"] is True and "tok123" not in json.dumps(s.public_config())
+    assert s.github_repos()[0]["full_name"] == "octo/demo"
+    # a local "GitHub" to clone from
+    remote_root = Path(tempfile.mkdtemp())
+    src = remote_root / "src"; src.mkdir()
+    for c in (["init", "-q", "-b", "main"], ["config", "user.email", "t@e.com"], ["config", "user.name", "T"]):
+        subprocess.run(["git", *c], cwd=src, check=True)
+    (src / "README.md").write_text("# demo\n"); subprocess.run(["git", "add", "-A"], cwd=src, check=True); subprocess.run(["git", "commit", "-qm", "init"], cwd=src, check=True)
+    (remote_root / "octo").mkdir(); subprocess.run(["git", "clone", "-q", "--bare", str(src), str(remote_root / "octo" / "demo.git")], check=True)
+    os.environ["LC4_GITHUB_WEB"] = remote_root.as_uri()
+    s.config["github_folder"] = str(Path(tempfile.mkdtemp()) / "LightCode4")
+    dest = Path(s.github_clone("octo/demo"))
+    assert (dest / "README.md").is_file() and s.current.cwd == str(dest) and s.current.kind == "code"
+    assert s.github_clone("octo/demo") == str(dest), "opening again reuses the clone"
+    ws = s.current.ws
+    assert "signed-in" in ws.run("bash", {"command": 'test "$GH_TOKEN" = tok123 && test "$GIT_TERMINAL_PROMPT" = 0 && echo signed-in'})
+    assert ws.run("bash", {"command": '"$GIT_ASKPASS" "Password for https://github.com"'}).strip() == "tok123"
+    assert ws.run("bash", {"command": '"$GIT_ASKPASS" "Username for https://github.com"'}).strip() == "x-access-token"
+    assert "@octo" in s.system_for({**s.config, "cwd": str(dest)})
+    evs = d.run("file an issue", script=[("tool", "github_get", {"path": "/repos/octo/demo/issues"}),
+                                         ("tool", "github_api", {"method": "post", "path": "/repos/octo/demo/issues", "body": {"title": "From LightCode"}}),
+                                         ("text", "Filed #8.")])
+    outs = [e["output"] for e in d.kinds(evs, "tool_result")]
+    assert '"number": 7' in outs[0] and '"number": 8' in outs[1] and ("POST", "/repos/octo/demo/issues", {"title": "From LightCode"}) in gh_hits
+    assert any(e["name"] == "github_api" for e in d.kinds(evs, "approve")), "changing GitHub asks first"
+    assert "tok123" not in json.dumps(s.current.transcript)
+    s.github_disconnect()
+    assert not s.github_status()["connected"] and not s.current.ws.env_extra
+    os.environ.pop("LC4_GITHUB_WEB", None)
+    gs.shutdown()
+    print("74 GitHub connect, clone and tools OK")
     print("ALL TESTS PASSED")
 
 

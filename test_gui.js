@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
   await pg.fill('#input', 'Make total() handle an empty list'); await pg.keyboard.press('Enter');
   await pg.waitForSelector('.approve', { timeout: 15000 });
   await pg.waitForTimeout(300); await pg.screenshot({ path: 'shot-2-approval.png' });
-  await pg.locator('.ask .askopt').first().click();
+  await pg.locator('.ask .askbtn.primary').click();
   await pg.waitForSelector('.turnfoot', { timeout: 15000 });
   if (!(await pg.innerText('#log')).includes('Changes')) throw new Error('no reply');
   await pg.screenshot({ path: 'shot-3-done.png' });

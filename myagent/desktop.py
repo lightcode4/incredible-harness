@@ -90,6 +90,73 @@ def hotkey_for_pynput(text: str) -> str:
     return "+".join(f"<{k}>" if k in named else k for k in keys)
 
 
+MAC_KEYCODES = {"space": 49, "enter": 36, "tab": 48, "esc": 53, **{f"f{i}": c for i, c in zip(range(1, 13),
+                (122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111))}}
+MAC_FLAGS = {"shift": 1 << 17, "ctrl": 1 << 18, "alt": 1 << 19, "cmd": 1 << 20}
+
+
+def parse_hotkey(text: str) -> tuple[int, str]:
+    """'<ctrl>+<alt>+<space>' -> (modifier flags, key name)."""
+    mods, key = 0, ""
+    for k in hotkey_for_pynput(text).replace("<", "").replace(">", "").split("+"):
+        if k in MAC_FLAGS:
+            mods |= MAC_FLAGS[k]
+        elif k:
+            key = k
+    return mods, key
+
+
+def hotkey_matches(mods: int, key: str, flags: int, keycode: int, chars: str) -> bool:
+    if flags & sum(MAC_FLAGS.values()) != mods:
+        return False
+    return keycode == MAC_KEYCODES[key] if key in MAC_KEYCODES else (chars or "").lower() == key
+
+
+class MacHotkey:
+    """Global shortcut through Apple's own NSEvent monitors, run on the main thread. (pynput's keyboard listener
+    builds key events on a background thread, which newer macOS punishes by killing the app, e.g. on Caps Lock.)"""
+
+    def __init__(self, hotkey: str, callback):
+        self.mods, self.key = parse_hotkey(hotkey)
+        self.callback, self.monitors = callback, []
+        import AppKit
+        from PyObjCTools import AppHelper
+        self.AppKit = AppKit
+        AppHelper.callAfter(self._install)
+
+    def _hit(self, ev) -> bool:
+        try:
+            return hotkey_matches(self.mods, self.key, int(ev.modifierFlags()), int(ev.keyCode()), ev.charactersIgnoringModifiers())
+        except Exception:
+            return False
+
+    def _install(self):
+        A = self.AppKit
+        mask = getattr(A, "NSEventMaskKeyDown", 1 << 10)
+
+        def global_handler(ev):
+            if self._hit(ev):
+                self.callback()
+
+        def local_handler(ev):
+            if self._hit(ev):
+                self.callback()
+                return None  # handled: don't type it into the page
+            return ev
+        self.monitors = [A.NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(mask, global_handler),
+                         A.NSEvent.addLocalMonitorForEventsMatchingMask_handler_(mask, local_handler)]
+
+    def stop(self):
+        from PyObjCTools import AppHelper
+        mons, self.monitors = self.monitors, []
+
+        def remove():
+            for m in mons:
+                if m is not None:
+                    self.AppKit.NSEvent.removeMonitor_(m)
+        AppHelper.callAfter(remove)
+
+
 class QuickChat:
     """A small always-on-top box, shown and hidden with a global keyboard shortcut (works while other apps are in front).
     macOS asks once for Input Monitoring permission (System Settings > Privacy & Security)."""
@@ -130,6 +197,9 @@ class QuickChat:
         if not hotkey:
             return
         try:
+            if sys.platform == "darwin":
+                self.listener = MacHotkey(hotkey, self.toggle)
+                return
             from pynput import keyboard
             self.listener = keyboard.GlobalHotKeys({hotkey_for_pynput(hotkey): self.toggle})
             self.listener.daemon = True

@@ -7,6 +7,7 @@ Session tools (todo list, sub-agents, previews) are handled by the app session i
 from __future__ import annotations
 
 import base64
+import json
 import difflib
 import fnmatch
 import html
@@ -133,6 +134,17 @@ TOOLS = [
      "description": "Upload a file to the user's cloud storage (S3 or Cloudflare R2, set up in Settings > Services) and "
                     "return a link to share it.",
      "schema": _schema({"path": _S}, ["path"])},
+    {"name": "github_get", "kind": "readonly",
+     "description": "Read from GitHub's REST API with the user's connected GitHub account (Settings > GitHub). GET only. "
+                    "path examples: /user/repos?per_page=50, /repos/OWNER/REPO/issues?state=open, /repos/OWNER/REPO/pulls, "
+                    "/repos/OWNER/REPO/actions/runs?per_page=5, /repos/OWNER/REPO/contents/README.md. Git itself and the gh "
+                    "command line are also signed in when you run commands.",
+     "schema": _schema({"path": _S}, ["path"])},
+    {"name": "github_api", "kind": "mutating",
+     "description": "Change something on GitHub with the user's connected account: create issues, comment, open or update pull "
+                    "requests, add labels, create repositories... method is POST, PATCH, PUT or DELETE; body is the JSON "
+                    "payload. Example: POST /repos/OWNER/REPO/pulls {title, head, base, body}.",
+     "schema": _schema({"method": _S, "path": _S, "body": {"type": "object"}}, ["method", "path"])},
     {"name": "fetch_url", "kind": "readonly", "client_web": True,
      "description": "Fetch a web page (or a local dev server URL) and return its text content.",
      "schema": _schema({"url": _S}, ["url"])},
@@ -273,6 +285,10 @@ def describe(name: str, args: dict) -> str:
         return f"image: {str(args.get('prompt', ''))[:60]}"
     if name == "upload_file":
         return f"upload {args.get('path')}"
+    if name == "github_get":
+        return f"GitHub: GET {args.get('path')}"
+    if name == "github_api":
+        return f"GitHub: {str(args.get('method', '')).upper()} {args.get('path')}"
     if name == "web_search":
         return f"search the web: {args.get('query')}"
     if name == "code_symbols":
@@ -389,6 +405,8 @@ class Workspace:
         self._job_n = 0
         self.on_job = None  # called when a background job starts (live Tasks tab)
         self.services: dict = {}  # keys and choices from Settings > Services
+        self.github_token = ""  # Settings > GitHub
+        self.env_extra: dict = {}  # extra environment for commands (GitHub sign-in for git and gh)
 
     def path(self, p: str) -> Path:
         path = Path(os.path.expanduser(p))
@@ -443,7 +461,7 @@ class Workspace:
         argv = self._sandboxed(command)
         try:
             proc = subprocess.run(argv or command, shell=argv is None, cwd=self.cwd, capture_output=True, text=True, encoding="utf-8",
-                                  errors="replace", timeout=max(1, min(timeout, 1800)), stdin=subprocess.DEVNULL)
+                                  errors="replace", timeout=max(1, min(timeout, 1800)), stdin=subprocess.DEVNULL, env=self._env())
         except subprocess.TimeoutExpired as e:
             out = e.stdout.decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
             raise ToolError(f"Command timed out after {timeout}s. Use run_in_background for long jobs.\n{out}")
@@ -458,12 +476,15 @@ class Workspace:
         log = tempfile.NamedTemporaryFile(prefix=f"herness-{job_id}-", suffix=".log", delete=False)
         argv = self._sandboxed(command)
         proc = subprocess.Popen(argv or command, shell=argv is None, cwd=self.cwd, stdout=log, stderr=subprocess.STDOUT,
-                                stdin=subprocess.DEVNULL, start_new_session=(os.name != "nt"))
+                                stdin=subprocess.DEVNULL, start_new_session=(os.name != "nt"), env=self._env())
         log.close()
         self.jobs[job_id] = {"proc": proc, "log": log.name, "pos": 0, "command": command, "started": time.time()}
         if self.on_job:
             self.on_job()
         return f"Started background job {job_id} (pid {proc.pid}). Read its output with bash_output."
+
+    def _env(self):
+        return {**os.environ, **self.env_extra} if self.env_extra else None
 
     def _sandboxed(self, command: str) -> list[str] | None:
         if self.sandbox == "off":
@@ -817,6 +838,27 @@ class Workspace:
         return f"Ran {len(result['cells'])} code cell(s){' — stopped at an error' if result.get('failed') else ''}:\n" + "\n".join(lines)
 
     # ---- web ----
+    # ---- GitHub (Settings > GitHub) ----
+    def _gh_call(self, method: str, path: str, body=None) -> str:
+        from .github import GitHubError, api
+        path = str(path or "").strip()
+        if path.startswith("http"):
+            path = "/" + path.split("://", 1)[1].split("/", 1)[-1]
+        try:
+            out = api(self.github_token, method, path, body)
+        except GitHubError as e:
+            raise ToolError(str(e))
+        return json.dumps(out, indent=1)[:60_000]
+
+    def _github_get(self, path: str) -> str:
+        return self._gh_call("GET", path)
+
+    def _github_api(self, method: str, path: str, body: dict | None = None) -> str:
+        m = str(method).upper()
+        if m not in ("POST", "PATCH", "PUT", "DELETE"):
+            raise ToolError("method must be POST, PATCH, PUT or DELETE (use github_get to read).")
+        return self._gh_call(m, path, body)
+
     # ---- services (Settings > Services) ----
     def _svc(self, key, default=""):
         return (self.services or {}).get(key, default)

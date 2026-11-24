@@ -270,7 +270,10 @@ body.panel-open #panel { display: flex; }
 .bbar .iconbtn { padding: 5px; } .bbar svg { width: 16px; height: 16px; }
 #bview { flex: 1; min-height: 0; overflow: auto; background: var(--bg); display: flex; align-items: flex-start; justify-content: center; position: relative; outline: none; }
 #bview:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
-#bimg { width: 100%; height: auto; display: none; cursor: default; user-select: none; }
+#bimg { width: 100%; height: auto; display: none; cursor: text; user-select: none; }
+#bsink { position: absolute; left: -9999px; top: 0; width: 1px; height: 1px; opacity: 0; } /* takes keys, copy and paste for the page */
+body.panel-max .grid > :not(#panel) { display: none !important; } body.panel-max .grid { grid-template-columns: minmax(0, 1fr) !important; }
+body.panel-max .grid > #panel { margin-left: 0; } body.panel-max .grid > #panel > #resizer { display: none; }
 #bempty { margin: auto; text-align: center; color: var(--muted); font-size: 14px; padding: 24px; max-width: 360px; }
 #bempty b { display: block; color: var(--text); font-size: 16px; margin-bottom: 6px; }
 .agentbadge { position: absolute; top: 8px; right: 10px; font-size: 11.5px; background: var(--accent); color: var(--accent-text); padding: 2px 9px; border-radius: 999px; display: none; }
@@ -727,6 +730,15 @@ body.models-open #modelsView { display: block !important; }
 #findBar .iconbtn { padding: 4px; } #findBar .iconbtn svg { width: 14px; height: 14px; }
 mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); color: inherit; border-radius: 3px; } mark.findhit.cur { background: var(--sun); color: #2b2418; }
 #composer { position: relative; }
+.ghme { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); margin-bottom: 14px; }
+.ghme img { width: 40px; height: 40px; border-radius: 50%; } .ghme b { display: block; font-size: 14.5px; } .ghme small { color: var(--muted); font-size: 12.5px; }
+.ghstep { display: flex; gap: 12px; padding: 12px 0; } .ghstep > span { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); border: 1px solid var(--line); font: 600 12px var(--monoF); color: var(--accent); }
+.ghstep b { display: block; font-size: 13.5px; } .ghstep small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.5; margin-top: 2px; } .ghstep > div { flex: 1; min-width: 0; }
+#ghRepoList { display: flex; flex-direction: column; gap: 4px; max-height: 340px; overflow: auto; margin-top: 6px; }
+.ghrepo { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line-soft); } .ghrepo:hover { background: var(--hover); }
+.ghrepo .gi { flex: 1; min-width: 0; } .ghrepo b { font-size: 13.5px; font-weight: 600; } .ghrepo em { font-style: normal; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; margin-left: 6px; }
+.ghrepo small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ghrepo .btn { flex: none; }
+.ghempty { color: var(--muted); font-size: 13px; padding: 14px 4px; }
 #queueBar { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 8px; } #queueBar[hidden] { display: none; }
 .qchip .qnow { flex: none; border: 0; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); font-size: 12px; padding: 3px 9px; border-radius: 6px; margin-left: 4px; cursor: pointer; } .qchip .qnow:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .qchip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 12px; color: var(--body); background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 8px; }
@@ -756,14 +768,18 @@ mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); colo
 /* ---- approval: a numbered choice card ---- */
 #log details.toolcard.asking { background: var(--panel); border: 1px solid color-mix(in srgb, var(--sun) 55%, var(--line)); border-radius: 14px; margin: 4px 0; box-shadow: 0 0 0 4px color-mix(in srgb, var(--sun) 10%, transparent); }
 #log details.toolcard.asking > summary { color: var(--text); padding: 10px 12px; } #log details.toolcard.asking > .toolbody { margin: 0 12px 4px; }
-.ask { padding: 4px 12px 12px; } .askq { margin: 6px 2px 8px; font-weight: 600; font-size: 14px; }
-.askopts { display: flex; flex-direction: column; gap: 3px; }
-.askopt { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 1px solid transparent; background: none; padding: 7px 10px; border-radius: 10px; color: var(--text); font-size: 13.5px; cursor: pointer; }
-.askopt:hover { background: var(--hover); } .askopt.on { background: var(--soft); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
-.askopt kbd { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); font: 600 11.5px var(--monoF); color: var(--muted); }
-.askopt.on kbd { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-.askopt code { font-size: 12px; background: var(--code); padding: 1px 5px; border-radius: 5px; } .askopt b { font-weight: 600; }
-.askfb { width: 100%; margin-top: 8px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 10px; padding: 8px 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 13.5px; outline: none; box-sizing: border-box; }
+.ask { margin: 2px 10px 10px; } .askhead { font-weight: 600; font-size: 14.5px; padding: 6px 4px 10px; color: var(--text); }
+.askinfo { display: grid; gap: 6px; background: var(--soft); border: 1px solid var(--line-soft); border-radius: 12px; padding: 12px 14px; max-height: 220px; overflow: auto; }
+.askrow { display: grid; grid-template-columns: 96px 1fr; gap: 12px; font-size: 13px; line-height: 1.5; } .askrow .k { color: var(--muted); }
+.askrow .v { color: var(--text); white-space: pre-wrap; word-break: break-word; -webkit-user-select: text; user-select: text; } .askrow .v.mono { font-family: var(--monoF); font-size: 12.5px; }
+.askfoot { display: flex; align-items: center; gap: 8px; padding-top: 10px; }
+.askfoot .askfb { flex: 1; min-width: 120px; width: auto; margin: 0; border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; outline: none; }
+.askfoot .askfb:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.askbtn { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--soft); color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; }
+.askbtn:hover { background: var(--hover); } .askbtn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); } .askbtn.primary:hover { filter: brightness(1.06); }
+.askbtn kbd { font: 600 10.5px var(--monoF); opacity: .55; border: 0; background: none; padding: 0; }
+.askbtn:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
+@media (max-width: 640px) { .askfoot { flex-wrap: wrap; } .askfoot .askfb { flex-basis: 100%; } .askrow { grid-template-columns: 1fr; gap: 2px; } }
 /* ---- folder menu rows: name first, path after ---- */
 #folderMenu { width: 340px; } #folderMenu button span { flex: 1; } #folderMenu button small { max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 /* ---- settings tabs never squeezed ---- */
@@ -1141,6 +1157,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
               <button class="tab" data-v="files" role="tab" title="Files (⇧⌘F)"><svg><use href="#i-folder"/></svg><span>Files</span></button>
               <button class="tab" data-v="tasks" role="tab" title="Background tasks (⇧⌘T)"><svg viewBox="0 0 24 24"><path d="M8.5 12 13 7.5 17.5 12 13 16.5zM4 12l4.5-4.5M4 12l4.5 4.5"/></svg><span>Tasks</span><em id="jobCount" hidden></em></button>
               <span class="spacer"></span>
+              <button class="iconbtn" id="maxPanel" title="Maximize panel (⇧⌘M)" aria-label="Maximize panel"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg></button>
               <button class="iconbtn" id="closePanel" title="Close panel (⌘.)" aria-label="Close panel"><svg><use href="#i-x"/></svg></button>
             </div>
             <div id="resizer" title="Drag to resize"></div>
@@ -1172,7 +1189,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <button class="iconbtn" data-b="reload" title="Reload"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
       <input id="burl" spellcheck="false" placeholder="Enter a URL or localhost:3000">
     </div>
-    <div id="bview" tabindex="0"><span class="agentbadge">Agent is browsing</span><img id="bimg" alt="Browser view" draggable="false">
+    <div id="bview" tabindex="0"><span class="agentbadge">Agent is browsing</span><img id="bimg" alt="Browser view" draggable="false"><textarea id="bsink" aria-label="Browser keyboard" tabindex="-1" spellcheck="false"></textarea>
       <div id="bempty"><b>LightCode⁴ browser</b>Type a URL above, or ask the agent to open a page. You can click and type here too.<div id="bstatus" style="margin-top:10px"></div></div></div>
   </div>
           </section>
@@ -1286,7 +1303,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
   <div class="tabs" id="tabs">
     <button data-p="model" class="on">Model</button><button data-p="tools">Tools &amp; limits</button><button data-p="perms">Permissions</button>
     <button data-p="instr">Project instructions</button><button data-p="memory">Memory</button><button data-p="sched">Schedules</button>
-    <button data-p="services">Services</button><button data-p="mcp">Connectors</button><button data-p="phone">Phone</button><button data-p="about">Updates</button>
+    <button data-p="services">Services</button><button data-p="github">GitHub</button><button data-p="mcp">Connectors</button><button data-p="phone">Phone</button><button data-p="about">Updates</button>
   </div>
   <div class="dlg-body">
     <div class="pane on" data-p="model">
@@ -1382,9 +1399,22 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <div class="field"><label>Local connectors (programs on this computer)</label><div id="lmcpRows"></div><button class="btn small" id="addLmcp">+ Add local connector</button></div>
       <div class="field"><label>Online connectors (web addresses) — Sign in or paste a token</label><div id="mcpRows"></div><button class="btn small" id="addMcp">+ Add remote connector</button></div>
     </div>
+    <div class="pane" data-p="github">
+      <div class="ghme" id="ghMe" hidden><img id="ghAvatar" alt=""><div><b id="ghName"></b><small id="ghLogin"></small></div><span class="spacer"></span><button class="btn small" id="ghDisconnect">Disconnect</button></div>
+      <div id="ghSetup">
+        <div class="ghstep"><span>1</span><div><b>Create a token on GitHub</b><small>Opens GitHub with the right permissions already ticked. Choose an expiry, then click <b>Generate token</b> and copy it.</small>
+          <button class="btn small" id="ghMakeToken" style="margin-top:8px">Create token on GitHub</button></div></div>
+        <div class="ghstep"><span>2</span><div><b>Paste it here</b><div style="display:flex;gap:8px;margin-top:8px"><input id="ghNewToken" type="password" autocomplete="off" placeholder="ghp_… or github_pat_…" style="flex:1"><button class="btn primary" id="ghConnectBtn">Connect</button></div>
+          <small id="ghErr" style="color:var(--bad)"></small></div></div>
+      </div>
+      <div id="ghRepos" hidden>
+        <div class="field"><label>Your repositories <small>Open clones it into your LightCode4 folder and starts a session there. git push, pull and the gh command work without logging in.</small></label>
+          <input id="ghSearch" placeholder="Search repositories" spellcheck="false"></div>
+        <div id="ghRepoList"><div class="ghempty">Loading…</div></div>
+      </div>
+    </div>
     <div class="pane" data-p="about">
       <div class="note" id="aboutText">LightCode⁴</div>
-      <div class="field"><label>GitHub token (only needed if the app's repository is private)</label><input id="ghToken" type="password" placeholder="github_pat_…"><small>Fine-grained token with read access to the repository's contents.</small></div>
       <div><button class="btn" id="checkUpdate">Check for updates</button> <button class="btn primary" id="installUpdate" hidden>Install &amp; restart</button> <span id="updateResult" style="font-size:13px;color:var(--muted)"></span></div>
       <div class="field"><label>Settings on another computer</label><div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn small" id="exportSettings">Export settings</button><button class="btn small" id="exportSettingsKeys">Export with API keys</button>
@@ -1616,26 +1646,30 @@ function toolCard(ev, needsApproval) {
     const always = ev.edits ? `Yes, allow all edits in <b>${esc(folder)}</b> for this session`
       : ev.name === "bash" ? `Yes, and don't ask again for ${rules.map(r => `<code>${esc(r)}</code>`).join(", ") || "this"} commands in <b>${esc(folder)}</b>`
       : `Yes, and don't ask again for this in <b>${esc(folder)}</b>`;
-    const box = el("div", "ask", `<p class="askq">Allow LightCode⁴ to ${what}?</p><div class="askopts" role="listbox" aria-label="Your answer"></div>`);
-    const opts = box.querySelector(".askopts");
-    const fb = el("input", "askfb"); fb.placeholder = "Tell LightCode⁴ what to do instead, then press Enter"; fb.hidden = true;
-    let sel = 0;
+    const head = ev.name === "bash" ? "run a command" : ev.edits ? "edit a file" : ev.name?.startsWith("browser_") ? "use the browser" : ev.name === "write_file" ? "write a file" : "do this";
+    const box = el("div", "ask", `<div class="askhead">Allow LightCode⁴ to ${head}?</div><div class="askinfo"></div><div class="askfoot"></div>`);
+    const info = box.querySelector(".askinfo");
+    (ev.fields || [["Action", ev.summary || ""]]).forEach(([k, v]) => { const r = el("div", "askrow", `<span class="k"></span><span class="v"></span>`);
+      r.querySelector(".k").textContent = k; r.querySelector(".v").textContent = v; if (k === "Command") r.querySelector(".v").classList.add("mono"); info.appendChild(r); });
+    const foot = box.querySelector(".askfoot");
+    const fb = el("input", "askfb"); fb.placeholder = "Or tell it what to do instead…"; fb.title = "Type here and press Enter to deny with your instructions";
     const done = (d, extra = {}) => { api("/api/approve", { id: ev.id, decision: d, feedback: fb.value, ...extra }); box.remove(); document.removeEventListener("keydown", keys, true);
       card.classList.remove("asking"); badge.className = "badge " + (d === "deny" ? "bad" : ""); badge.textContent = d === "deny" ? "Denied" : "Running"; card.open = false; };
-    const choices = [["Yes", () => done("allow")], [always, () => done("always")], ["No, and tell LightCode⁴ what to do differently", () => { fb.hidden = false; fb.focus(); }]];
-    choices.forEach(([label, fn], i) => { const o = el("button", "askopt", `<kbd>${i + 1}</kbd><span>${label}</span>`); o.setAttribute("role", "option"); o.onclick = () => { sel = i; paint(); fn(); }; opts.appendChild(o); });
-    const paint = () => opts.querySelectorAll(".askopt").forEach((o, i) => { o.classList.toggle("on", i === sel); o.setAttribute("aria-selected", i === sel); });
-    paint(); box.appendChild(fb);
-    fb.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); done("deny"); } if (e.key === "Escape") { e.preventDefault(); fb.hidden = true; } };
-    const keys = e => {  // 1/2/3, arrows + Enter, Esc = no — unless typing somewhere else
+    const mk = (cls, label, title, key, fn) => { const b = el("button", cls, `${label}<kbd>${key}</kbd>`); b.title = title; b.onclick = fn; foot.appendChild(b); return b; };
+    foot.appendChild(fb);
+    mk("askbtn", "Deny", "Don't do this (Esc)", "3", () => done("deny"));
+    mk("askbtn", "Always allow", always.replace(/<[^>]+>/g, ""), "2", () => done("always"));
+    const once = mk("askbtn primary", "Allow once", "Do this once (Enter)", "1", () => done("allow"));
+    fb.onkeydown = e => { if (e.key === "Enter" && fb.value.trim()) { e.preventDefault(); done("deny"); } if (e.key === "Escape") { e.preventDefault(); fb.value = ""; fb.blur(); } };
+    const keys = e => {  // 1 allow once · 2 always · 3 or Esc deny · Enter allow once — unless typing somewhere else
       if (!box.isConnected) return document.removeEventListener("keydown", keys, true);
       const t = e.target; if (t === fb || (t.matches?.("input, textarea, select") && !(t.id === "input" && !t.value.trim()))) return;
       if (document.querySelector(".ask") !== box || document.querySelector("dialog[open]")) return;
-      if (/^[123]$/.test(e.key)) { e.preventDefault(); sel = +e.key - 1; paint(); choices[sel][1](); }
-      else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); sel = (sel + (e.key === "ArrowDown" ? 1 : 2)) % 3; paint(); }
-      else if (e.key === "Enter") { e.preventDefault(); choices[sel][1](); }
-      else if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); done("deny"); }
+      if (e.key === "1" || e.key === "Enter") { e.preventDefault(); done("allow"); }
+      else if (e.key === "2") { e.preventDefault(); done("always"); }
+      else if (e.key === "3" || e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); done("deny"); }
     };
+    setTimeout(() => once.focus({ preventScroll: true }), 0);
     document.addEventListener("keydown", keys, true);
     if (ev.hunks?.length > 1) {
       const list = el("div", "hunks", `<p style="margin:0;font-size:12.5px;color:var(--muted)">Or choose which of the ${ev.hunks.length} changes to apply:</p>`);
@@ -1940,13 +1974,13 @@ function mcpRow(m = {}) {
 function showTab(p) { document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.p === p)); document.querySelectorAll(".pane").forEach(x => x.classList.toggle("on", x.dataset.p === p)); }
 let instrLoaded = "";
 async function openSettings(tab) {
-  loadServices();
+  loadServices(); renderGitHub();
   loadLsp(); $("quickKey").value = (config.quick_hotkey ?? "<ctrl>+<alt>+<space>").replace(/[<>]/g, "");
   setProvider(config.provider || "claude"); $("model").value = config.model || ""; $("effort").value = config.effort || "high";
   $("baseurl").value = config.base_url || ""; $("cwd").value = config.cwd || ""; $("auto").checked = !!config.auto;
   $("web").checked = config.web !== false; $("compaction").checked = config.compaction !== false; $("budget").value = config.budget || "";
   $("key").value = ""; $("key").placeholder = config.api_key ? "Saved — leave empty to keep" : "Paste your key";
-  $("ghToken").value = ""; $("ghToken").placeholder = config.github_token ? "Saved — leave empty to keep" : "github_pat_…";
+
   $("allow").value = (config.rules?.allow || []).join("\n"); $("deny").value = (config.rules?.deny || []).join("\n");
   $("mcpRows").innerHTML = ""; (config.mcp || []).forEach(mcpRow);
   $("fastModel").value = config.fast_model || ""; $("fastModel").placeholder = config.fast_model_default || ""; $("fastHint").textContent = "Empty = " + (config.fast_model_default || "same model");
@@ -1984,7 +2018,7 @@ $("saveSettings").onclick = async () => {
       session_start: $("hookStart").value.trim(), on_prompt: $("hookPrompt").value.trim(), before_tool: $("hookTool").value.trim() } };
   if ($("voiceKey").value) body.voice_key = $("voiceKey").value;
   if ($("key").value) body.api_key = $("key").value;
-  if ($("ghToken").value) body.github_token = $("ghToken").value;
+
   try {
     await api("/api/config", body);
     if ($("instr").value !== instrLoaded) await api("/api/instructions", { text: $("instr").value });
@@ -2020,7 +2054,7 @@ $("modeMenu").addEventListener("keydown", e => { const items = [...$("modeMenu")
 document.addEventListener("pointerdown", e => { if (!$("modeMenu").hidden && !e.target.closest("#modeMenu, #planBtn")) toggleModeMenu(false); });
 $("checkUpdate").onclick = async () => {
   $("updateResult").textContent = "Checking…";
-  if ($("ghToken").value) await api("/api/config", { github_token: $("ghToken").value }).catch(() => {});
+
   try { const r = await api("/api/update"); $("updateResult").textContent = r.error || (r.update ? `Build ${r.latest} is available.` : "You have the latest build."); if (r.update) showUpdate(r); }
   catch (e) { $("updateResult").textContent = e.message; }
 };
@@ -2366,6 +2400,7 @@ new MutationObserver(syncJump).observe(log, { childList: true });
     instr: ["Project instructions", "Notes the agent follows in this folder.", '<path d="M6 3h9l3 3v15H6zM9 9h6M9 13h6M9 17h4"/>'],
     memory: ["Memory", "Things LightCode⁴ remembers about you across chats.", '<path d="M8 4a4 4 0 0 0-4 4v2a3 3 0 0 0 0 6 4 4 0 0 0 8 0V4zM16 4a4 4 0 0 1 4 4v2a3 3 0 0 1 0 6 4 4 0 0 1-8 0"/>'],
     sched: ["Schedules", "Tasks that run by themselves, on a timer.", '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'],
+    github: ["GitHub", "Connect your account: open your repositories in one click, and let the agent push, open pull requests and manage issues.", '<circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="8" r="2.2"/><path d="M6 8.2v7.6M18 10.2c0 4-6 3-11 6"/>'],
     services: ["Services", "Web search, image generation, cloud storage and maps.", '<path d="M4 7h16M4 12h16M4 17h10"/><circle cx="18" cy="17" r="2"/>'],
     mcp: ["Connectors", "Give the agent access to your other apps and data.", '<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0zM12 16v5"/>'],
     phone: ["Phone & remote", "Use LightCode⁴ from your phone or anywhere.", '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>'],
@@ -2407,6 +2442,35 @@ function svHints() {
   $("svImageKey").placeholder = (ip === "openai" ? (config.keys_set || []).includes("openai") : set.includes(ip)) ? "Saved — paste a new key to replace it" : `${$("svImage").selectedOptions[0].text.split(" (")[0]} API key`;
   $("svImageHint").innerHTML = `Get a key: <a href="#" data-u="${SV_KEYS[ip]}">${SV_KEYS[ip].replace(/^https:\/\//, "")}</a>`;
 }
+// ---------- GitHub (Settings > GitHub) ----------
+let ghRepos = [];
+const openUrl = u => api("/api/open-url", { url: u }).catch(() => window.open(u));
+function renderGitHub() {
+  const on = !!config.github_token, u = config.github_user || {};
+  $("ghMe").hidden = !on; $("ghSetup").hidden = on; $("ghRepos").hidden = !on;
+  if (on) { $("ghAvatar").src = u.avatar || ""; $("ghName").textContent = u.name || u.login || "GitHub"; $("ghLogin").textContent = "@" + (u.login || ""); loadRepos(); }
+}
+async function loadRepos() { const list = $("ghRepoList"); list.innerHTML = '<div class="ghempty">Loading your repositories…</div>';
+  try { ghRepos = (await api("/api/github/repos")).repos || []; drawRepos(); } catch (e) { list.innerHTML = ""; list.appendChild(el("div", "ghempty", esc(e.message))); } }
+function drawRepos() { const q = $("ghSearch").value.trim().toLowerCase(), list = $("ghRepoList"); list.innerHTML = "";
+  const rows = ghRepos.filter(r => !q || r.full_name.toLowerCase().includes(q) || r.description.toLowerCase().includes(q)).slice(0, 80);
+  if (!rows.length) { list.appendChild(el("div", "ghempty", ghRepos.length ? "No repository matches." : "No repositories yet.")); return; }
+  rows.forEach(r => { const row = el("div", "ghrepo", `<div class="gi"><b></b>${r.private ? '<em>Private</em>' : ""}<small></small></div>`);
+    row.querySelector("b").textContent = r.full_name; row.querySelector("small").textContent = r.description || (r.updated ? "Updated " + new Date(r.updated).toLocaleDateString() : "");
+    const view = el("button", "btn small ghost", "View"); view.title = "Open on github.com"; view.onclick = () => openUrl(r.url);
+    const open = el("button", "btn small primary", "Open"); open.title = "Clone it (if needed) and start a session in it";
+    open.onclick = async () => { open.disabled = true; open.textContent = "Cloning…";
+      try { const res = await api("/api/github/clone", { repo: r.full_name }); $("settings").close(); notice(`Opened ${r.full_name} in ${res.path}`); }
+      catch (e) { notice(e.message); } finally { open.disabled = false; open.textContent = "Open"; } };
+    row.append(view, open); list.appendChild(row); });
+}
+$("ghSearch").oninput = drawRepos;
+$("ghMakeToken").onclick = async () => openUrl((await api("/api/github")).token_url);
+$("ghConnectBtn").onclick = async () => { const b = $("ghConnectBtn"); b.disabled = true; $("ghErr").textContent = "";
+  try { const r = await api("/api/github/connect", { token: $("ghNewToken").value }); $("ghNewToken").value = ""; config.github_token = true; config.github_user = r.user; renderGitHub(); }
+  catch (e) { $("ghErr").textContent = e.message; } finally { b.disabled = false; } };
+$("ghNewToken").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("ghConnectBtn").click(); } };
+$("ghDisconnect").onclick = async () => { await api("/api/github/disconnect"); config.github_token = false; config.github_user = {}; renderGitHub(); };
 function loadServices() { const sv = config.services || {}, s3 = sv.s3 || {};
   $("svSearch").value = sv.search_provider || "duckduckgo"; $("svImage").value = sv.image_provider || "openai"; $("svSearxng").value = sv.searxng || "";
   $("svSearchKey").value = $("svImageKey").value = ""; $("s3Endpoint").value = s3.endpoint || ""; $("s3Bucket").value = s3.bucket || ""; $("s3Region").value = s3.region || "";
@@ -2779,7 +2843,7 @@ function openPanel(tab) {
   if (tab === "files") filesRefresh(); if (tab === "tasks") jobsRefresh();
   if (tab === "term") setTimeout(() => { fit?.fit(); term?.focus(); }, 30);
 }
-function closePanel() { document.body.classList.remove("panel-open"); panelTab = null; setViewing(false); }
+function closePanel() { document.body.classList.remove("panel-open", "panel-max"); panelTab = null; setViewing(false); }
 function setViewing(on) { if (on !== browserViewing) { browserViewing = on; api("/api/browser/view", { on }).catch(() => {}); } }
 document.querySelectorAll(".ptabs .tab").forEach(b => b.onclick = () => openPanel(b.dataset.v));
 $("closePanel").onclick = closePanel;
@@ -2898,22 +2962,40 @@ function browserStatus(ev) {
   if (!$("bimg").src) $("bempty").style.display = "block";
 }
 const binput = (d) => api("/api/browser/input", d).catch(e => browserStatus({ text: e.message }));
-$("burl").addEventListener("keydown", e => { if (e.key === "Enter" && $("burl").value.trim()) { binput({ type: "navigate", url: $("burl").value.trim() }); $("bview").focus(); } });
+$("burl").addEventListener("keydown", e => { if (e.key === "Enter" && $("burl").value.trim()) { binput({ type: "navigate", url: $("burl").value.trim() }); $("bsink").focus({ preventScroll: true }); } });
 document.querySelectorAll("[data-b]").forEach(b => b.onclick = () => binput({ type: b.dataset.b }));
-$("bimg").addEventListener("click", e => {
-  const img = $("bimg"), r = img.getBoundingClientRect(); $("bview").focus();
-  binput({ type: "click", x: Math.round((e.clientX - r.left) * img.dataset.w / r.width), y: Math.round((e.clientY - r.top) * img.dataset.h / r.height) });
-});
+// Browser panel: drag to select, double-click a word, ⌘A / ⌘C / ⌘X / ⌘V like a normal browser.
+// Keys go to a hidden text box (#bsink) so copy and paste work through the system menus too.
+const bsink = $("bsink");
+const bpt = e => { const img = $("bimg"), r = img.getBoundingClientRect(); return { x: Math.round((e.clientX - r.left) * img.dataset.w / r.width), y: Math.round((e.clientY - r.top) * img.dataset.h / r.height) }; };
+async function bGrabSelection() { try { const r = await api("/api/browser/input", { type: "selection" }); bsink.value = r.text || ""; bsink.select(); } catch {} }
+let bDown = null, bMoveT = 0;
+$("bimg").addEventListener("mousedown", e => { if (e.button) return; e.preventDefault(); bsink.focus({ preventScroll: true }); bDown = bpt(e); binput({ type: "down", ...bDown }); });
+window.addEventListener("mousemove", e => { if (!bDown || Date.now() - bMoveT < 50) return; bMoveT = Date.now(); binput({ type: "move", ...bpt(e) }); });
+window.addEventListener("mouseup", e => { if (!bDown) return; const p = bpt(e); bDown = null; api("/api/browser/input", { type: "up", ...p }).then(bGrabSelection).catch(() => {}); });
+$("bimg").addEventListener("dblclick", e => { api("/api/browser/input", { type: "dblclick", ...bpt(e) }).then(bGrabSelection).catch(() => {}); });
 $("bview").addEventListener("wheel", e => { if ($("bimg").style.display === "block") { e.preventDefault(); binput({ type: "scroll", dy: Math.round(e.deltaY) }); } }, { passive: false });
-$("bview").addEventListener("keydown", e => {
+$("bview").addEventListener("mousedown", e => { if (e.target !== $("burl")) setTimeout(() => bsink.focus({ preventScroll: true }), 0); });
+bsink.addEventListener("keydown", e => {
   if (e.isComposing) return;
+  const cmd = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+  if (cmd && (k === "c" || k === "v")) return;  // the hidden box does the real copy / paste
+  if (cmd && k === "x") { setTimeout(() => binput({ type: "key", key: "Backspace" }), 0); return; }
+  if (cmd && k === "a") { e.preventDefault(); api("/api/browser/input", { type: "key", key: "ControlOrMeta+a" }).then(bGrabSelection).catch(() => {}); return; }
   const mods = [e.ctrlKey && "Control", e.metaKey && "Meta", e.altKey && "Alt"].filter(Boolean);
   if (e.key.length === 1 && !mods.length) binput({ type: "text", text: e.key });
   else if (!["Shift", "Control", "Meta", "Alt"].includes(e.key)) binput({ type: "key", key: [...mods, e.shiftKey && e.key.length > 1 ? "Shift" : null, e.key].filter(Boolean).join("+") });
   else return;
   e.preventDefault();
 });
-$("bview").addEventListener("paste", e => { const t = e.clipboardData?.getData("text"); if (t) { e.preventDefault(); binput({ type: "text", text: t }); } });
+bsink.addEventListener("paste", e => { const t = e.clipboardData?.getData("text"); e.preventDefault(); if (t) binput({ type: "text", text: t }); });
+bsink.addEventListener("input", () => { bsink.value = ""; });  // nothing typed lands in the hidden box itself
+// maximize the side panel to the whole window, and back
+function setPanelMax(on) { document.body.classList.toggle("panel-max", on); const b = $("maxPanel"); b.title = on ? "Restore panel (⇧⌘M)" : "Maximize panel (⇧⌘M)";
+  b.innerHTML = on ? '<svg viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>';
+  window.dispatchEvent(new Event("resize")); }
+$("maxPanel").onclick = () => setPanelMax(!document.body.classList.contains("panel-max"));
+document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "m" && document.body.classList.contains("panel-open")) { e.preventDefault(); $("maxPanel").click(); } });
 
 
 // ===================== Harness design wiring =====================
