@@ -741,6 +741,7 @@ mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); colo
 .mkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .mkbar input { width: 220px; } .mkbar select { max-width: 340px; }
 .mksrc { display: block; color: var(--faint); font-size: 11.5px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mkkind { font-style: normal; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; margin-left: 6px; text-transform: capitalize; }
+.chsteps { margin: 4px 0 10px 18px; padding: 0; color: var(--muted); font-size: 12.5px; line-height: 1.6; } .chsteps b, .chsteps code { color: var(--text); }
 .ghme { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); margin-bottom: 14px; }
 .ghme img { width: 40px; height: 40px; border-radius: 50%; } .ghme b { display: block; font-size: 14.5px; } .ghme small { color: var(--muted); font-size: 12.5px; }
 .ghstep { display: flex; gap: 12px; padding: 12px 0; } .ghstep > span { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); border: 1px solid var(--line); font: 600 12px var(--monoF); color: var(--accent); }
@@ -1349,6 +1350,12 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <div class="field"><label>Working folder</label><div style="display:flex;gap:8px"><input id="cwd" spellcheck="false"><button class="btn" id="pick" hidden>Browse…</button></div></div>
     </div>
     <div class="pane" data-p="tools">
+      <div class="field chromecard"><label>Your Chrome <small>Let the agent read and use your own Chrome, where you're signed in. Every click and typing step asks you first.</small></label>
+        <ol class="chsteps"><li>Click <b>Show extension folder</b>.</li><li>In Chrome, open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, click <b>Load unpacked</b> and pick that folder.</li>
+          <li>Click the LightCode⁴ icon in Chrome's toolbar and paste this pairing code:</li></ol>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><code id="chCode" class="ghbig" style="font-size:13px;letter-spacing:0">…</code>
+          <button class="btn small" id="chCopy">Copy code</button><button class="btn small" id="chFolder">Show extension folder</button><button class="btn small ghost" id="chNew" title="Make a new code; the old one stops working">New code</button></div>
+        <small id="chStatus" style="display:block;margin-top:6px;color:var(--muted)"></small></div>
       <div class="field"><label for="myName">What should LightCode⁴ call you? <small>(used in the greeting)</small></label><input id="myName" maxlength="40" placeholder="Your first name"></div>
       <div class="field"><label for="themeSel">Appearance</label><div class="artseg" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content"><button data-t="system">System</button><button data-t="light">Light</button><button data-t="dark">Dark</button></div></div>
       <label class="toggle"><span>Sound when a task finishes<small>A soft chime when a longer task is done, or when LightCode⁴ is in the background.</small></span><span class="switch"><input type="checkbox" id="soundOn"><span></span></span></label>
@@ -2024,7 +2031,7 @@ function mcpRow(m = {}) {
 function showTab(p) { document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.p === p)); document.querySelectorAll(".pane").forEach(x => x.classList.toggle("on", x.dataset.p === p)); }
 let instrLoaded = "";
 async function openSettings(tab) {
-  loadServices(); renderGitHub();
+  loadServices(); renderGitHub(); chromeCard();
   loadLsp(); $("quickKey").value = (config.quick_hotkey ?? "<ctrl>+<alt>+<space>").replace(/[<>]/g, "");
   setProvider(config.provider || "claude"); $("model").value = config.model || ""; $("effort").value = config.effort || "high";
   $("baseurl").value = config.base_url || ""; $("cwd").value = config.cwd || ""; $("auto").checked = !!config.auto;
@@ -2517,6 +2524,11 @@ function drawRepos() { const q = $("ghSearch").value.trim().toLowerCase(), list 
     row.append(view, open); list.appendChild(row); });
 }
 $("ghSearch").oninput = drawRepos;
+async function chromeCard(body = {}) { try { const r = await api("/api/chrome", body); $("chCode").textContent = r.code;
+  $("chStatus").textContent = !r.listening ? "Another LightCode⁴ window owns the Chrome connection." : r.connected ? `✓ Connected (${r.browser || "Chrome"})` : "Not connected yet. Keep Chrome open after pairing."; } catch (e) {} }
+$("chCopy").onclick = () => navigator.clipboard?.writeText($("chCode").textContent).then(() => notice("Pairing code copied."));
+$("chNew").onclick = () => { if (confirm("Make a new pairing code? Chrome will need the new one.")) chromeCard({ new_code: true }); };
+$("chFolder").onclick = () => api("/api/chrome/folder").then(r => notice("Extension folder: " + r.path)).catch(e => notice(e.message));
 function syncStatus(r) { const t = $("ghSyncStatus"); if (!r || !r.t) { t.textContent = ""; return; }
   t.textContent = r.error ? "Last sync failed: " + r.error : `Last synced ${new Date(r.t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` + (r.pulled ? ` · ${r.pulled} chat${r.pulled > 1 ? "s" : ""} updated from your other computer` : ""); }
 async function runSync(body) { $("ghSyncNow").disabled = true; $("ghSyncStatus").textContent = "Syncing…";

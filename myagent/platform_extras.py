@@ -362,3 +362,16 @@ def stop_tunnel(proc) -> None:
             proc.wait(5)
         except Exception:
             proc.kill()
+
+
+def reveal(path: str) -> None:
+    """Show a folder in Finder / Explorer / the file manager."""
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", path])
+        elif os.name == "nt":
+            os.startfile(path)  # type: ignore[attr-defined]
+        else:
+            subprocess.Popen(["xdg-open", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass

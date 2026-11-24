@@ -19,6 +19,7 @@ import platform
 import queue
 import re
 import secrets
+import shutil
 import shlex
 import socket
 import subprocess
@@ -30,7 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, extras, gallery, github, gitops, lsp, market, projects, sync
+from . import __version__, bridge, extras, gallery, github, gitops, lsp, market, projects, sync
 from .catalog import BY_ID as PROVIDER_BY_ID, PROVIDERS, guess_service
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
@@ -213,6 +214,8 @@ def ask_fields(name: str, args: dict, cwd: str) -> list[list[str]]:
 def _rule_kind(name: str) -> str:
     if name.startswith("browser_"):
         return "browser"
+    if name.startswith("chrome_"):
+        return "chrome"
     if name.startswith("desktop_"):
         return "computer"
     if name.startswith("mcp_"):
@@ -411,6 +414,7 @@ class Chat:
         self.ws.services = self.app.services_for_tools()
         self.ws.github_token = self.app.config.get("github_token", "")
         self.ws.env_extra = github.git_env(self.ws.github_token, self.app.config.get("github_user"))
+        self.ws.chrome = self.app.chrome
         self.instruction_files = project_instructions(self.cwd)[1]
 
     # ---------------------------------------------------------------- events
@@ -628,6 +632,8 @@ class Chat:
                 return "allow"
         if name in FILE_CHANGING and self.allow_edits:
             return "allow"
+        if name in ("chrome_click", "chrome_type"):  # acting in your signed-in Chrome always asks
+            return "ask"
         if self.app.config["auto"] and not name.startswith("desktop_"):  # screen control always asks
             return "allow"
         return "ask"
@@ -1254,7 +1260,7 @@ class Session:
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
                        "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code", "services": {},
-                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {},
+                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "",
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.set_badge = None  # set by the desktop app (Dock badge)
@@ -1267,6 +1273,7 @@ class Session:
         self.pending: dict[str, tuple[threading.Event, dict]] = {}
         self.preview_opener = webbrowser.open
         self.open_url = webbrowser.open
+        self.chrome = bridge.ChromeBridge()
         self._sync_lock = threading.Lock()  # GitHub sign-in page etc. (tests replace it)
         self.browser = Browser(HOME / "browser", self._browser_frame, self._browser_state)
         self.browser_url = ""
@@ -1455,7 +1462,7 @@ class Session:
         return chat
 
     def public_config(self) -> dict:
-        hidden = ("api_key", "github_token", "rules", "hooks", "voice_key", "mcp_local", "keys", "services")
+        hidden = ("api_key", "github_token", "rules", "hooks", "voice_key", "mcp_local", "keys", "services", "bridge_key")
         c = {k: v for k, v in self.config.items() if k not in hidden}
         c["api_key"] = bool(self.config["api_key"])
         c["github_token"] = bool(self.config["github_token"])
@@ -2424,6 +2431,19 @@ def make_handler(session: Session, token: str):
                         target.cancel.set()
                 elif path in ("/api/clear", "/api/chat/new"):
                     session.new_chat(worktree=bool(data.get("worktree")), client=client, kind=data.get("kind"))
+                elif path == "/api/chrome":
+                    if data.get("new_code"):
+                        session.config["bridge_key"] = "lc4" + secrets.token_hex(12)
+                        session.save()
+                    result = {"code": f"{bridge.PORT}-{session.config.get('bridge_key', '')}", "connected": session.chrome.connected,
+                              "browser": session.chrome.info.get("browser", ""), "listening": bool(getattr(session, "ext_server", None))}
+                elif path == "/api/chrome/folder":  # a stable copy of the bundled extension, shown in Finder / Explorer
+                    src = Path(__file__).parent / "static" / "extensions" / "chrome"
+                    dest = Path.home() / "LightCode4" / "chrome-extension"
+                    shutil.copytree(src, dest, dirs_exist_ok=True)
+                    if not os.environ.get("LC4_NO_REVEAL"):
+                        px.reveal(str(dest))
+                    result = {"path": str(dest)}
                 elif path == "/api/github":
                     result = session.github_status()
                 elif path == "/api/github/connect":
@@ -2836,6 +2856,10 @@ def start_server(cwd: str | None = None, port: int = 0, session: Session | None 
     threading.Thread(target=server.serve_forever, daemon=True).start()
     session.start_scheduler()
     write_running(server.server_port, token)
+    if not session.config.get("bridge_key"):
+        session.config["bridge_key"] = "lc4" + secrets.token_hex(12)
+        session.save()
+    session.ext_server = bridge.start_ext_server(session.chrome, lambda: session.config.get("bridge_key", "") or secrets.token_hex(8))
     return server, f"http://127.0.0.1:{server.server_port}/?token={token}", session
 
 

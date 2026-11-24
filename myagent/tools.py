@@ -145,6 +145,25 @@ TOOLS = [
                     "requests, add labels, create repositories... method is POST, PATCH, PUT or DELETE; body is the JSON "
                     "payload. Example: POST /repos/OWNER/REPO/pulls {title, head, base, body}.",
      "schema": _schema({"method": _S, "path": _S, "body": {"type": "object"}}, ["method", "path"])},
+    {"name": "chrome_tabs", "kind": "readonly",
+     "description": "List the tabs open in the user's own Chrome (needs the LightCode4 Chrome extension). The user is signed in "
+                    "to their accounts there: be careful, and prefer the built-in browser for anything that doesn't need them.",
+     "schema": _schema({}, [])},
+    {"name": "chrome_read", "kind": "readonly",
+     "description": "Read the text, links and form fields of a tab in the user's Chrome (default: the active tab).",
+     "schema": _schema({"tab": {"type": "integer"}}, [])},
+    {"name": "chrome_screenshot", "kind": "readonly",
+     "description": "Screenshot of the visible part of the active tab in the user's Chrome.",
+     "schema": _schema({}, [])},
+    {"name": "chrome_open", "kind": "mutating",
+     "description": "Open a URL in the user's Chrome: in a new tab (default) or the active tab (new_tab=false). Or switch to a tab by id.",
+     "schema": _schema({"url": _S, "new_tab": {"type": "boolean"}, "tab": {"type": "integer"}}, [])},
+    {"name": "chrome_click", "kind": "mutating",
+     "description": "Click in a tab of the user's Chrome by visible text or CSS selector (always asks the user first).",
+     "schema": _schema({"text": _S, "selector": _S, "tab": {"type": "integer"}}, [])},
+    {"name": "chrome_type", "kind": "mutating",
+     "description": "Type into a field of the user's Chrome (CSS selector, or the focused field); submit=true presses Enter / submits the form.",
+     "schema": _schema({"text": _S, "selector": _S, "submit": {"type": "boolean"}, "tab": {"type": "integer"}}, ["text"])},
     {"name": "fetch_url", "kind": "readonly", "client_web": True,
      "description": "Fetch a web page (or a local dev server URL) and return its text content.",
      "schema": _schema({"url": _S}, ["url"])},
@@ -313,6 +332,9 @@ def describe(name: str, args: dict) -> str:
         return f"image: {str(args.get('prompt', ''))[:60]}"
     if name == "upload_file":
         return f"upload {args.get('path')}"
+    if name.startswith("chrome_"):
+        what = args.get("url") or args.get("text") or args.get("selector") or (f"tab {args['tab']}" if args.get("tab") else "")
+        return f"Chrome: {name[7:]} {what}".strip()
     if name == "github_get":
         return f"GitHub: GET {args.get('path')}"
     if name == "github_api":
@@ -435,6 +457,7 @@ class Workspace:
         self.services: dict = {}  # keys and choices from Settings > Services
         self.github_token = ""  # Settings > GitHub
         self.env_extra: dict = {}  # extra environment for commands (GitHub sign-in for git and gh)
+        self.chrome = None  # the Chrome extension bridge
 
     def path(self, p: str) -> Path:
         path = Path(os.path.expanduser(p))
@@ -869,6 +892,39 @@ class Workspace:
         return f"Ran {len(result['cells'])} code cell(s){' — stopped at an error' if result.get('failed') else ''}:\n" + "\n".join(lines)
 
     # ---- web ----
+    # ---- your own Chrome (LightCode4 Chrome extension) ----
+    def _chrome(self, action: str, args: dict, timeout: float = 60):
+        if self.chrome is None:
+            raise ToolError("The Chrome extension bridge isn't running.")
+        try:
+            return self.chrome.call(action, {k: v for k, v in args.items() if v is not None}, timeout)
+        except RuntimeError as e:
+            raise ToolError(str(e))
+
+    def _chrome_tabs(self) -> str:
+        tabs = self._chrome("tabs", {})
+        return "\n".join(f"[{t['id']}]{' (active)' if t.get('active') else ''} {t.get('title', '')} — {t.get('url', '')}" for t in tabs) or "(no tabs)"
+
+    def _chrome_read(self, tab: int | None = None) -> str:
+        r = self._chrome("read", {"tab": tab})
+        return f"{r.get('title', '')}\n{r.get('url', '')}\n\n{r.get('text', '')}"[:60_000]
+
+    def _chrome_screenshot(self):
+        r = self._chrome("screenshot", {})
+        data = str(r.get("dataUrl", "")).split(",", 1)[-1]
+        return [{"type": "text", "text": f"Screenshot of {r.get('url', 'the active tab')}"},
+                {"type": "image", "media_type": "image/png", "data": data}]
+
+    def _chrome_open(self, url: str | None = None, new_tab: bool = True, tab: int | None = None) -> str:
+        r = self._chrome("open", {"url": url, "new_tab": new_tab, "tab": tab})
+        return f"Now at {r.get('url', '')} (tab {r.get('id')})"
+
+    def _chrome_click(self, text: str | None = None, selector: str | None = None, tab: int | None = None) -> str:
+        return str(self._chrome("click", {"text": text, "selector": selector, "tab": tab}))
+
+    def _chrome_type(self, text: str, selector: str | None = None, submit: bool = False, tab: int | None = None) -> str:
+        return str(self._chrome("type", {"text": text, "selector": selector, "submit": submit, "tab": tab}))
+
     # ---- GitHub (Settings > GitHub) ----
     def _gh_call(self, method: str, path: str, body=None) -> str:
         from .github import GitHubError, api

@@ -1855,6 +1855,43 @@ def main():
     os.environ.pop("LC4_GITHUB_WEB", None)
     sys_srv.shutdown()
     print("80 chat sync + team projects OK")
+    # 81. your own Chrome through the extension bridge (a stand-in extension answers); clicks always ask first
+    from myagent import bridge as br
+    import urllib.request as ur
+    key = s.config["bridge_key"] = "lc4testkey"
+    br.PORT = 0
+    ext = br.start_ext_server(s.chrome, lambda: s.config["bridge_key"])
+    eport = ext.server_port
+    def fake_extension(stop):
+        while not stop.is_set():
+            req = ur.Request(f"http://127.0.0.1:{eport}/chrome/next", data=json.dumps({"wait": 1, "browser": "Chrome/1"}).encode(),
+                             headers={"X-LC4-Key": key, "Content-Type": "application/json"}, method="POST")
+            job = json.loads(ur.urlopen(req, timeout=5).read())["job"]
+            if not job:
+                continue
+            data = {"tabs": [{"id": 7, "title": "Inbox", "url": "https://mail.example", "active": True}],
+                    "click": "Clicked button “Send”."}.get(job["action"], {})
+            ur.urlopen(ur.Request(f"http://127.0.0.1:{eport}/chrome/result", data=json.dumps({"id": job["id"], "ok": True, "data": data}).encode(),
+                                  headers={"X-LC4-Key": key, "Content-Type": "application/json"}, method="POST"), timeout=5)
+    stop = threading.Event()
+    threading.Thread(target=fake_extension, args=(stop,), daemon=True).start()
+    bad = ur.Request(f"http://127.0.0.1:{eport}/chrome/next", data=b"{}", headers={"X-LC4-Key": "nope"}, method="POST")
+    try:
+        ur.urlopen(bad, timeout=5); raise AssertionError("a wrong pairing code is refused")
+    except ur.HTTPError as e:
+        assert e.code == 401
+    deadline = time.time() + 5
+    while not s.chrome.connected and time.time() < deadline:
+        time.sleep(0.05)
+    s.new_chat()
+    s.config["auto"] = True
+    evs = d.run("check mail", script=[("tool", "chrome_tabs", {}), ("tool", "chrome_click", {"text": "Send"}), ("text", "Sent.")])
+    outs = [e["output"] for e in d.kinds(evs, "tool_result")]
+    assert "[7] (active) Inbox — https://mail.example" in outs[0] and "Clicked button" in outs[1]
+    assert [e["name"] for e in d.kinds(evs, "approve")] == ["chrome_click"], "clicking in your Chrome asks even with auto-approve"
+    s.config["auto"] = False
+    stop.set(); ext.shutdown()
+    print("81 your Chrome via the extension OK")
     print("ALL TESTS PASSED")
 
 
