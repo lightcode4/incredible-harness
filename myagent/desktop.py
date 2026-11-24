@@ -3,6 +3,7 @@ around the local engine. This is the entry point PyInstaller packages."""
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -77,6 +78,95 @@ def mac_extras(session, focus_main):
         return True
     from . import extras
     extras.NOTIFIER = notifier
+
+
+def forward_link(argv: list[str]) -> bool:
+    """A clicked notification starts the app with lightcode4://chat/<id>. If LightCode4 is already running, hand the
+    chat to it (it opens the chat and comes to the front) and let this second copy exit."""
+    link = next((a for a in argv[1:] if a.lower().startswith("lightcode4://")), None)
+    if not link:
+        return False
+    import json
+    import urllib.request
+    from .gui import read_running
+    info = read_running()
+    chat = link.split("://", 1)[1].strip("/")
+    chat = chat[5:] if chat.startswith("chat/") else ""
+    if info:
+        try:
+            req = urllib.request.Request(f"{info['url']}/api/activate?token={info['token']}", data=json.dumps({"chat": chat}).encode(),
+                                         headers={"Content-Type": "application/json", "X-Token": info["token"]}, method="POST")
+            urllib.request.urlopen(req, timeout=5).read()
+            return True
+        except Exception:
+            pass
+    sys.argv = [a for a in argv if a != link]  # not running: start normally (the last chat reopens)
+    return False
+
+
+def win_extras(session, main_win):
+    """Windows: the number of approvals waiting shows on the taskbar icon and in the title, and the taskbar button
+    flashes, like the Dock badge on a Mac."""
+    if os.name != "nt":
+        return
+    import ctypes
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+
+    class FLASHWINFO(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.UINT), ("hwnd", wintypes.HWND), ("dwFlags", wintypes.DWORD),
+                    ("uCount", wintypes.UINT), ("dwTimeout", wintypes.DWORD)]
+
+    def hwnd():
+        try:
+            return int(main_win.native.Handle.ToInt64())
+        except Exception:
+            return user32.FindWindowW(None, main_win.title) or 0
+
+    def overlay(h, n):
+        """A small numbered dot on the taskbar icon (ITaskbarList3.SetOverlayIcon)."""
+        import tempfile
+        ole32 = ctypes.windll.ole32
+        ole32.CoInitialize(None)
+        clsid, iid = (ctypes.c_byte * 16)(), (ctypes.c_byte * 16)()
+        ole32.CLSIDFromString("{56FDF344-FD6D-11d0-958A-006097C9A090}", ctypes.byref(clsid))
+        ole32.IIDFromString("{ea1afb91-9e28-4b86-90e9-9e9f8a5eefaf}", ctypes.byref(iid))
+        obj = ctypes.c_void_p()
+        if ole32.CoCreateInstance(ctypes.byref(clsid), None, 1, ctypes.byref(iid), ctypes.byref(obj)) != 0:
+            return
+        vtbl = ctypes.cast(obj, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+        ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p)(vtbl[3])(obj)  # HrInit
+        icon = None
+        if n:
+            from PIL import Image, ImageDraw
+            img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+            d = ImageDraw.Draw(img)
+            d.ellipse((0, 0, 31, 31), fill=(232, 196, 106, 255))
+            t = str(n) if n < 10 else "9+"
+            d.text((16, 16), t, fill=(43, 32, 18, 255), anchor="mm", font_size=20 if n < 10 else 15)
+            path = os.path.join(tempfile.gettempdir(), f"lc4-badge-{t.replace('+', 'p')}.ico")
+            img.save(path, sizes=[(32, 32), (16, 16)])
+            icon = user32.LoadImageW(None, path, 1, 16, 16, 0x10)
+        set_overlay = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, wintypes.HWND, wintypes.HANDLE, wintypes.LPCWSTR)(vtbl[18])
+        set_overlay(obj, h, icon, f"{n} waiting for your approval" if n else "")
+        ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p)(vtbl[2])(obj)  # Release
+
+    def set_badge(n: int):
+        try:
+            main_win.set_title(f"({n}) {APP_NAME}" if n else APP_NAME)
+            h = hwnd()
+            if not h:
+                return
+            if n:
+                info = FLASHWINFO(ctypes.sizeof(FLASHWINFO), h, 0x2 | 0xC, 0, 0)  # flash the taskbar button until the window is used
+                user32.FlashWindowEx(ctypes.byref(info))
+            try:
+                overlay(h, n)
+            except Exception:
+                pass  # the title count and the flash still show it
+        except Exception:
+            pass
+    session.set_badge = set_badge
 
 
 def hotkey_for_pynput(text: str) -> str:
@@ -218,11 +308,12 @@ class QuickChat:
 
 
 def main():
+    if forward_link(sys.argv):  # a notification was clicked while the app is running: it shows that chat; nothing else to do
+        return
     if "--self-test" in sys.argv:  # test every part of the installed app, print results, exit
         from .selfcheck import main as selfcheck_main
         raise SystemExit(selfcheck_main())
     # A packaged windowed app has no console; give print() somewhere harmless to go.
-    import os
     for name in ("stdout", "stderr"):
         if getattr(sys, name) is None:
             setattr(sys, name, open(os.devnull, "w", encoding="utf-8"))
@@ -249,6 +340,7 @@ def main():
     session.quick_toggle, session.quick_hide, session.focus_main = quick.toggle, quick.hide, quick.focus_main
     session.on_hotkey = quick.listen
     mac_extras(session, quick.focus_main)
+    win_extras(session, main_win)
     webview.start(lambda: quick.listen(session.config.get("quick_hotkey", DEFAULT_HOTKEY)))
     quick.stop()
     session.shutdown()

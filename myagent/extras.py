@@ -294,11 +294,15 @@ def notify(title: str, message: str, chat: str | None = None) -> None:
             script = f'display notification {json.dumps(message[:200])} with title {json.dumps(title)}'
             subprocess.Popen(["osascript", "-e", script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         elif os.name == "nt":
+            from xml.sax.saxutils import escape, quoteattr
+            launch = f"lightcode4://chat/{chat}" if chat else "lightcode4://open"
+            xml = (f"<toast activationType=\"protocol\" launch={quoteattr(launch)}><visual><binding template=\"ToastGeneric\">"
+                   f"<text>{escape(title)}</text><text>{escape(message[:200])}</text></binding></visual></toast>")
             ps = ("[Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime]>$null;"
-                  "$t=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent(1);"
-                  f"$t.GetElementsByTagName('text')[0].AppendChild($t.CreateTextNode({json.dumps(title + ': ' + message[:180])}))>$null;"
-                  "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('LightCode⁴')"
-                  ".Show([Windows.UI.Notifications.ToastNotification]::new($t))")
+                  "[Windows.Data.Xml.Dom.XmlDocument,Windows.Data.Xml.Dom.XmlDocument,ContentType=WindowsRuntime]>$null;"
+                  f"$x=New-Object Windows.Data.Xml.Dom.XmlDocument;$x.LoadXml({json.dumps(xml)});"
+                  "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('LightCode4.App')"
+                  ".Show([Windows.UI.Notifications.ToastNotification]::new($x))")
             subprocess.Popen(["powershell", "-NoProfile", "-Command", ps], creationflags=_NOWIN,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:

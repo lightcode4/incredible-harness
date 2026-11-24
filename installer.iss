@@ -18,8 +18,14 @@ SetupIconFile=assets\icon.ico
 Source: "dist\LightCode4\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
-Name: "{group}\LightCode⁴"; Filename: "{app}\LightCode4.exe"
+Name: "{group}\LightCode⁴"; Filename: "{app}\LightCode4.exe"; AppUserModelID: "LightCode4.App"
 Name: "{autodesktop}\LightCode⁴"; Filename: "{app}\LightCode4.exe"; Tasks: desktopicon
+
+[Registry]
+; lightcode4:// links: clicking a notification opens its chat in the running app
+Root: HKCU; Subkey: "Software\Classes\lightcode4"; ValueType: string; ValueName: ""; ValueData: "URL:LightCode4"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\lightcode4"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\lightcode4\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\LightCode4.exe"" ""%1"""
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked

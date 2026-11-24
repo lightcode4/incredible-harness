@@ -2376,6 +2376,11 @@ def make_handler(session: Session, token: str):
                     session.set_mode(str(data.get("mode")), client)
                 elif path == "/api/chats":
                     result = {"chats": session.list_chats(), "current": session.chat_id}
+                elif path == "/api/activate":  # a clicked notification or an editor extension: show this chat, bring the window up
+                    if data.get("chat"):
+                        session.open_chat(str(data["chat"]), client)
+                    if session.focus_main:
+                        session.focus_main()
                 elif path == "/api/chat/open":
                     session.open_chat(str(data.get("id")), client)
                 elif path == "/api/chats/order":
@@ -2700,7 +2705,29 @@ def start_server(cwd: str | None = None, port: int = 0, session: Session | None 
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True).start()
     session.start_scheduler()
+    write_running(server.server_port, token)
     return server, f"http://127.0.0.1:{server.server_port}/?token={token}", session
+
+
+RUNNING = HOME / "running.json"
+
+
+def write_running(port: int, token: str) -> None:
+    """Where the running app listens, readable only by you: lets notifications, the VS Code / JetBrains extensions
+    and the Chrome extension find it."""
+    try:
+        HOME.mkdir(parents=True, exist_ok=True)
+        RUNNING.write_text(json.dumps({"url": f"http://127.0.0.1:{port}", "token": token, "pid": os.getpid()}))
+        os.chmod(RUNNING, 0o600)
+    except Exception:
+        pass
+
+
+def read_running() -> dict | None:
+    try:
+        return json.loads(RUNNING.read_text())
+    except Exception:
+        return None
 
 
 def main(argv=None):

@@ -1665,6 +1665,22 @@ def main():
     assert sub_req and "haiku" in sub_req[0][2]["model"], [r[2].get("model") for r in REQUESTS[n0:]]
     assert {t["name"] for t in sub_req[0][2]["tools"]} >= {"read_file", "write_file"} and "bash" not in {t["name"] for t in sub_req[0][2]["tools"]}
     print("77 response styles + custom agents OK")
+    # 78. clicking a notification (lightcode4://chat/<id>) opens that chat in the running app and brings it forward
+    from myagent import desktop
+    from myagent.gui import start_server as _start, read_running
+    srv78, _url, s78 = _start(str(Path(tempfile.mkdtemp())))
+    s78.set_mode("code"); s78.new_chat()
+    target = s78.current
+    target.transcript.append({"kind": "user", "text": "hello"}); target.save()
+    s78.new_chat()
+    focused = []
+    s78.focus_main = lambda: focused.append(1)
+    assert read_running()["url"].endswith(str(srv78.server_port))
+    assert desktop.forward_link(["LightCode4", f"lightcode4://chat/{target.id}"]) is True
+    assert s78.current.id == target.id and focused, "the clicked chat is shown and the window comes forward"
+    assert desktop.forward_link(["LightCode4"]) is False
+    srv78.shutdown()
+    print("78 notification click opens its chat OK")
     print("ALL TESTS PASSED")
 
 
