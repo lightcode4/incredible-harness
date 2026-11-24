@@ -141,9 +141,12 @@ async function overlaps(pg, label) {
         check('Double-click puts it back in its corner', Math.abs(hb.x - fb.x) < 3 && Math.abs(hb.y - fb.y) < 3 && !(await pg.isVisible('#railPop'))); }
       // --- settings tabs
       await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
-      for (const t of ['model', 'tools', 'perms', 'instr', 'memory', 'sched', 'mcp', 'phone', 'about']) {
+      for (const t of ['model', 'tools', 'perms', 'instr', 'memory', 'sched', 'mcp', 'services', 'phone', 'about']) {
         await pg.click(`#tabs button[data-p="${t}"]`); await pg.waitForTimeout(120); await overlaps(pg, `settings ${t}`);
       }
+      await pg.click('#tabs button[data-p="services"]');
+      check('Services pane has search, image and cloud upload settings', await pg.isVisible('#svSearch') && await pg.isVisible('#svImage') && await pg.isVisible('#s3Bucket')
+        && (await pg.evaluate(() => [...document.querySelectorAll('#svSearch option')].map(o => o.value).join(','))).includes('tavily'));
       await pg.click('#cancelSettings');
       // --- conversation flow
       await pg.fill('#input', 'Make total() handle an empty list'); await pg.keyboard.press('Enter');
@@ -355,6 +358,8 @@ async function overlaps(pg, label) {
       await pg.click('#artClose'); check('Close hides the artifact', !(await pg.isVisible('#artifact')));
       await pg.waitForSelector('.mmd .mmdout svg', { timeout: 15000 });
       check('Mermaid diagrams are drawn', (await pg.locator('.mmd .mmdout svg').count()) >= 1 && (await pg.innerText('.mmd .mmdout')).includes('Empty?'));
+      await pg.waitForSelector('.ech .echout svg, .ech .echout canvas', { timeout: 15000 });
+      check('Charts are drawn from echarts blocks', (await pg.locator('.ech .echout svg, .ech .echout canvas').count()) >= 1);
       check('Math is typeset', (await pg.locator('#log .katex-display').count()) >= 1 && (await pg.innerText('#log')).includes('a price like $5 stays text'));
       check('Math fonts load', await pg.evaluate(async () => (await fetch('/vendor/fonts/KaTeX_Main-Regular.woff2')).ok));
       await pg.locator('.artopen').last().click(); check('Open preview reopens it', await pg.isVisible('#artifact')); await pg.keyboard.press('Escape');

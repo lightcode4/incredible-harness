@@ -106,6 +106,33 @@ TOOLS = [
      "description": "Load a skill's full instructions (and the list of its files/scripts) when the task matches one of the "
                     "skills listed in your instructions.",
      "schema": _schema({"name": _S}, ["name"])},
+    {"name": "read_document", "kind": "readonly",
+     "description": "Read a Word (.docx), PowerPoint (.pptx) or Excel (.xlsx) file as text: paragraphs and headings, slide by "
+                    "slide, or sheet by sheet as rows.",
+     "schema": _schema({"path": _S}, ["path"])},
+    {"name": "read_media", "kind": "readonly",
+     "description": "Understand an audio or video file: key frames (as images you can see) and a transcript of the sound "
+                    "(needs an OpenAI key for the transcript).",
+     "schema": _schema({"path": _S, "frames": {"type": "integer", "description": "How many frames from a video (1-12, default 6)."}}, ["path"])},
+    {"name": "geocode", "kind": "readonly",
+     "description": "Find places on the map (OpenStreetMap): an address, city or landmark -> names with latitude/longitude.",
+     "schema": _schema({"query": _S}, ["query"])},
+    {"name": "places_nearby", "kind": "readonly",
+     "description": "Points of interest near a location (OpenStreetMap), e.g. cafe, restaurant, pharmacy, hotel, museum, "
+                    "supermarket. Returns names, coordinates, address, opening hours. Show results on a map with an html "
+                    "artifact using Leaflet (https://unpkg.com/leaflet@1.9.4/dist/leaflet.js) and OpenStreetMap tiles.",
+     "schema": _schema({"lat": {"type": "number"}, "lon": {"type": "number"}, "kind": _S,
+                        "radius": {"type": "integer", "description": "Meters (default 1000, max 20000)."}}, ["lat", "lon", "kind"])},
+    {"name": "generate_image", "kind": "mutating",
+     "description": "Create an image from a description, or edit an existing image (give its path as 'edit'). Saves a PNG "
+                    "into the project and shows it. Uses the image provider chosen in Settings > Services.",
+     "schema": _schema({"prompt": _S, "path": {"type": "string", "description": "Where to save, e.g. images/hero.png."},
+                        "size": {"type": "string", "description": "e.g. 1024x1024, 1536x1024, 1024x1536."},
+                        "edit": {"type": "string", "description": "Path of an image to edit instead of starting fresh."}}, ["prompt"])},
+    {"name": "upload_file", "kind": "mutating",
+     "description": "Upload a file to the user's cloud storage (S3 or Cloudflare R2, set up in Settings > Services) and "
+                    "return a link to share it.",
+     "schema": _schema({"path": _S}, ["path"])},
     {"name": "fetch_url", "kind": "readonly", "client_web": True,
      "description": "Fetch a web page (or a local dev server URL) and return its text content.",
      "schema": _schema({"url": _S}, ["url"])},
@@ -234,6 +261,18 @@ def describe(name: str, args: dict) -> str:
         return f"notebook {args.get('mode', 'replace')} cell {args.get('cell')} in {args.get('path')}"
     if name == "remember":
         return f"remember: {args.get('note', '')[:60]}"
+    if name == "read_document":
+        return f"read {args.get('path')}"
+    if name == "read_media":
+        return f"watch/listen {args.get('path')}"
+    if name == "geocode":
+        return f"find on map: {args.get('query')}"
+    if name == "places_nearby":
+        return f"{args.get('kind')} near {args.get('lat')},{args.get('lon')}"
+    if name == "generate_image":
+        return f"image: {str(args.get('prompt', ''))[:60]}"
+    if name == "upload_file":
+        return f"upload {args.get('path')}"
     if name == "web_search":
         return f"search the web: {args.get('query')}"
     if name == "code_symbols":
@@ -349,6 +388,7 @@ class Workspace:
         self.jobs: dict[str, dict] = {}
         self._job_n = 0
         self.on_job = None  # called when a background job starts (live Tasks tab)
+        self.services: dict = {}  # keys and choices from Settings > Services
 
     def path(self, p: str) -> Path:
         path = Path(os.path.expanduser(p))
@@ -777,7 +817,104 @@ class Workspace:
         return f"Ran {len(result['cells'])} code cell(s){' — stopped at an error' if result.get('failed') else ''}:\n" + "\n".join(lines)
 
     # ---- web ----
+    # ---- services (Settings > Services) ----
+    def _svc(self, key, default=""):
+        return (self.services or {}).get(key, default)
+
+    def _read_document(self, path: str) -> str:
+        from .services import ServiceError, read_office
+        p = self.path(path)
+        if not p.is_file():
+            raise ToolError(f"No such file: {p}")
+        try:
+            return read_office(p.read_bytes(), p.name)
+        except (ServiceError, KeyError, Exception) as e:
+            raise ToolError(f"Could not read {p.name}: {e}")
+
+    def _read_media(self, path: str, frames: int = 6):
+        from .services import ServiceError, media_frames_and_audio, transcribe
+        p = self.path(path)
+        if not p.is_file():
+            raise ToolError(f"No such file: {p}")
+        try:
+            shots, audio, dur = media_frames_and_audio(p, max(1, min(int(frames or 6), 12)))
+        except ServiceError as e:
+            raise ToolError(str(e))
+        text = f"{p.name}: {dur:.1f} seconds, {len(shots)} frame(s)."
+        if audio:
+            try:
+                text += "\n\nTranscript:\n" + (transcribe(audio, p.stem + ".m4a", self._svc("openai_key"), os.environ.get("LC4_BASE_OPENAI", "")) or "(no speech)")
+            except ServiceError as e:
+                text += f"\n\n(No transcript: {e})"
+        parts = [{"type": "text", "text": text}]
+        parts += [{"type": "image", "media_type": "image/jpeg", "data": base64.b64encode(b).decode()} for b in shots]
+        return parts
+
+    def _geocode(self, query: str) -> str:
+        from .services import ServiceError, geocode
+        try:
+            rows = geocode(query, os.environ.get("LC4_BASE_NOMINATIM", ""))
+        except ServiceError as e:
+            raise ToolError(str(e))
+        return "\n".join(f"{r['name']} — {r['lat']:.6f}, {r['lon']:.6f} ({r['type']})" for r in rows) or "Nothing found."
+
+    def _places_nearby(self, lat: float, lon: float, kind: str, radius: int = 1000) -> str:
+        from .services import ServiceError, places_nearby
+        try:
+            rows = places_nearby(lat, lon, kind, radius, os.environ.get("LC4_BASE_OVERPASS", ""))
+        except ServiceError as e:
+            raise ToolError(str(e))
+        import json as _json
+        return _json.dumps(rows, ensure_ascii=False, indent=1) if rows else f"No {kind} found within {radius} m."
+
+    def _generate_image(self, prompt: str, path: str | None = None, size: str = "1024x1024", edit: str | None = None):
+        from .services import ServiceError, generate_image
+        prov = self._svc("image_provider", "openai")
+        key = self._svc("image_key") or (self._svc("openai_key") if prov == "openai" else "")
+        src = self.path(edit).read_bytes() if edit and self.path(edit).is_file() else None
+        try:
+            data = generate_image(prov, key, prompt, size or "1024x1024", src, os.environ.get("LC4_BASE_IMAGES", ""))
+        except ServiceError as e:
+            raise ToolError(str(e))
+        rel = path or f"images/{re.sub(r'[^a-z0-9]+', '-', prompt.lower())[:40].strip('-') or 'image'}.png"
+        p = self.path(rel)
+        self._before_change(p)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(data)
+        mt = "image/jpeg" if data[:3] == b"\xff\xd8\xff" else "image/webp" if data[8:12] == b"WEBP" else "image/png"
+        return [{"type": "text", "text": f"Saved the image to {p} ({len(data) // 1024} KB)."},
+                {"type": "image", "media_type": mt, "data": base64.b64encode(data).decode()}]
+
+    def _upload_file(self, path: str) -> str:
+        from .services import ServiceError, s3_upload
+        import mimetypes
+        p = self.path(path)
+        if not p.is_file():
+            raise ToolError(f"No such file: {p}")
+        try:
+            url = s3_upload(self._svc("s3", {}) or {}, p.name, p.read_bytes(), mimetypes.guess_type(p.name)[0] or "application/octet-stream")
+        except ServiceError as e:
+            raise ToolError(str(e))
+        return f"Uploaded {p.name}. Link: {url}"
+
     def _web_search(self, query: str) -> str:
+        from .services import ServiceError, search
+        prov = self._svc("search_provider", "duckduckgo")
+        if prov != "duckduckgo":
+            try:
+                rows = search(prov, query, self._svc("search_key"), self._svc("searxng"), os.environ.get("LC4_BASE_SEARCH", ""))
+            except ServiceError as e:
+                rows = None
+                note = f"({prov} search failed: {e}; used the built-in search instead)\n"
+            else:
+                note = ""
+            if rows is not None:
+                return "\n".join(f"{i}. {r['title']}\n   {r['url']}\n   {r['snippet']}" for i, r in enumerate(rows, 1)) or "No results."
+        else:
+            note = ""
+        return note + self._web_search_builtin(query)
+
+    def _web_search_builtin(self, query: str) -> str:
         import urllib.parse as up
         url = "https://html.duckduckgo.com/html/?" + up.urlencode({"q": query})
         raw, _ = self._download(url)

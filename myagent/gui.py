@@ -47,7 +47,7 @@ PAGE = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf
 HOME = Path.home() / ".incredible-herness"
 CONFIG_FILE = HOME / "settings.json"
 CHATS = HOME / "chats"
-CHAT_TOOL_NAMES = {"web_search", "fetch_url", "remember", "use_skill"}
+CHAT_TOOL_NAMES = {"web_search", "fetch_url", "remember", "use_skill", "geocode", "places_nearby", "generate_image"}
 CHAT_HOME = Path.home() / ".incredible-herness" / "chat-space"  # a private folder for Chat conversations (no project files)
 HOOK_KINDS = ("session_start", "on_prompt", "before_tool", "after_edit", "before_finish")
 DEFAULT_MODELS = {"claude": "claude-opus-5-5", "openai": "gpt-5", "local": "llama3.1"}
@@ -75,7 +75,9 @@ def system_prompt(cwd: str, instructions: str = "", memory: str = "", computer: 
         "- Use the task tool to research large codebases without filling this conversation.\n"
         "- For a quick web page, chart, visual or small interactive demo that doesn't need to be saved in the project, "
         "reply with ONE self-contained ```html code block (inline CSS/JS; CDN libraries are fine): the app shows it live "
-        "as an artifact. Use ```mermaid blocks for diagrams and $$...$$ or \\(...\\) for math; they are drawn for the user.\n"
+        "as an artifact. Use ```mermaid blocks for diagrams and $$...$$ or \\(...\\) for math; they are drawn for the user. "
+        "For charts of data, use an ```echarts block holding an Apache ECharts option object as JSON (title, tooltip, "
+        "xAxis, yAxis, series...): it is drawn as an interactive chart.\n"
         "- Ask the user when a decision is genuinely theirs. Keep replies short and concrete; say plainly what you "
         "changed, what you verified, and what you could not verify."
     )
@@ -381,6 +383,7 @@ class Chat:
         self.ws = Workspace(self.cwd, on_file_change=self._snapshot)
         self.ws.on_job = lambda: self.emit("jobs_changed")
         self.ws.sandbox = self.app.config.get("sandbox", "off")
+        self.ws.services = self.app.services_for_tools()
         self.instruction_files = project_instructions(self.cwd)[1]
 
     # ---------------------------------------------------------------- events
@@ -722,8 +725,9 @@ class Chat:
         if not err and name in FILE_CHANGING:
             out += self._after_edit(self.ws.path(args["path"]))
         shown = out if isinstance(out, str) else "\n".join(x.get("text", "") for x in out)
-        self.emit("tool_result", id=call_id, output=shown[:8000], error=err)
-        if name in FILE_CHANGING or name in ("bash", "kill_shell"):
+        img = next((x["data"] for x in out if x.get("type") == "image"), None) if isinstance(out, list) else None
+        self.emit("tool_result", id=call_id, output=shown[:8000], error=err, **({"image": img} if img and len(img) < 6_000_000 else {}))
+        if name in FILE_CHANGING or name in ("bash", "kill_shell", "generate_image"):
             self.emit("fs_changed", path=str(args.get("path", "")))  # Changes and Files tabs refresh live
         return out, err
 
@@ -927,6 +931,12 @@ class Chat:
                 parts.append({"type": "image", "media_type": mime, "data": data})
             elif mime == "application/pdf" or name.lower().endswith(".pdf"):
                 parts.append({"type": "pdf", "name": name, "data": data})
+            elif name.lower().endswith((".docx", ".pptx", ".xlsx")):
+                from .services import ServiceError, read_office
+                try:
+                    parts.append({"type": "file", "name": name, "text": read_office(raw, name)})
+                except (ServiceError, KeyError) as e:
+                    raise ValueError(f"{name}: {e}")
             else:
                 try:
                     parts.append({"type": "file", "name": name, "text": raw.decode("utf-8")[:200_000]})
@@ -1141,7 +1151,7 @@ class Session:
                        "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
-                       "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code",
+                       "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code", "services": {},
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.set_badge = None  # set by the desktop app (Dock badge)
@@ -1329,7 +1339,7 @@ class Session:
         return chat
 
     def public_config(self) -> dict:
-        hidden = ("api_key", "github_token", "rules", "hooks", "voice_key", "mcp_local", "keys")
+        hidden = ("api_key", "github_token", "rules", "hooks", "voice_key", "mcp_local", "keys", "services")
         c = {k: v for k, v in self.config.items() if k not in hidden}
         c["api_key"] = bool(self.config["api_key"])
         c["github_token"] = bool(self.config["github_token"])
@@ -1341,6 +1351,12 @@ class Session:
         c["chat_cwd"] = chat.cwd if chat else c["cwd"]
         c["chat_project"] = chat.project if chat else None
         c["has_chats"] = CHATS.is_dir() and any(CHATS.glob("*.json"))
+        sv = dict(self.config.get("services") or {})
+        s3 = dict(sv.get("s3") or {})
+        s3["has_secret"] = bool(s3.pop("secret_key", ""))
+        sv["s3"] = s3
+        sv["keys_set"] = [k for k in self.SERVICE_KEYS if (self.config.get("keys") or {}).get(k)]
+        c["services"] = sv
         c["chat_kind"] = chat.kind if chat else c.get("mode", "code")
         c["home_dir"] = str(Path.home())
         c["build"], c["version"], c["phone_url"] = BUILD, __version__, self.phone_url
@@ -1460,7 +1476,7 @@ class Session:
     CHAT_SYSTEM = ("You are LightCode⁴, a warm, capable assistant. Answer clearly and concisely, with markdown where it helps. "
                    "You can search the web and read pages. For a web page, chart, visual or small interactive demo, reply with "
                    "ONE self-contained ```html code block (the app shows it live as an artifact); use ```mermaid for diagrams and "
-                   "$$...$$ for math. This conversation has no access to the user's files or terminal; if they need that, "
+                   "$$...$$ for math; an ```echarts block (ECharts option JSON) for charts. This conversation has no access to the user's files or terminal; if they need that, "
                    "suggest switching to Code (top of the sidebar).")
 
     def chat_tools(self, cfg: dict) -> list[dict]:
@@ -1949,6 +1965,38 @@ class Session:
         self.remote_url = base + "/?" + self.phone_url.split("?", 1)[1]
         return self.remote_url
 
+    SERVICE_KEYS = ("tavily", "brave", "exa", "replicate", "fal")
+
+    def services_for_tools(self) -> dict:
+        """Choices and keys the service tools need (from Settings > Services)."""
+        c = self.config
+        sv = dict(c.get("services") or {})
+        keys = c.get("keys") or {}
+        sv["search_key"] = keys.get(sv.get("search_provider", ""), "")
+        sv["image_key"] = keys.get(sv.get("image_provider", "openai"), "")
+        sv["openai_key"] = keys.get("openai") or c.get("voice_key") or (c.get("api_key") if c.get("service") == "openai" else "")
+        return sv
+
+    def save_services(self, data: dict):
+        sv = dict(self.config.get("services") or {})
+        for k in ("search_provider", "searxng", "image_provider"):
+            if k in data:
+                sv[k] = str(data[k]).strip()
+        if "s3" in data:
+            old = sv.get("s3") or {}
+            new = {k: str(v).strip() for k, v in (data["s3"] or {}).items() if k in ("endpoint", "bucket", "region", "access_key", "secret_key", "public_base")}
+            if not new.get("secret_key"):
+                new["secret_key"] = old.get("secret_key", "")  # blank keeps the saved secret
+            sv["s3"] = new
+        self.config["services"] = sv
+        for k, v in (data.get("keys") or {}).items():
+            if k in self.SERVICE_KEYS + ("openai",) and str(v).strip():
+                self.config.setdefault("keys", {})[k] = str(v).strip()
+        self.save()
+        for ch in self.chats.values():
+            if ch.ws:
+                ch.ws.services = self.services_for_tools()
+
     def update_badge(self):
         """Number on the Dock icon: approvals waiting for you."""
         if self.set_badge:
@@ -2078,6 +2126,9 @@ def make_handler(session: Session, token: str):
                         target.cancel.set()
                 elif path in ("/api/clear", "/api/chat/new"):
                     session.new_chat(worktree=bool(data.get("worktree")), client=client, kind=data.get("kind"))
+                elif path == "/api/services":
+                    session.save_services(data)
+                    session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/context":
                     result = chat.context_report() if chat else {}
                 elif path == "/api/files/find":

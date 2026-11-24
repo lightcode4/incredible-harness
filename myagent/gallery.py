@@ -74,6 +74,51 @@ secret values; show only the first few characters."""},
 3. Group into: New, Improved, Fixed, and (only if needed) Breaking changes with what users must do.
 4. Write for users, not developers: say what changed for them. Skip internal refactors and test-only commits."""},
 ]
+SKILLS += [
+    {"id": "data-analysis", "name": "Data analysis", "blurb": "Explore a dataset, find what matters and chart it.",
+     "body": """Analyse the data the user gives (CSV, Excel, JSON or a database).
+
+1. Load it and report its shape: rows, columns, types, missing values, obvious errors. Use Python (pandas if available).
+2. Answer the user's question first; if there is none, find the 3-5 most useful facts (trends, outliers, comparisons).
+3. Back every claim with a number. Say when the data is too small or messy to be sure.
+4. Show results as a chart with an ```echarts block (or a small table). One chart per point; label the axes.
+5. Save any cleaned data or scripts in the project so the work can be repeated."""},
+    {"id": "deep-research", "name": "Research", "blurb": "Investigate a topic across sources and write a cited brief.",
+     "body": """Research the user's question thoroughly.
+
+1. Break it into 3-6 sub-questions. Search each (web_search), then read the best sources (fetch_url); prefer primary sources.
+2. Note what each source says and when it was published; flag disagreements.
+3. Write a brief: a short answer first, then the evidence by sub-question, then open questions.
+4. Cite every factual claim with a link. Say plainly what you could not verify."""},
+    {"id": "frontend-design", "name": "Frontend design", "blurb": "Build polished, accessible web pages and components.",
+     "body": """Build front-end work that looks designed, not generated.
+
+1. Pick a clear visual direction (type scale, 1-2 accent colours, spacing scale) and use it consistently.
+2. Semantic HTML, responsive layout (works at 375px and 1440px), visible focus states, sufficient contrast, alt text.
+3. Prefer the project's framework and components; otherwise plain HTML/CSS with no build step.
+4. Preview it (open_preview or an ```html artifact) and check it in the browser; fix layout issues before finishing."""},
+    {"id": "brand-voice", "name": "Brand guidelines", "blurb": "Write and design in a consistent brand voice and look.",
+     "body": """Apply the user's brand consistently.
+
+1. Look for brand material first: project reference files, a brand guide, CSS variables, logos. Ask once if none exists.
+2. Summarise the brand in 5 lines: voice (3 adjectives), words to use and avoid, colours (hex), typefaces, logo rules.
+3. Apply it to every piece you write or design; point out anything off-brand in existing material.
+4. Keep a BRAND.md in the project with the summary so future chats stay consistent."""},
+    {"id": "file-organizer", "name": "File organizer", "blurb": "Tidy a messy folder safely, with a plan you approve first.",
+     "body": """Organise the folder the user names, safely.
+
+1. List what is there (sizes, types, dates). Find duplicates by content (hash), not by name.
+2. Propose a structure and a move plan as a table (from -> to). Do NOT move or delete anything until the user approves.
+3. After approval, move files (never delete; put suspected junk in a _to_review folder). Keep a log file of every move.
+4. Report what changed and how to undo it."""},
+    {"id": "internal-comms", "name": "Internal comms", "blurb": "Clear updates, announcements and summaries for a team.",
+     "body": """Write internal communication that people actually read.
+
+1. Lead with the point: what happened / what is needed, and by when.
+2. Then context in 2-4 short bullets, then owners and next steps.
+3. Match the format: status update, announcement, incident summary, meeting notes or weekly digest.
+4. Plain words, no jargon, under 200 words unless asked. Offer a one-line version for chat."""},
+]
 BY_ID = {s["id"]: s for s in SKILLS}
 
 

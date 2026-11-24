@@ -1288,6 +1288,92 @@ def main():
     assert names[:2] == ["Messages", "Tools"] and r["used"] == sum(p["tokens"] for p in r["parts"]) and r["free"] == r["window"] - r["used"]
     assert r["outputs"] == ["out1.txt"] and r["folder"] == s.current.cwd and r["until_compact"] > 0 and r["model"]
     print("68 context report OK")
+    # 69. services: office documents, search providers, image generation, maps, cloud upload, more skills
+    import io, zipfile as zf
+    from myagent import services as sv
+    def office(name, files):
+        b = io.BytesIO()
+        with zf.ZipFile(b, "w") as z:
+            for k, v in files.items():
+                z.writestr(k, v)
+        return b.getvalue()
+    Wn = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+    docx = office("a.docx", {"word/document.xml": f'<w:document {Wn}><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Plan</w:t></w:r></w:p><w:p><w:r><w:t>Ship on Friday.</w:t></w:r></w:p></w:body></w:document>'})
+    An = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+    pptx = office("b.pptx", {"ppt/slides/slide1.xml": f"<p {An}><a:p><a:r><a:t>Welcome</a:t></a:r></a:p></p>", "ppt/slides/slide2.xml": f"<p {An}><a:p><a:r><a:t>Q3 numbers</a:t></a:r></a:p></p>"})
+    Sn = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    xlsx = office("c.xlsx", {"xl/workbook.xml": f'<workbook {Sn}><sheets><sheet name="Sales"/></sheets></workbook>',
+                             "xl/sharedStrings.xml": f"<sst {Sn}><si><t>Region</t></si><si><t>North</t></si></sst>",
+                             "xl/worksheets/sheet1.xml": f'<worksheet {Sn}><sheetData><row><c t="s"><v>0</v></c><c><v>Total</v></c></row><row><c t="s"><v>1</v></c><c><v>120</v></c></row></sheetData></worksheet>'})
+    assert sv.read_office(docx, "a.docx") == "# Plan\n\nShip on Friday."
+    assert "## Slide 1\nWelcome" in sv.read_office(pptx, "b.pptx") and "## Slide 2\nQ3 numbers" in sv.read_office(pptx, "b.pptx")
+    assert "## Sheet: Sales\nRegion | Total\nNorth | 120" == sv.read_office(xlsx, "c.xlsx")
+    s.set_mode("code")
+    s.new_chat()
+    cw = Path(s.current.cwd)
+    (cw / "report.docx").write_bytes(docx)
+    assert "Ship on Friday." in s.current.ws.run("read_document", {"path": "report.docx"})
+    parts = s.current._parts("see attached", [{"name": "deck.pptx", "mime": "", "data": base64.b64encode(pptx).decode()}])
+    assert any("Q3 numbers" in (p.get("text") or "") for p in parts)
+    # stand-in service endpoints
+    hits = {}
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    class Svc(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+        def _out(self, obj, ctype="application/json"):
+            body = obj if isinstance(obj, bytes) else json.dumps(obj).encode()
+            self.send_response(200); self.send_header("Content-Type", ctype); self.end_headers(); self.wfile.write(body)
+        def do_GET(self):
+            hits.setdefault("GET " + self.path.split("?")[0], self.path)
+            if self.path.startswith("/nominatim"):
+                return self._out([{"display_name": "Lagos, Nigeria", "lat": "6.45", "lon": "3.39", "type": "city"}])
+            if self.path.startswith("/img.png"):
+                return self._out(png, "image/png")
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            hits["POST " + self.path] = body
+            if self.path == "/search":
+                return self._out({"results": [{"title": "Result A", "url": "https://a.example", "content": "About A"}]})
+            if self.path == "/overpass":
+                return self._out({"elements": [{"lat": 6.45, "lon": 3.39, "tags": {"name": "Cafe Neo", "opening_hours": "8-20"}}]})
+            if self.path == "/images/generations":
+                return self._out({"data": [{"b64_json": base64.b64encode(png).decode()}]})
+        def do_PUT(self):
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            hits["PUT"] = (self.path, self.headers.get("Authorization", ""), body)
+            self._out({})
+    ss = ThreadingHTTPServer(("127.0.0.1", 0), Svc)
+    threading.Thread(target=ss.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{ss.server_port}"
+    os.environ.update(LC4_BASE_SEARCH=base + "/search", LC4_BASE_NOMINATIM=base + "/nominatim", LC4_BASE_OVERPASS=base + "/overpass", LC4_BASE_IMAGES=base)
+    s.save_services({"search_provider": "tavily", "image_provider": "openai", "keys": {"tavily": "tv-1", "openai": "sk-img"},
+                     "s3": {"endpoint": base, "bucket": "bkt", "region": "auto", "access_key": "AK", "secret_key": "SK"}})
+    pub = s.public_config()["services"]
+    assert pub["search_provider"] == "tavily" and "tavily" in pub["keys_set"] and "secret_key" not in pub["s3"] and pub["s3"]["has_secret"]
+    out = s.current.ws.run("web_search", {"query": "lightcode"})
+    assert "Result A" in out and json.loads(hits["POST /search"])["api_key"] == "tv-1"
+    assert "Lagos, Nigeria — 6.450000, 3.390000" in s.current.ws.run("geocode", {"query": "Lagos"})
+    assert "Cafe Neo" in s.current.ws.run("places_nearby", {"lat": 6.45, "lon": 3.39, "kind": "cafe"})
+    evs = d.run("draw", script=[("tool", "generate_image", {"prompt": "A gold sun", "path": "art/sun.png"}), ("text", "ok")])
+    assert (cw / "art" / "sun.png").read_bytes() == png and json.loads(hits["POST /images/generations"])["prompt"] == "A gold sun"
+    assert any(e.get("image") for e in d.kinds(evs, "tool_result")), "the image shows in the chat"
+    evs = d.run("share", script=[("tool", "upload_file", {"path": "art/sun.png"}), ("text", "ok")])
+    path_, auth, body_ = hits["PUT"]
+    assert path_.startswith("/bkt/lightcode4/") and auth.startswith("AWS4-HMAC-SHA256 Credential=AK/") and body_ == png
+    assert "X-Amz-Signature=" in json.dumps(REQUESTS[-1][2]["messages"][-1])
+    s.save_services({"search_provider": "duckduckgo", "s3": {}})
+    ss.shutdown()
+    assert len(gallery.catalog()) >= 14 and {"data-analysis", "deep-research", "frontend-design", "brand-voice", "file-organizer", "internal-comms"} <= {x["id"] for x in gallery.catalog()}
+    if sv.find_ffmpeg():
+        vid = cw / "clip.mp4"
+        subprocess.run([sv.find_ffmpeg(), "-y", "-f", "lavfi", "-i", "testsrc=duration=2:size=160x120:rate=10", "-f", "lavfi", "-i", "sine=duration=2",
+                        "-shortest", str(vid)], capture_output=True, timeout=60)
+        parts = s.current.ws.run("read_media", {"path": "clip.mp4", "frames": 3})
+        assert sum(1 for p in parts if p["type"] == "image") == 3 and "2.0 seconds" in parts[0]["text"], parts[0]
+        print("69 services OK (incl. video frames)")
+    else:
+        print("69 services OK")
     print("ALL TESTS PASSED")
 
 
