@@ -19,7 +19,7 @@ API = os.environ.get("LC4_GITHUB_API", "https://api.github.com")
 HOME = Path.home() / ".incredible-herness"
 # "Sign in with GitHub" uses GitHub's device flow (like the gh command line): no token to copy.
 # It needs the Client ID of a GitHub OAuth App with Device Flow enabled (public, not a secret).
-CLIENT_ID = os.environ.get("LC4_GITHUB_CLIENT_ID", "")
+CLIENT_ID = os.environ.get("LC4_GITHUB_CLIENT_ID", "Ov23litVtPUQm2QSkJNZ")  # LightCode4 OAuth app (public ID)
 SCOPES = "repo workflow read:org gist"
 TOKEN_URL = ("https://github.com/settings/tokens/new?description=LightCode4"
              "&scopes=repo,workflow,read:org,gist")
