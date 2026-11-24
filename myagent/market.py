@@ -205,23 +205,21 @@ def scan(src: str, token: str = "") -> list[dict]:
             pj = {}
         items.append({"id": f"plugin:@{sub}", "kind": "plugin", "name": pj.get("name") or sub.rsplit("/", 1)[-1],
                       "description": (pj.get("description") or "")[:240]})
-    described = 0
+    found = []
     for f in scope:
-        if len(items) >= MAX_ITEMS:
+        if len(items) + len(found) >= MAX_ITEMS:
             break
-        kind = None
         if f.endswith("/SKILL.md") or f == "SKILL.md":
-            kind, ref = "skill", (f.rsplit("/", 1)[0] if "/" in f else "")
+            found.append(("skill", (f.rsplit("/", 1)[0] if "/" in f else ""), f))
         elif re.search(r"(^|/)agents/[^/]+\.md$", f) and not f.lower().endswith("readme.md"):
-            kind, ref = "agent", f
+            found.append(("agent", f, f))
         elif re.search(r"(^|/)commands/[^/]+\.md$", f) and not f.lower().endswith("readme.md"):
-            kind, ref = "command", f
-        if not kind:
-            continue
-        d = {"name": "", "description": ""}
-        if described < MAX_DESCRIBE:
-            d = _describe(repo, f, token)
-            described += 1
+            found.append(("command", f, f))
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(8) as pool:  # descriptions read in parallel
+        descs = list(pool.map(lambda x: _describe(repo, x[2], token), found[:MAX_DESCRIBE]))
+    descs += [{"name": "", "description": ""}] * (len(found) - len(descs))
+    for (kind, ref, f), d in zip(found, descs):
         fallback = (ref.rsplit("/", 1)[-1] or repo.split("/")[1]) if kind == "skill" else Path(f).stem
         items.append({"id": f"{kind}:{ref}", "kind": kind, "name": d["name"] or fallback, "description": d["description"]})
     return items
