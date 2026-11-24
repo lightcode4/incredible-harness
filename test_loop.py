@@ -865,9 +865,13 @@ def main():
 
     # 50. access from anywhere: tunnel address parsed from cloudflared's output
     from myagent import platform_extras as pxx
-    fake = Path(tempfile.mkdtemp()) / "cloudflared"
-    fake.write_text("#!/bin/sh\necho 'INF Requesting new quick Tunnel'\necho 'INF |  https://brave-tiger-12.trycloudflare.com  |'\nsleep 30\n")
-    fake.chmod(0o755)
+    if os.name == "nt":  # a .bat stand-in on Windows
+        fake = Path(tempfile.mkdtemp()) / "cloudflared.bat"
+        fake.write_text("@echo off\r\necho INF Requesting new quick Tunnel\r\necho INF  https://brave-tiger-12.trycloudflare.com\r\nping -n 30 127.0.0.1 >nul\r\n")
+    else:
+        fake = Path(tempfile.mkdtemp()) / "cloudflared"
+        fake.write_text("#!/bin/sh\necho 'INF Requesting new quick Tunnel'\necho 'INF |  https://brave-tiger-12.trycloudflare.com  |'\nsleep 30\n")
+        fake.chmod(0o755)
     old_find = pxx.find_cloudflared
     pxx.find_cloudflared = lambda: str(fake)
     try:
