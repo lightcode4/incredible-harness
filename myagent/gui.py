@@ -46,6 +46,8 @@ PAGE = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf
 HOME = Path.home() / ".incredible-herness"
 CONFIG_FILE = HOME / "settings.json"
 CHATS = HOME / "chats"
+CHAT_TOOL_NAMES = {"web_search", "fetch_url", "remember", "use_skill"}
+CHAT_HOME = Path.home() / ".incredible-herness" / "chat-space"  # a private folder for Chat conversations (no project files)
 HOOK_KINDS = ("session_start", "on_prompt", "before_tool", "after_edit", "before_finish")
 DEFAULT_MODELS = {"claude": "claude-opus-5-5", "openai": "gpt-5", "local": "llama3.1"}
 LOCAL_URL = "http://localhost:11434/v1"
@@ -245,8 +247,10 @@ class Chat:
     BROWSER_ACTS = {"browser_click", "browser_type", "browser_press"}
 
     def __init__(self, app: "Session", cwd: str, chat_id: str | None = None, worktree: dict | None = None,
-                 unattended: bool = False, title: str = "", project: str | None = None, side: bool = False):
+                 unattended: bool = False, title: str = "", project: str | None = None, side: bool = False, kind: str = "code"):
         self.app = app
+        self.kind = kind if kind in ("chat", "code") else "code"
+        self.touched = time.time()  # last time this chat was used (for "most recent")
         self.project = project  # id of the Project this chat belongs to (shared instructions and files)
         self.side = side  # a side chat: read-only quick questions that never touch the main chat
         self.id = chat_id or time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
@@ -275,13 +279,15 @@ class Chat:
 
     # ---------------------------------------------------------------- setup
     def build(self, keep_history: bool = False):
-        cfg = {**self.app.config, "cwd": self.cwd, "project": self.project}
+        cfg = {**self.app.config, "cwd": self.cwd, "project": self.project, "kind": self.kind}
         old = self.provider.serialize() if (keep_history and self.provider) else None
         old_kind = getattr(self, "_provider_kind", None)
         comp = getattr(self.provider, "compactions", 0)
         if self.side:
             self.provider = self.app.make_provider(cfg, tools=[t for t in READONLY_TOOLS],
                                                    system=self.app.system_for(cfg) + SIDE_NOTE)
+        elif self.kind == "chat":
+            self.provider = self.app.make_provider(cfg, tools=self.app.chat_tools(cfg), system=self.app.chat_system(cfg))
         else:
             self.provider = self.app.make_provider(cfg)
         self.provider.compactions = comp
@@ -474,6 +480,8 @@ class Chat:
         self._check()
         if self.side and name not in {t["name"] for t in READONLY_TOOLS}:
             return "Side chats can only look things up; ask in the main chat to make changes.", True
+        if self.kind == "chat" and name not in CHAT_TOOL_NAMES and name not in self.app.mcp.names:
+            return "This is a Chat (not Code) conversation: it has no access to files or commands. Switch to Code for that.", True
         if name in self.app.mcp.names:
             return self._mcp_tool(name, args)
         problem = validate(name, args)
@@ -748,6 +756,7 @@ class Chat:
         self.cancel.clear()
         if not self.title:
             self.title = text.strip().splitlines()[0][:70] if text.strip() else "Attachment"
+        self.touched = time.time()
         first = not any(e["kind"] == "user" for e in self.transcript)
         mark = {"m": len(self.provider.serialize()), "turn": self.turn + 1, "c": getattr(self.provider, "compactions", 0)}
         self.emit("user", text=text, files=[a.get("name") for a in attachments or []], plan=self.app.config["plan"],
@@ -904,7 +913,7 @@ class Chat:
                     "provider": self._provider_kind, "model": self.app.config["model"], "cwd": self.cwd,
                     "worktree": self.worktree, "messages": self.provider.serialize(), "transcript": self.transcript,
                     "checkpoints": self.checkpoints, "cost": self.cost, "tokens": self.tokens, "todos": self.todos,
-                    "turn": self.turn, "context": self.context, "project": self.project, "compactions": getattr(self.provider, "compactions", 0)}
+                    "turn": self.turn, "context": self.context, "project": self.project, "kind": self.kind, "compactions": getattr(self.provider, "compactions", 0)}
             path = CHATS / f"{self.id}.json"
             path.write_text(json.dumps(data, default=str))
             os.chmod(path, 0o600)
@@ -914,7 +923,7 @@ class Chat:
     def replay_event(self) -> dict:
         proj = self.app.project_by_id(self.project)
         return {"kind": "replay", "chat": {"id": self.id, "title": self.title, "worktree": self.worktree,
-                                           "cwd": self.cwd, "project": proj["name"] if proj else None},
+                                           "cwd": self.cwd, "project": proj["name"] if proj else None, "mode": self.kind},
                 "events": list(self.transcript), "cost": round(self.cost, 4), "tokens": self.tokens, "todos": self.todos,
                 **self.context_info(), "compactions": getattr(self.provider, "compactions", 0),
                 "undoable": list(self.checkpoints), "busy": self.busy, "pending": list(self.pending_info.values())}
@@ -932,7 +941,7 @@ class Session:
                        "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
-                       "theme": "system", "sound": False, "onboarded": False, "name": ""}
+                       "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code"}
         self.quick_toggle = self.quick_hide = self.focus_main = self.on_hotkey = None  # set by the desktop app
         self.side_chats: dict[str, Chat] = {}  # main chat id -> its side chat
         self.mcp = McpManager()
@@ -1094,14 +1103,22 @@ class Session:
                 m["oauth"] = fresh
         self.config = cfg
         if self.current is None or (self.current.busy is False and self.current.transcript == [] and not keep_history):
-            self.current = self._new_chat_obj(cfg["cwd"])
+            kind = self.current.kind if self.current else cfg.get("mode", "code")
+            self.current = self._new_chat_obj(self.home_for(kind, cfg["cwd"]), kind=kind)
         elif not self.current.busy:
-            if cfg["cwd"] != old["cwd"] and not self.current.worktree:
+            if cfg["cwd"] != old["cwd"] and not self.current.worktree and self.current.kind == "code":
                 self.current.cwd = self.current.rules_dir = cfg["cwd"]
             self.current.build(keep_history=keep_history)
         self.save()
         if bool(cfg.get("phone")) != bool(self.phone_server):
             self.set_phone(bool(cfg.get("phone")))
+
+    @staticmethod
+    def home_for(kind: str, cwd: str = "") -> str:
+        if kind == "chat":
+            CHAT_HOME.mkdir(parents=True, exist_ok=True)
+            return str(CHAT_HOME)
+        return cwd
 
     def _new_chat_obj(self, cwd: str, **kw) -> Chat:
         chat = Chat(self, cwd, **kw)
@@ -1121,6 +1138,8 @@ class Session:
         c["chat_cwd"] = chat.cwd if chat else c["cwd"]
         c["chat_project"] = chat.project if chat else None
         c["has_chats"] = CHATS.is_dir() and any(CHATS.glob("*.json"))
+        c["chat_kind"] = chat.kind if chat else c.get("mode", "code")
+        c["home_dir"] = str(Path.home())
         c["build"], c["version"], c["phone_url"] = BUILD, __version__, self.phone_url
         c["remote_url"] = self.remote_url
         c["context_window"] = self.config.get("context_window") or 0
@@ -1153,11 +1172,15 @@ class Session:
     # ---------------------------------------------------------------- chats
     def select(self, chat: Chat, client: str = ""):
         self.current = chat
+        chat.touched = time.time()
         self.events.put({**chat.replay_event(), "client": client})
         self.events.put({"kind": "config", "config": self.public_config()})
 
-    def new_chat(self, worktree: bool = False, client: str = ""):
-        cwd = self.current.rules_dir if self.current else self.config["cwd"]
+    def new_chat(self, worktree: bool = False, client: str = "", kind: str | None = None):
+        kind = kind or self.config.get("mode", "code")
+        if kind == "chat" and not worktree:
+            return self.select(self._new_chat_obj(self.home_for("chat"), kind="chat"), client)
+        cwd = self.current.rules_dir if self.current and self.current.kind == "code" else self.config["cwd"]
         wt = None
         if worktree:
             name = time.strftime("%m%d-%H%M%S")
@@ -1179,7 +1202,7 @@ class Session:
             self.config.update(provider=d["provider"], model=d["model"])
         wt = d.get("worktree") if d.get("worktree") and Path(d["worktree"]["path"]).is_dir() else None
         chat = Chat(self, cwd, chat_id=d["id"], worktree=wt, title=(self.config.get("titles") or {}).get(d["id"], d.get("title", "")),
-                    project=d.get("project"))
+                    project=d.get("project"), kind=d.get("kind", "code"))
         chat.provider.restore(d["messages"])
         chat.transcript, chat.checkpoints = d.get("transcript", []), d.get("checkpoints", {})
         chat.cost, chat.tokens, chat.todos, chat.turn = d.get("cost", 0), d.get("tokens", 0), d.get("todos", []), d.get("turn", 0)
@@ -1224,13 +1247,50 @@ class Session:
         if side:
             side.cancel.set()
 
+    # ---------------------------------------------------------------- Chat / Code modes
+    CHAT_SYSTEM = ("You are LightCode⁴, a warm, capable assistant. Answer clearly and concisely, with markdown where it helps. "
+                   "You can search the web and read pages. For a web page, chart, visual or small interactive demo, reply with "
+                   "ONE self-contained ```html code block (the app shows it live as an artifact); use ```mermaid for diagrams and "
+                   "$$...$$ for math. This conversation has no access to the user's files or terminal; if they need that, "
+                   "suggest switching to Code (top of the sidebar).")
+
+    def chat_tools(self, cfg: dict) -> list[dict]:
+        self.mcp.configure(cfg.get("mcp_local") or [], cfg.get("mcp") or [])
+        return [t for t in TOOLS if t["name"] in CHAT_TOOL_NAMES] + self.mcp.tool_specs()
+
+    def chat_system(self, cfg: dict) -> str:
+        s = self.CHAT_SYSTEM
+        if cfg.get("language"):
+            s += f" Always reply in {cfg['language']}."
+        mem = extras.read_memory()
+        if mem.strip():
+            s += "\n\nWhat you remember about the user:\n" + mem
+        proj = self.project_by_id(cfg.get("project"))
+        if proj:
+            s += "\n\n" + projects.context(proj)
+        return s
+
+    def set_mode(self, mode: str, client: str = ""):
+        """Switch between Chat and Code: open that mode's most recent conversation, or a new one."""
+        if mode not in ("chat", "code"):
+            raise ValueError("Unknown mode.")
+        self.config["mode"] = mode
+        self.save()
+        if self.current and self.current.kind == mode:
+            return self.select(self.current, client)
+        recent = max((c for c in self.list_chats() if c.get("kind", "code") == mode), key=lambda c: c.get("updated") or 0, default=None)
+        if recent:
+            return self.open_chat(recent["id"], client)
+        self.new_chat(client=client, kind=mode)
+
     # ---------------------------------------------------------------- quick chat
     def quick_send(self, text: str, client: str = ""):
         """Start a new chat from the quick-chat box and bring the main window forward."""
         if not text.strip():
             raise ValueError("Type a message first.")
-        cwd = self.current.rules_dir if self.current else self.config["cwd"]
-        chat = self._new_chat_obj(cwd)
+        kind = self.config.get("mode", "code")
+        cwd = self.current.rules_dir if self.current and self.current.kind == "code" else self.config["cwd"]
+        chat = self._new_chat_obj(self.home_for(kind, cwd), kind=kind)
         self.select(chat, client)
         chat.send(text)
         if self.quick_hide:
@@ -1333,8 +1393,8 @@ class Session:
         seen, out = set(), []
         for c in self.chats.values():
             if c.transcript:
-                out.append({"id": c.id, "title": c.title or "Untitled", "updated": time.time(), "running": c.busy,
-                            "approval": bool(c.pending_info), "worktree": bool(c.worktree), "project": c.project})
+                out.append({"id": c.id, "title": c.title or "Untitled", "updated": c.touched, "running": c.busy,
+                            "approval": bool(c.pending_info), "worktree": bool(c.worktree), "project": c.project, "kind": c.kind})
                 seen.add(c.id)
         for p in sorted(CHATS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:200]:
             if p.stem in seen:
@@ -1342,7 +1402,8 @@ class Session:
             try:
                 d = json.loads(p.read_text())
                 out.append({"id": d["id"], "title": d.get("title", "Untitled"), "updated": d.get("updated", 0),
-                            "running": False, "approval": False, "worktree": bool(d.get("worktree")), "project": d.get("project")})
+                            "running": False, "approval": False, "worktree": bool(d.get("worktree")), "project": d.get("project"),
+                            "kind": d.get("kind", "code")})
             except (OSError, ValueError, KeyError):
                 continue
         titles, pins = self.config.get("titles") or {}, self.config.get("pinned") or []
@@ -1746,7 +1807,9 @@ def make_handler(session: Session, token: str):
                     if target:
                         target.cancel.set()
                 elif path in ("/api/clear", "/api/chat/new"):
-                    session.new_chat(worktree=bool(data.get("worktree")), client=client)
+                    session.new_chat(worktree=bool(data.get("worktree")), client=client, kind=data.get("kind"))
+                elif path == "/api/mode":
+                    session.set_mode(str(data.get("mode")), client)
                 elif path == "/api/chats":
                     result = {"chats": session.list_chats(), "current": session.chat_id}
                 elif path == "/api/chat/open":

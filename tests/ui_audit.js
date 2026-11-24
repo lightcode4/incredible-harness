@@ -90,7 +90,7 @@ async function overlaps(pg, label) {
       // --- header & model bar
       check('New chat shows the mascot and a greeting', await pg.isVisible('#helloMascot .mascot') && (await pg.innerText('#hello')).length > 3);
       check('The mascot is animated', await pg.evaluate(() => getComputedStyle(document.querySelector('#helloMascot .mascot .bob')).animationName === 'mbob'));
-      check('The message box sits in the middle on a new chat', await pg.evaluate(() => document.getElementById('wslot').contains(document.getElementById('composer'))) && (await pg.getAttribute('#input', 'placeholder')) === 'How can I help you today?');
+      check('The message box sits in the middle on a new chat', await pg.evaluate(() => document.getElementById('wslot').contains(document.getElementById('composer'))) && /What should we build|How can I help/.test(await pg.getAttribute('#input', 'placeholder')));
       await pg.click('#folderBtn'); await pg.waitForTimeout(300);
       check('Project or folder menu lists folders and a way to choose another', await pg.isVisible('#folderMenu') && (await pg.innerText('#folderMenu')).includes('Choose another folder'));
       await overlaps(pg, 'folder menu'); await pg.keyboard.press('Escape');
@@ -160,10 +160,18 @@ async function overlaps(pg, label) {
       await pg.locator('#chatList .chatitem', { hasText: firstTitle.slice(0, 20) }).first().click(); await pg.waitForTimeout(800);
       check('Opening a past session shows it again', (await pg.innerText('#chatHead')) === firstTitle && (await pg.innerText('#log')).includes('Done.'));
       // Chat / Code switch
-      await pg.click('#modeCode'); await pg.waitForTimeout(300);
-      check('Code switch shows changed files', await pg.isVisible('#gitView') && await pg.evaluate(() => document.getElementById('modeCode').classList.contains('on')));
-      await pg.click('#modeChat'); await pg.waitForTimeout(300);
-      check('Chat switch returns to the conversation', await pg.isVisible('#log') && await pg.evaluate(() => document.getElementById('modeChat').classList.contains('on')));
+      { const sb = await pg.locator('#side .sidemode').boundingBox(), nb = await pg.locator('#newchat').boundingBox();
+        check('Chat / Code switch sits at the top of the sidebar', sb && nb && sb.y < nb.y && !(await pg.isVisible('.topbar .modeseg'))); }
+      check('Code mode is on for coding sessions', await pg.evaluate(() => document.getElementById('modeCode').classList.contains('on')) && await pg.isVisible('#sidePanelBtn'));
+      await pg.click('#modeChat'); await pg.waitForTimeout(900);
+      check('Chat mode opens a plain assistant chat', await pg.evaluate(() => document.body.classList.contains('mode-chat') && document.getElementById('modeChat').classList.contains('on')) && (await pg.getAttribute('#input', 'placeholder')) === 'How can I help you today?',
+        JSON.stringify(await pg.evaluate(() => [document.body.className, document.getElementById('input').placeholder, document.getElementById('modeChat').className])));
+      check('Chat mode hides folders, terminal, browser and side panel', !(await pg.isVisible('#folderBtn')) && !(await pg.isVisible('#sidePanelBtn')) && !(await pg.isVisible('#termToggle')) && !(await pg.isVisible('#railFab')));
+      if (!(await pg.isVisible('#chatList'))) { await pg.click('#navSessions'); await pg.waitForTimeout(300); }
+      check('Chat mode lists only chats, not code sessions', !(await pg.innerText('#chatList')).includes(firstTitle.slice(0, 20)));
+      await overlaps(pg, 'chat mode');
+      await pg.click('#modeCode'); await pg.waitForTimeout(900);
+      check('Code mode returns to the latest coding session', (await pg.innerText('#chatHead')) === firstTitle && await pg.isVisible('#sidePanelBtn'));
       // context meter, per-change review, /compact, fork, edit & resend
       check('Context meter shows how full the chat is', await pg.isVisible('#ctxMeter') && /\d+%/.test(await pg.innerText('#ctxText')));
       await pg.fill('#input', 'Tidy both functions'); await pg.keyboard.press('Enter');

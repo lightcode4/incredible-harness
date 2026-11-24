@@ -26,9 +26,9 @@ const { chromium } = require('playwright');
   await pg.mouse.click(box.x + box.width * 0.1, box.y + box.height * 0.27); await pg.waitForTimeout(1500);
   await pg.screenshot({ path: 'shot-7-browser.png' });
   // Git panel
-  await pg.click('#modeCode'); await pg.waitForSelector('.gfile', { timeout: 10000 });
+  await pg.click('#sidePanelBtn'); await pg.click('#panel .ptabs .tab[data-v="git"]'); await pg.waitForSelector('.gfile', { timeout: 10000 });
   await pg.click('.gfile'); await pg.waitForTimeout(500); await pg.screenshot({ path: 'shot-8-git.png' });
-  await pg.click('#modeChat');
+  await pg.click('#closePanel');
   // Slash command menu
   await pg.fill('#input', '/re'); await pg.waitForSelector('#cmdMenu.show'); await pg.screenshot({ path: 'shot-9-commands.png' });
   await pg.fill('#input', '');

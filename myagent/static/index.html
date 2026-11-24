@@ -691,6 +691,30 @@ body.models-open #modelsView { display: block !important; }
 .chips { display: none !important; }
 #welcome .empty { font-size: 34px; }
 #dock { border-top: 0 !important; }
+/* ---- slim top bar ---- */
+.topbar { min-height: 44px !important; padding: 5px 16px !important; gap: 4px !important; }
+.topbar .iconbtn { padding: 6px; border-radius: 8px; } .topbar .iconbtn svg { width: 16px; height: 16px; }
+.topbar .crumbs { font-size: 13px; gap: 6px; } .topbar .crumbs svg { width: 15px; height: 15px; }
+.topbar #costPill { font-size: 11.5px; padding: 2px 6px; margin-right: 4px; }
+.topbar #toggleSide { margin-left: -6px; }
+/* ---- compact update notice: a small card at the bottom of the sidebar ---- */
+#banner { display: none !important; }
+#banner.show { display: flex !important; position: fixed; left: 12px; bottom: 62px; z-index: 40; width: 208px; margin: 0; padding: 10px 10px 10px 12px; gap: 8px; align-items: center; flex-wrap: wrap;
+  font-size: 12.5px; line-height: 1.35; border-radius: 12px; background: var(--panel); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+#banner.show { flex-wrap: nowrap; padding-right: 26px; } #banner.show #bannerText { flex: 1; min-width: 0; color: var(--text); font-size: 12px; }
+#banner.show .spacer { display: none; } #banner.show #bannerBtn { padding: 4px 10px; font-size: 12px; border-radius: 8px; }
+#banner.show #bannerX { position: absolute; top: 4px; right: 4px; padding: 3px; } #banner.show #bannerX svg { width: 12px; height: 12px; }
+body.side-hidden #banner.show, #side.hidden ~ main #banner.show { left: 12px; }
+/* ---- Chat / Code switch at the top of the sidebar ---- */
+.sidemode { display: flex; margin: 4px 6px 10px; padding: 3px; gap: 2px; background: color-mix(in srgb, var(--text) 5%, transparent); border: 1px solid var(--line); border-radius: 11px; }
+.sidemode button { width: auto !important; height: auto !important; min-height: 30px; flex: 1; display: flex !important; flex-direction: row; align-items: center; justify-content: center; gap: 7px; border: 0; background: none; padding: 6px 8px; border-radius: 8px; color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; }
+.sidemode button svg { width: 15px; height: 15px; } .sidemode button:hover { color: var(--text); }
+.sidemode button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px var(--line); }
+/* Chat mode: a plain assistant, no folder tools */
+body.mode-chat .fwrap, body.mode-chat #sidePanelBtn, body.mode-chat #termToggle, body.mode-chat #browserToggle, body.mode-chat #activityBtn,
+body.mode-chat .grid > #panel, body.mode-chat #railDock, body.mode-chat .crumbs > svg, body.mode-chat #folderPill, body.mode-chat .crumbs > i,
+body.mode-chat #navFiles, body.mode-chat #navTasks, body.mode-chat #navGit, body.mode-chat #parallelChat { display: none !important; }
+body.mode-chat .grid { grid-template-columns: minmax(0, 1fr) !important; } body.mode-chat #scroll { padding-right: 0; }
 /* ---- new-chat screen: mascot + greeting, centered message box, recent artifacts ---- */
 body:not(.chatting) .chatcard { justify-content: flex-start; }
 #welcome { justify-content: flex-start !important; padding: 13vh 24px 32px !important; overflow-y: auto; gap: 0; align-items: center; }
@@ -699,7 +723,7 @@ body:not(.chatting) .chatcard { justify-content: flex-start; }
 .wslot { width: min(760px, 100%); display: flex; flex-direction: column; }
 .wslot #composer { min-height: 118px; border-radius: 18px; padding: 14px 16px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.04), 0 14px 40px rgba(91,65,21,.08); }
 .wslot #composer textarea { font-size: 16px; min-height: 52px; }
-.wslot #compbar { padding: 10px 6px 0; }
+.wslot #compbar { padding: 10px 6px 0; } .wslot #compbar .modelbar { margin-left: auto; }
 #compbar { justify-content: flex-end; } .wslot #compbar { justify-content: space-between; }
 .fwrap { position: relative; display: none; margin-right: auto; } .wslot .fwrap { display: block; }
 #folderBtn { display: flex; align-items: center; gap: 7px; border: 0; background: none; padding: 5px 8px; border-radius: 9px; font-size: 13.5px; color: var(--text); max-width: 320px; }
@@ -831,6 +855,10 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
 <aside id="side" aria-label="Navigation">
   <div class="brand"><svg class="bmark" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M17 35a15 15 0 0 1 30 0M8 43h48M15 52h34M23 60h18M32 5v9M9 15l7 7M55 15l-7 7"/></g><path d="M17 35a15 15 0 0 1 30 0Z" fill="var(--sun)"/></svg><b class="bname">LightCode<sup>4</sup></b></div>
   <button class="wsbox" id="wsBox" title="Workspace folder" hidden><span class="wsav">M</span><span class="wst"><b id="wsName">My workspace</b><small id="wsPath">Personal workspace</small></span><svg><use href="#i-chev"/></svg></button>
+  <div class="modeseg sidemode" role="tablist" aria-label="Mode">
+    <button id="modeChat" role="tab" title="Chat: a helpful assistant for questions, writing and research" aria-label="Chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg><span>Chat</span></button>
+    <button id="modeCode" role="tab" title="Code: work on a project folder with files, terminal and changes" aria-label="Code"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg><span>Code</span></button>
+  </div>
   <button class="navbtn newchat" id="newchat"><svg><use href="#i-plus"/></svg>New session</button>
   <button class="navbtn on" id="navPlay"><svg><use href="#i-spark"/></svg>Agent playground</button>
   <button class="navbtn" id="navSessions"><svg><use href="#i-list"/></svg>Sessions<em id="sessCount">0</em></button>
@@ -871,10 +899,6 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <button class="pill" id="wtPill" hidden title="This session works on its own branch in a separate folder"><svg><use href="#i-map"/></svg><span id="wtName"></span></button>
     <span class="spacer"></span>
     <span class="pill" id="costPill" title="Cost and tokens for this session"><b id="cost">$0.00</b><span id="tokens">0 tokens</span></span>
-    <div class="modeseg" role="tablist" aria-label="View">
-      <button id="modeChat" class="on" title="Chat" aria-label="Chat"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><circle cx="16.5" cy="16.5" r="3.2" fill="var(--panel)"/></svg></button>
-      <button id="modeCode" title="Code: changed files and diffs" aria-label="Code"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></button>
-    </div>
     <button class="iconbtn" id="termToggle" title="Terminal (Ctrl+`)" aria-label="Terminal"><svg><use href="#i-term"/></svg></button>
     <button class="iconbtn" id="browserToggle" title="Built-in browser" aria-label="Browser"><svg><use href="#i-globe"/></svg></button>
     <span class="tbwrap"><button class="iconbtn" id="activityBtn" title="Activity panel" aria-label="Activity panel" aria-expanded="false" aria-controls="activityPop"><svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="1.2"/><circle cx="5" cy="12" r="1.2"/><circle cx="5" cy="18" r="1.2"/><path d="M9.5 6H20M9.5 12H20M9.5 18H20"/></svg><span class="acount" id="actCount" hidden></span></button>
@@ -1598,6 +1622,7 @@ function hookRow(ev) {
 }
 let compactions = 0;
 function replay(ev) {
+  if (ev.chat?.mode) setModeUI(ev.chat.mode);
   if ((ev.chat?.id || null) !== currentChat) { $("scLog").innerHTML = ""; scAdd(el("div", "aempty", "Ask anything about this session. Side chat can read and search, but never edits files or runs commands.")); sideCur = null; }
   currentChat = ev.chat?.id || null; compactions = ev.compactions || 0;
   document.body.classList.remove("projects-open", "usage-open", "gallery-open");
@@ -1629,7 +1654,7 @@ const I_PIN = '<svg viewBox="0 0 24 24"><path d="M9 3h6l-1 6 4 3v2H6v-2l4-3zM12 
 const I_PEN = '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/></svg>';
 async function loadChats() {
   try {
-    const { chats, current } = await api("/api/chats");
+    let { chats, current } = await api("/api/chats"); const mode = curMode(); chats = chats.filter(c => (c.kind || "code") === mode);
     const list = $("chatList"); list.innerHTML = "";
     chats.forEach(c => {
       const st = c.approval ? '<i class="st ask" title="Needs approval"></i>' : c.running ? '<i class="st run" title="Working"></i>' : "";
@@ -1664,9 +1689,10 @@ function setProvider(p) {
 }
 function setPlanTr() { if (typeof uiLang !== "undefined" && uiLang !== "en") { const t = (I18N[uiLang] || {})[$("input").placeholder]; if (t) $("input").placeholder = t; } }
 function setPlan(on) { config.plan = on; $("planBtn").classList.toggle("on", on); $("composer").classList.toggle("plan", on); if (typeof updateModeBtn === "function") updateModeBtn();
-  $("input").placeholder = on ? "Describe what you want. The agent will research and propose a plan first…" : "Ask LightCode⁴ to build, fix or explain something…"; setPlanTr(); }
+  $("input").placeholder = on ? "Describe what you want. The agent will research and propose a plan first…" : defaultPH(); setPlanTr(); }
+function defaultPH() { return document.body.classList.contains("chatting") ? "Reply to LightCode⁴…" : document.body.classList.contains("mode-chat") ? "How can I help you today?" : "What should we build? Describe a coding task…"; }
 function showConfig(c) {
-  config = c; setTimeout(() => { if (typeof folderLabel === "function") { folderLabel(); if (!document.body.classList.contains("chatting")) $("hello").textContent = greeting(); } }, 0); if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
+  config = c; if (c.chat_kind) setModeUI(c.chat_kind); setTimeout(() => { if (typeof folderLabel === "function") { folderLabel(); if (!document.body.classList.contains("chatting")) $("hello").textContent = greeting(); } }, 0); if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
   if (c.theme && !$("settings").open) applyTheme(c.theme);
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
   $("modelName").textContent = c.model + (c.provider === "claude" ? ` · ${c.effort}` : "");
@@ -1776,8 +1802,8 @@ $("checkUpdate").onclick = async () => {
   try { const r = await api("/api/update"); $("updateResult").textContent = r.error || (r.update ? `Build ${r.latest} is available.` : "You have the latest build."); if (r.update) showUpdate(r); }
   catch (e) { $("updateResult").textContent = e.message; }
 };
-function showUpdate(r) { $("bannerText").textContent = `A new version of LightCode⁴ (build ${r.latest}) is available.`; $("banner").classList.add("show");
-  $("bannerBtn").textContent = "Install & restart"; $("bannerBtn").onclick = () => { $("bannerBtn").disabled = true; $("bannerText").textContent = "Downloading the update…"; api("/api/update/install"); };
+function showUpdate(r) { $("bannerText").innerHTML = `<b>Update ready</b><br><span style="color:var(--muted)">Build ${esc(String(r.latest))}</span>`; $("banner").classList.add("show");
+  $("bannerBtn").textContent = "Install"; $("bannerBtn").onclick = () => { $("bannerBtn").disabled = true; $("bannerText").textContent = "Downloading the update…"; api("/api/update/install"); };
   $("installUpdate").hidden = false; }
 $("bannerX").onclick = () => $("banner").classList.remove("show");
 
@@ -1973,7 +1999,6 @@ $("wlNext").onclick = async () => {
 };
 window.addEventListener("pywebviewready", () => { $("wlPick").hidden = false; $("wlPick").onclick = async () => { const f = await window.pywebview.api.pick_folder(); if (f) $("wlFolder").value = f; }; });
 // ---------- New-chat screen ----------
-const WELCOME_PH = "How can I help you today?", CHAT_PH = "Ask LightCode⁴ to build, fix or explain something…";
 function greeting() {
   const h = new Date().getHours(), name = (config.name || "").trim();
   const base = (config.has_chats ? "Back at it" : h < 5 ? "Up late" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
@@ -1983,7 +2008,7 @@ function placeComposer() {
   const chatting = document.body.classList.contains("chatting");
   if (chatting) { if (!$("dock").contains($("composer"))) { $("dock").prepend($("compbar")); $("dock").prepend($("composer")); } }
   else if (!$("wslot").contains($("composer"))) { $("wslot").append($("composer"), $("compbar")); }
-  if (!config.plan) $("input").placeholder = chatting ? CHAT_PH : WELCOME_PH;
+  if (!config.plan) $("input").placeholder = defaultPH();
   if (!chatting) { $("hello").textContent = greeting(); loadRecents(); }
 }
 dockComposer = () => { document.body.classList.add("chatting"); placeComposer(); };
@@ -2003,7 +2028,7 @@ async function loadRecents() {
       c.onclick = async () => { try { await api("/api/chat/open", { id: a.chat }); openArtifact(a.code, a.lang); } catch (e) { notice(e.message); } };
       grid.appendChild(c); });
   } else {
-    let chats = []; try { chats = (await api("/api/chats")).chats; } catch (e) {}
+    let chats = []; try { chats = (await api("/api/chats")).chats.filter(c => (c.kind || "code") === curMode() && c.id !== currentChat); } catch (e) {}
     chats = chats.slice(0, recAll ? 24 : 3);
     $("recTitle").textContent = "Recent sessions";
     chats.forEach(ch => { const c = el("button", "reccard", `<div class="recthumb"><div class="sess"></div></div><div class="recfoot"><b></b><small></small></div>`);
@@ -2266,6 +2291,11 @@ $("wtPill").onclick = async () => {
 let gitSel = null;
 async function git(action, extra = {}) { return api("/api/git", { action, ...extra }); }
 async function gitRefresh() {
+  if ((config.chat_cwd || config.cwd) === config.home_dir) {
+    $("gitFiles").innerHTML = ""; $("gitBranch").innerHTML = ""; $("gitSync").textContent = "";
+    $("gitDiff").innerHTML = '<div class="pempty"><svg><use href="#i-folder"/></svg><b>Pick a project folder</b><span>This session works in your home folder. Choose the project you are working on to see its changes.</span><button class="btn small primary" onclick="openFolderPicker()">Choose folder…</button></div>';
+    return;
+  }
   try {
     const st = await git("status");
     if (!st.repo) { $("gitFiles").innerHTML = ""; $("gitDiff").textContent = "This folder is not a git repository."; $("gitBranch").innerHTML = "";
@@ -2384,6 +2414,7 @@ let panelTab = null, term = null, termId = null, fit = null, browserViewing = fa
 let lastPanel = null;
 try { lastPanel = localStorage.getItem("lc4.panel"); const w = localStorage.getItem("lc4.pw"); if (w) document.documentElement.style.setProperty("--pw", w); } catch (e) {}
 function openPanel(tab) {
+  if (document.body.classList.contains("mode-chat")) return;
   document.body.classList.add("panel-open"); panelTab = tab; lastPanel = tab; try { localStorage.setItem("lc4.panel", tab); } catch (e) {}
   document.querySelectorAll(".ptabs .tab").forEach(b => b.classList.toggle("on", b.dataset.v === tab));
   document.querySelectorAll(".pview").forEach(v => v.classList.toggle("on", v.dataset.v === tab));
@@ -2536,7 +2567,7 @@ const _openPanel = openPanel, _closePanel = closePanel;
 openPanel = function (tab) { _openPanel(tab); setTab(tab); };
 closePanel = function () { _closePanel(); setTab("chat"); };
 function setTab(t) { document.querySelectorAll(".ctab").forEach(b => b.classList.toggle("on", b.dataset.c === t));
-  $("modeChat").classList.toggle("on", t !== "git"); $("modeCode").classList.toggle("on", t === "git"); $("crumbHere").textContent = $("chatHead").textContent || "New session"; }
+  $("crumbHere").textContent = $("chatHead").textContent || "New session"; }
 document.querySelectorAll(".ctab").forEach(b => b.onclick = () => b.dataset.c === "chat" ? closePanel() : openPanel(b.dataset.c));
 $("greet").textContent = "Begin, a little brighter.";
 const navSet = (id) => { document.querySelectorAll("aside .navbtn").forEach(b => b.classList.toggle("on", !!id && b.id === id)); };
@@ -2908,8 +2939,21 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderProv
 loadProviders();
 
 // ---------- Chat / Code switch ----------
-$("modeChat").onclick = () => { closeModelsView(); closePanel(); navSet("navPlay"); };
-$("modeCode").onclick = () => { closeModelsView(); openPanel("git"); navSet("navGit"); };
+function setModeUI(m) {
+  m = m === "chat" ? "chat" : "code"; document.body.classList.toggle("mode-chat", m === "chat"); document.body.classList.toggle("mode-code", m === "code");
+  $("modeChat").classList.toggle("on", m === "chat"); $("modeCode").classList.toggle("on", m === "code");
+  $("modeChat").setAttribute("aria-selected", m === "chat"); $("modeCode").setAttribute("aria-selected", m === "code");
+  if (m === "chat" && panelTab) closePanel();
+}
+const curMode = () => document.body.classList.contains("mode-chat") ? "chat" : "code";
+async function switchMode(m) {
+  if (typeof closeModelsView === "function") { closeModelsView(); closeProjects(); closeUsage(); closeGallery(); }
+  navSet("navPlay"); setModeUI(m); config.mode = m;
+  try { await api("/api/mode", { mode: m }); } catch (e) { notice(e.message); }
+  loadChats();
+}
+$("modeChat").onclick = () => switchMode("chat");
+$("modeCode").onclick = () => switchMode("code");
 document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") { e.preventDefault(); $("modeCode").classList.contains("on") ? $("modeChat").click() : $("modeCode").click(); } });
 
 loadChats(); $("input").focus();

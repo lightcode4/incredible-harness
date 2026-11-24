@@ -1143,6 +1143,33 @@ def main():
     pc = s.public_config()
     assert pc["has_chats"] is True and "name" in pc
     print("62 recent artifacts OK")
+    # 63. Chat and Code modes: chat conversations have no file/terminal tools and their own list; switching restores each
+    from myagent.gui import CHAT_HOME
+    s.set_mode("code")
+    s.new_chat()
+    d.run("code thing", script=[("text", "ok")])
+    code_id = s.current.id
+    s.set_mode("chat")
+    assert s.current.kind == "chat" and Path(s.current.cwd) == CHAT_HOME
+    d.run("what is a haiku?", script=[("text", "A short poem.")])
+    req = REQUESTS[-1][2]
+    names = {t.get("name") for t in req["tools"]}
+    assert "bash" not in names and "write_file" not in names and "read_file" not in names, names
+    assert "no access to the user's files" in json.dumps(req["system"])
+    out, err = s.current.run_tool("bash", {"command": "echo hi"})
+    assert err and "Switch to Code" in out
+    chat_id = s.current.id
+    kinds = {c["id"]: c["kind"] for c in s.list_chats()}
+    assert kinds[chat_id] == "chat" and kinds[code_id] == "code"
+    s.set_mode("code")
+    assert s.current.id == code_id and s.current.kind == "code"
+    s.set_mode("chat")
+    assert s.current.id == chat_id
+    s.chats.pop(chat_id)
+    s.open_chat(chat_id)
+    assert s.current.kind == "chat"
+    s.set_mode("code")
+    print("63 Chat and Code modes OK")
     print("ALL TESTS PASSED")
 
 
