@@ -1264,6 +1264,17 @@ def main():
     assert 1 in counts and counts[-1] == 0, counts
     s.set_badge = None
     print("66 mentions, queue, checkpoints, badge OK")
+    # 67. export a whole project with its chats
+    pdir2 = Path(tempfile.mkdtemp())
+    pr = s.save_project({"name": "Launch", "folder": str(pdir2), "instructions": "Keep it short."})
+    s.new_project_chat(pr["id"])
+    d.run("plan the launch", script=[("text", "Step 1: write notes.")])
+    out = Path(s.export_project(pr["id"]))
+    md = out.read_text()
+    assert out.name == "Launch (project).md" and "# Project: Launch" in md and "Keep it short." in md and "Step 1: write notes." in md, md[:400]
+    out.unlink()
+    s.delete_project(pr["id"])
+    print("67 project export OK")
     print("ALL TESTS PASSED")
 
 

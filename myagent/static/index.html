@@ -693,6 +693,14 @@ body.models-open #modelsView { display: block !important; }
 .chips { display: none !important; }
 #welcome .empty { font-size: 34px; }
 #dock { border-top: 0 !important; }
+#effortRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; color: var(--muted); }
+#effortRow[hidden] { display: none; } #effortRow .artseg button { padding: 3px 8px; font-size: 12px; }
+.cbody { position: relative; }
+#findBar { position: absolute; top: 8px; right: 70px; z-index: 20; display: flex; align-items: center; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px 4px 4px 10px; box-shadow: 0 8px 26px rgba(0,0,0,.12); }
+#findBar[hidden] { display: none; } #findBar > svg { width: 14px; height: 14px; color: var(--muted); }
+#findIn { border: 0; outline: none; background: none; color: var(--text); font: inherit; font-size: 13px; width: 200px; } #findCount { font-size: 11.5px; color: var(--muted); min-width: 40px; text-align: right; }
+#findBar .iconbtn { padding: 4px; } #findBar .iconbtn svg { width: 14px; height: 14px; }
+mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); color: inherit; border-radius: 3px; } mark.findhit.cur { background: var(--sun); color: #2b2418; }
 #composer { position: relative; }
 #queueBar { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 8px; } #queueBar[hidden] { display: none; }
 .qchip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 12px; color: var(--body); background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 8px; }
@@ -989,7 +997,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
           <div class="field"><label for="pjInstr">Instructions for every chat in this project</label><textarea id="pjInstr" rows="5" placeholder="e.g. We use TypeScript and Tailwind. Keep answers short. Our brand colour is #8b6c35."></textarea></div>
           <div class="field"><label>Reference files <small>(given to every chat: notes, specs, PDFs, docs)</small></label><div id="pjFiles"></div>
             <button class="btn small" id="pjAddFile"><svg><use href="#i-clip"/></svg>Add files</button><input type="file" id="pjFileInput" multiple hidden></div>
-          <div class="pjbtns"><button class="btn primary" id="pjSave">Save</button><button class="btn" id="pjChat"><svg><use href="#i-plus"/></svg>New chat in this project</button><span class="spacer"></span><button class="btn" id="pjDelete">Delete project</button></div>
+          <div class="pjbtns"><button class="btn primary" id="pjSave">Save</button><button class="btn" id="pjChat"><svg><use href="#i-plus"/></svg>New chat in this project</button><span class="spacer"></span><button class="btn" id="pjExport" title="One file with the project's instructions and all its chats">Export</button><button class="btn" id="pjDelete">Delete project</button></div>
           <div class="err" id="pjErr"></div>
         </div>
         <div class="pjchats"><div class="rsec" style="margin-top:0;border-top:0">Chats in this project</div><div id="pjChatList"></div></div>
@@ -1021,6 +1029,10 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
               <div id="recGrid"></div>
             </div>
           </section>
+          <div id="findBar" hidden><svg><use href="#i-search"/></svg><input id="findIn" placeholder="Find in this chat" aria-label="Find in this chat"><span id="findCount"></span>
+            <button class="iconbtn" id="findPrev" title="Previous (⇧Enter)" aria-label="Previous match"><svg style="transform:rotate(-90deg)"><use href="#i-chev"/></svg></button>
+            <button class="iconbtn" id="findNext" title="Next (Enter)" aria-label="Next match"><svg style="transform:rotate(90deg)"><use href="#i-chev"/></svg></button>
+            <button class="iconbtn" id="findClose" title="Close (Esc)" aria-label="Close find"><svg><use href="#i-x"/></svg></button></div>
           <div id="scroll"><div class="col"><div id="log" role="log" aria-live="polite" aria-label="Conversation"></div></div></div>
         </div>
         <div id="dock">
@@ -1044,7 +1056,9 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
               <div id="folderMenu" role="menu" hidden></div></div>
             <div class="modelbar">
       <div id="provMenu" class="card" hidden role="menu" aria-label="Choose a provider">
-        <div class="pmhead">A model for every possibility</div><div id="provList"></div>
+        <div class="pmhead">A model for every possibility</div>
+        <div id="effortRow" hidden><span>Effort</span><div class="artseg" role="radiogroup" aria-label="Effort"><button data-e="low">Low</button><button data-e="medium">Medium</button><button data-e="high">High</button><button data-e="xhigh">Extra</button><button data-e="max">Max</button></div></div>
+        <div id="provList"></div>
         <button class="pmfoot" id="provAll"><svg><use href="#i-list"/></svg>All models &amp; API settings<svg class="arrow"><use href="#i-up"/></svg></button>
       </div>
       <button class="modelchip" id="modelPill" title="Model — click to switch" aria-label="Model"><span class="mlogo serif">✳</span><b id="modelName">model</b><small id="modelBy">by Anthropic</small><svg><use href="#i-chev"/></svg></button>
@@ -1199,6 +1213,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></td><td>Changes</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></td><td>Browser</td></tr>
     <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Files</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>J</kbd></td><td>Terminal</td></tr>
     <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></td><td>Background tasks</td></tr><tr><td><kbd>Ctrl/⌘</kbd>+<kbd>;</kbd></td><td>Side chat</td></tr>
+    <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>F</kbd></td><td>Find in this chat</td></tr>
     <tr><td><kbd>Ctrl/⌘</kbd>+<kbd>S</kbd></td><td>Save the file you're editing (Files tab)</td></tr>
     <tr><td>Drag a chat</td><td>Reorder chats in the sidebar</td></tr>
   </table></div></dialog>
@@ -1708,6 +1723,7 @@ function hookRow(ev) {
 }
 let compactions = 0;
 function replay(ev) {
+  if (typeof closeFind === "function" && !$("findBar").hidden) { $("findBar").hidden = true; findHits = []; }
   if (ev.chat?.mode) setModeUI(ev.chat.mode); if (typeof showQueue === "function") showQueue(ev.queue || []);
   if ((ev.chat?.id || null) !== currentChat) { $("scLog").innerHTML = ""; scAdd(el("div", "aempty", "Ask anything about this session. Side chat can read and search, but never edits files or runs commands.")); sideCur = null; }
   currentChat = ev.chat?.id || null; compactions = ev.compactions || 0;
@@ -2180,6 +2196,40 @@ $("input").addEventListener("keydown", e => {
   else if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); closeAt(); }
 }, true);
 $("input").addEventListener("blur", () => setTimeout(closeAt, 150));
+// ---------- effort switch (Claude) ----------
+const EFFORT_LABEL = { low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Max" };
+function showEffort() { if (config.provider === "claude") $("modelBy").textContent = EFFORT_LABEL[config.effort] || "High"; const claude = config.provider === "claude"; $("effortRow").hidden = !claude;
+  document.querySelectorAll("#effortRow [data-e]").forEach(b => { b.classList.toggle("on", b.dataset.e === config.effort); b.setAttribute("aria-checked", b.dataset.e === config.effort); }); }
+document.querySelectorAll("#effortRow [data-e]").forEach(b => b.onclick = async e => { e.stopPropagation();
+  try { await api("/api/config", { effort: b.dataset.e }); config.effort = b.dataset.e; showEffort(); } catch (err) { notice(err.message); } });
+new MutationObserver(() => { if (!$("provMenu").hidden) showEffort(); }).observe($("provMenu"), { attributes: true, attributeFilter: ["hidden"] });
+// ---------- find in this chat (⌘F) ----------
+let findHits = [], findAt = -1;
+function clearFind() { log.querySelectorAll("mark.findhit").forEach(m => { const t = document.createTextNode(m.textContent); m.replaceWith(t); t.parentNode.normalize(); }); findHits = []; findAt = -1; $("findCount").textContent = ""; }
+function runFind() {
+  clearFind(); const q = $("findIn").value.trim().toLowerCase(); if (!q) return;
+  const walker = document.createTreeWalker(log, NodeFilter.SHOW_TEXT, { acceptNode: n => n.parentElement.closest("summary, .uacts, .turnfoot, script, style, button") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const n of nodes) { const low = n.data.toLowerCase(); let i = low.indexOf(q), node = n;
+    while (i >= 0) { const after = node.splitText(i); node = after.splitText(q.length); const m = document.createElement("mark"); m.className = "findhit"; after.replaceWith(m); m.appendChild(after); findHits.push(m);
+      i = node.data.toLowerCase().indexOf(q); if (findHits.length > 500) break; } }
+  findStep(1, true);
+}
+function findStep(dir, first = false) {
+  if (!findHits.length) { $("findCount").textContent = $("findIn").value.trim() ? "0/0" : ""; return; }
+  findHits[findAt]?.classList.remove("cur"); findAt = first ? 0 : (findAt + dir + findHits.length) % findHits.length;
+  const m = findHits[findAt]; m.classList.add("cur"); m.closest("details")?.setAttribute("open", ""); m.scrollIntoView({ block: "center" });
+  $("findCount").textContent = `${findAt + 1}/${findHits.length}`;
+}
+function openFind() { if (!document.body.classList.contains("chatting")) return; $("findBar").hidden = false; $("findIn").focus(); $("findIn").select(); if ($("findIn").value) runFind(); }
+function closeFind() { $("findBar").hidden = true; clearFind(); $("input").focus(); }
+let findTimer = null;
+$("findIn").addEventListener("input", () => { clearTimeout(findTimer); findTimer = setTimeout(runFind, 150); });
+$("findIn").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); findStep(e.shiftKey ? -1 : 1); } if (e.key === "Escape") { e.preventDefault(); closeFind(); } });
+$("findNext").onclick = () => findStep(1); $("findPrev").onclick = () => findStep(-1); $("findClose").onclick = closeFind;
+document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "f" && !e.target.closest?.("#fEdit, dialog")) { e.preventDefault(); openFind(); } });
+// ---------- export a whole project ----------
+$("pjExport").onclick = async () => { if (!pjCur) return; try { const r = await api("/api/project/export", { id: pjCur }); notice("Project saved to " + r.path); $("pjErr").textContent = ""; } catch (e) { $("pjErr").textContent = e.message; } };
 // ---------- Artifact panel ----------
 $("artClose").onclick = closeArtifact;
 $("artPrev").onclick = () => artView("preview"); $("artShowCode").onclick = () => artView("code");
@@ -2261,7 +2311,7 @@ function showProject(pid) {
   const p = pjData.projects.find(x => x.id === pid) || { id: null, name: "", folder: config.chat_cwd || "", instructions: "", files: [] };
   pjCur = p.id; $("pjGrid").hidden = true; $("pjDetail").hidden = false; $("pjErr").textContent = "";
   $("pjName").value = p.name; $("pjFolder").value = p.folder || ""; $("pjInstr").value = p.instructions || "";
-  $("pjChat").disabled = $("pjDelete").disabled = $("pjAddFile").disabled = !p.id;
+  $("pjChat").disabled = $("pjDelete").disabled = $("pjAddFile").disabled = $("pjExport").disabled = !p.id;
   $("pjAddFile").title = p.id ? "" : "Save the project first";
   renderPjFiles(p.files || []);
   const list = $("pjChatList"); list.innerHTML = ""; const mine = pjData.chats.filter(c => c.project === p.id && p.id);
@@ -3010,7 +3060,7 @@ function renderProviders() {
   if (!PROVS.length) return;
   const cur = PROVS.find(p => p.id === provCurrent);
   if (cur) { const m = document.querySelector("#modelPill .mlogo"); if (m) m.outerHTML = logo(cur, "sm").replace('class="plogo sm"', 'class="plogo sm mlogo"'); const r = document.querySelector("#railModelBtn .mlogo"); if (r) r.outerHTML = logo(cur, "sm").replace('class="plogo sm"', 'class="plogo sm mlogo"');
-    $("modelBy").textContent = cur.by; $("sdkName").textContent = cur.kind === "claude" ? "Anthropic SDK" : cur.kind === "local" ? "Local server" : "OpenAI-compatible SDK"; $("railProv").textContent = cur.name + (cur.kind === "claude" ? " · effort " + (config.effort || "") : ""); }
+    $("modelBy").textContent = cur.kind === "claude" ? EFFORT_LABEL[config.effort] || "High" : cur.by; $("sdkName").textContent = cur.kind === "claude" ? "Anthropic SDK" : cur.kind === "local" ? "Local server" : "OpenAI-compatible SDK"; $("railProv").textContent = cur.name + (cur.kind === "claude" ? " · effort " + (config.effort || "") : ""); }
   // menu: connected first
   const ready = PROVS.filter(p => p.has_key), rest = PROVS.filter(p => !p.has_key);
   const row = p => `<button class="prow${p.id === provCurrent ? " cur" : ""}" data-id="${p.id}" title="${esc(p.blurb || p.name)}">${logo(p, "sm")}<span class="ptext"><b>${esc(p.name)}</b><small>${esc(p.by)}</small></span><span class="tag${p.id === provCurrent ? " on" : p.has_key ? " ready" : ""}">${p.id === provCurrent ? '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : p.has_key ? "Ready" : "Add key"}</span></button>`;

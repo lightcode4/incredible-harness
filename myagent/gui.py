@@ -1690,6 +1690,38 @@ class Session:
         path.write_text(extras.export_html(chat.title, md) if fmt == "html" else md, encoding="utf-8")
         return str(path)
 
+    def export_project(self, pid: str, fmt: str = "md") -> str:
+        """One file with the project's instructions, reference file names and every chat in it."""
+        proj = self.project_by_id(pid)
+        if not proj:
+            raise ValueError("That project no longer exists.")
+        parts = [f"# Project: {proj['name']}", f"Folder: {proj.get('folder') or '(none)'}"]
+        if proj.get("instructions", "").strip():
+            parts.append("## Instructions\n\n" + proj["instructions"].strip())
+        files = projects.list_files(pid)
+        if files:
+            parts.append("## Reference files\n\n" + "\n".join(f"- {f['name']}" for f in files))
+        n = 0
+        for p in sorted(CHATS.glob("*.json"), key=lambda p: p.stat().st_mtime):
+            try:
+                d = json.loads(p.read_text())
+            except (OSError, ValueError):
+                continue
+            if d.get("project") != pid:
+                continue
+            live = self.chats.get(d.get("id"))
+            transcript = live.transcript if live else d.get("transcript", [])
+            title = (self.config.get("titles") or {}).get(d["id"]) or d.get("title") or "Chat"
+            parts.append("\n---\n\n" + extras.export_markdown(title, transcript).replace("\n# ", "\n## ", 1))
+            n += 1
+        if not n:
+            parts.append("\n_No chats in this project yet._")
+        md = "\n\n".join(parts) + "\n"
+        safe = re.sub(r"[^\w\- ]+", "", proj["name"]).strip()[:60] or "project"
+        path = extras.downloads_dir() / f"{safe} (project).{'html' if fmt == 'html' else 'md'}"
+        path.write_text(extras.export_html(proj["name"], md) if fmt == "html" else md, encoding="utf-8")
+        return str(path)
+
     def transcribe(self, data_b64: str, mime: str) -> str:
         key = self.config["voice_key"] or os.environ.get("OPENAI_API_KEY") or (
             self.config["api_key"] if self.config["provider"] == "openai" else "")
@@ -2072,6 +2104,8 @@ def make_handler(session: Session, token: str):
                     else:
                         projects.add_file(str(data.get("id")), str(data.get("name")), str(data.get("data", "")))
                     result = {"files": projects.list_files(str(data.get("id")))}
+                elif path == "/api/project/export":
+                    result = {"path": session.export_project(str(data.get("id")), str(data.get("format", "md")))}
                 elif path == "/api/project/chat":
                     session.new_project_chat(str(data.get("id")), client)
                 elif path == "/api/quick/send":

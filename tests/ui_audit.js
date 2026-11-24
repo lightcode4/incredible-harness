@@ -271,6 +271,8 @@ async function overlaps(pg, label) {
       check('New chat in this project starts a project chat', (await pg.innerText('#chatSub')).includes('Project · Website') && !(await pg.isVisible('#projectsView')));
       await pg.click('#navProjects'); await pg.waitForTimeout(400);
       check('The project card is listed', (await pg.innerText('#pjGrid')).includes('Website'));
+      await pg.locator('.pjcard', { hasText: 'Website' }).click(); await pg.waitForTimeout(300);
+      check('A project can be exported', await pg.isVisible('#pjExport') && !(await pg.isDisabled('#pjExport')));
       await pg.click('#pjBack'); await pg.waitForTimeout(200);
       // reply actions: copy, retry, read aloud, time
       await pg.click('#navPlay'); await pg.waitForTimeout(200);
@@ -310,6 +312,19 @@ async function overlaps(pg, label) {
       await pg.evaluate(() => showQueue(['add tests next'])); await pg.waitForTimeout(100);
       check('Queued messages show above the message box', (await pg.innerText('#queueBar')).includes('add tests next'));
       await pg.evaluate(() => showQueue([]));
+      // effort switch, find in chat
+      await pg.click('#modelPill'); await pg.waitForTimeout(300);
+      check('Model menu has an effort switch for Claude', await pg.isVisible('#effortRow') && (await pg.innerText('#effortRow')).includes('Max'));
+      await pg.click('#effortRow [data-e="low"]'); await pg.waitForTimeout(500);
+      check('Choosing an effort applies it', await pg.evaluate(() => config.effort === 'low') && (await pg.innerText('#modelPill')).includes('Low'), JSON.stringify(await pg.evaluate(() => [config.effort, document.getElementById('modelName').textContent, config.provider, busy, [...document.querySelectorAll('#log .notice')].slice(-1).map(n => n.textContent)])));
+      await pg.click('#effortRow [data-e="high"]'); await pg.waitForTimeout(400); await pg.keyboard.press('Escape'); await pg.mouse.click(700, 300); await pg.waitForTimeout(200);
+      await pg.keyboard.press('Control+f'); await pg.waitForTimeout(200);
+      check('Ctrl/Cmd+F opens find in this chat', await pg.isVisible('#findBar') && await pg.evaluate(() => document.activeElement.id === 'findIn'));
+      await pg.keyboard.type('answer'); await pg.waitForTimeout(400);
+      check('Find highlights matches and counts them', (await pg.locator('#log mark.findhit').count()) >= 1 && /\d+\/\d+/.test(await pg.innerText('#findCount')), await pg.innerText('#findCount'));
+      await overlaps(pg, 'find bar');
+      await pg.keyboard.press('Escape'); await pg.waitForTimeout(150);
+      check('Esc closes find and removes highlights', !(await pg.isVisible('#findBar')) && (await pg.locator('#log mark.findhit').count()) === 0);
       // artifacts, diagrams and math in replies
       check('While working, the mascot hops', await pg.evaluate(() => { showWorking(); const ok = !!document.querySelector('#working .mascot.work'); document.getElementById('working')?.remove(); return ok; }));
       await pg.click('#navPlay'); await pg.waitForTimeout(200);
