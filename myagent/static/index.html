@@ -607,7 +607,7 @@ body.quick { background: transparent; overflow: hidden; }
   transform: scale(.96); transition: opacity .16s, transform .16s, visibility 0s .16s; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.06), 0 18px 48px rgba(91,65,21,.16); }
 #railDock.open #railPop { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
 #railPop.up { bottom: 54px; } #railPop.down { top: 54px; } #railPop.left { right: 0; transform-origin: bottom right; } #railPop.right { left: 0; transform-origin: bottom left; }
-@media (prefers-reduced-motion: reduce) { #railPop, #railFab { transition: none; } #railFab .fdot.busy { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #railPop, #railFab { transition: none; } }
 #side > * { flex: none; } #side #sessBox { flex: none; }
 .ovhead b { white-space: nowrap; }
 
@@ -859,7 +859,8 @@ body:not(.chatting) .chatcard { justify-content: flex-start; }
 @keyframes mfoot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
 .mascot-slot .mascot { width: 72px; height: 64px; }
 .working .mascot { width: 26px; height: 23px; } .working i { display: none; }
-@media (prefers-reduced-motion: reduce) { .mascot * { animation: none !important; } }
+/* "less motion" (Windows: Animation effects off) calms the idle sun, but the working hop stays: it is how you see the agent is busy */
+@media (prefers-reduced-motion: reduce) { .mascot:not(.work) * { animation: none !important; } }
 /* ---- side panel beside the conversation (Claude app layout) ---- */
 body.panel-open .grid { grid-template-columns: minmax(380px, 1fr) var(--pw, 46%); gap: 0; }
 .grid > #panel { display: none; flex-direction: column; min-width: 0; min-height: 0; position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin: 6px 0 4px 12px; box-shadow: var(--shadow); }
