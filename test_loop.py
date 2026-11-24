@@ -1584,12 +1584,14 @@ def main():
     assert (dest / "README.md").is_file() and s.current.cwd == str(dest) and s.current.kind == "code"
     assert s.github_clone("octo/demo") == str(dest), "opening again reuses the clone"
     ws = s.current.ws
-    assert "signed-in" in ws.run("bash", {"command": 'test "$GH_TOKEN" = tok123 && test "$GIT_TERMINAL_PROMPT" = 0 && echo signed-in'})
-    assert ws.run("bash", {"command": '"$GIT_ASKPASS" "Password for https://github.com"'}).strip() == "tok123"
-    assert ws.run("bash", {"command": '"$GIT_ASKPASS" "Username for https://github.com"'}).strip() == "x-access-token"
+    env = ws._env()  # what every command the agent runs gets (same on Mac, Windows and Linux)
+    assert env["GH_TOKEN"] == "tok123" and env["GIT_TERMINAL_PROMPT"] == "0"
+    ask = lambda prompt: subprocess.run([env["GIT_ASKPASS"], prompt], capture_output=True, text=True, env=env).stdout.strip()
+    assert ask("Password for 'https://github.com': ") == "tok123" and ask("Username for 'https://github.com': ") == "x-access-token"
     assert "@octo" in s.system_for({**s.config, "cwd": str(dest)}) and "never ask the user for a git name" in s.system_for({**s.config, "cwd": str(dest)})
-    ws.run("bash", {"command": "git -c user.name='Orbit Workspace' -c user.email=workspace@local commit -q --allow-empty -m test 2>&1 || git commit -q --allow-empty -m test"})
-    who = ws.run("bash", {"command": "git log -1 --format='%an <%ae> / %cn <%ce>'"}).strip()
+    subprocess.run(["git", "-c", "user.name=Orbit Workspace", "-c", "user.email=workspace@local", "commit", "-q", "--allow-empty", "-m", "test"],
+                   cwd=dest, env=env, check=True)
+    who = subprocess.run(["git", "log", "-1", "--format=%an <%ae> / %cn <%ce>"], cwd=dest, env=env, capture_output=True, text=True).stdout.strip()
     assert who == "Octo Cat <42+octo@users.noreply.github.com> / Octo Cat <42+octo@users.noreply.github.com>", who
     evs = d.run("file an issue", script=[("tool", "github_get", {"path": "/repos/octo/demo/issues"}),
                                          ("tool", "github_api", {"method": "post", "path": "/repos/octo/demo/issues", "body": {"title": "From LightCode"}}),
