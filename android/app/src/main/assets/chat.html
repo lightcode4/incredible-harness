@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>LightCode⁴ chat</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="chat">
+  <div class="bar">
+    <button class="ib" id="back" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <b id="title">New chat</b>
+    <button class="ib" id="chats" aria-label="Chats"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+    <button class="ib" id="newc" aria-label="New chat"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="ib" id="gear" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </div>
+  <div id="log"></div>
+  <div class="composer">
+    <div class="cbox"><textarea id="input" rows="1" placeholder="Message LightCode⁴…"></textarea>
+      <button class="send" id="send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+    <div class="opts"><label id="webl"><input type="checkbox" id="web">Search the web</label><span class="spacer"></span><button id="modelBtn"></button></div>
+  </div>
+</div>
+
+<div class="sheet" id="setup" hidden><div>
+  <h2>Chat on this phone</h2>
+  <label class="f" for="prov">Service</label>
+  <select id="prov">
+    <option value="claude">Claude (Anthropic)</option><option value="openai">OpenAI</option><option value="openrouter">OpenRouter</option>
+    <option value="deepseek">DeepSeek</option><option value="groq">Groq</option><option value="haimaker">haimaker</option><option value="custom">Other (OpenAI-compatible)</option>
+  </select>
+  <label class="f" for="base" id="baseL">Address</label><input id="base" placeholder="https://…/v1" spellcheck="false" autocapitalize="off">
+  <label class="f" for="model">Model</label><input id="model" spellcheck="false" autocapitalize="off">
+  <label class="f" for="key">API key <span class="muted" id="keyHint"></span></label><input id="key" type="password" placeholder="Paste your key" autocomplete="off">
+  <p class="muted">Your key stays on this phone and is only sent to the service you picked.</p>
+  <button class="btn primary wide" id="saveSet">Save</button>
+</div></div>
+
+<div class="sheet" id="list" hidden><div><h2>Chats</h2><div class="list" id="items"></div></div></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const PRESETS = {
+  claude: { base: "https://api.anthropic.com/v1", model: "claude-sonnet-5-5" },
+  openai: { base: "https://api.openai.com/v1", model: "gpt-5" },
+  openrouter: { base: "https://openrouter.ai/api/v1", model: "anthropic/claude-sonnet-5.5" },
+  deepseek: { base: "https://api.deepseek.com/v1", model: "deepseek-chat" },
+  groq: { base: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile" },
+  haimaker: { base: "https://api.haimaker.ai/v1", model: "deepseek/deepseek-chat" },
+  custom: { base: "", model: "" } };
+let cfg = {}; try { cfg = JSON.parse(LC4.get("chatcfg") || "{}"); } catch (e) {}
+let chats = []; try { chats = JSON.parse(localStorage.getItem("lc4chats") || "[]"); } catch (e) {}
+let cur = null, streaming = null;
+
+// ---------- markdown (small and safe: everything is escaped first) ----------
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function inline(s) {
+  return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2">$1</a>').replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a href="$2">$2</a>');
+}
+function md(src) {
+  const out = []; const lines = src.split("\n"); let i = 0, list = null;
+  const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  while (i < lines.length) {
+    const l = lines[i];
+    if (l.startsWith("```")) { close(); const lang = l.slice(3).trim(); const code = []; i++;
+      while (i < lines.length && !lines[i].startsWith("```")) code.push(lines[i++]); i++;
+      out.push(`<pre><button class="cp">Copy</button><code data-lang="${esc(lang)}">${esc(code.join("\n"))}</code></pre>`); continue; }
+    let m;
+    if ((m = l.match(/^(#{1,4})\s+(.*)/))) { close(); out.push(`<h3>${inline(m[2])}</h3>`); }
+    else if ((m = l.match(/^\s*[-*]\s+(.*)/))) { if (list !== "ul") { close(); out.push("<ul>"); list = "ul"; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if ((m = l.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== "ol") { close(); out.push("<ol>"); list = "ol"; } out.push(`<li>${inline(m[1])}</li>`); }
+    else if (!l.trim()) close();
+    else { close(); out.push(`<p>${inline(l)}</p>`); }
+    i++;
+  }
+  close(); return out.join("");
+}
+
+// ---------- chats ----------
+function save() { try { localStorage.setItem("lc4chats", JSON.stringify(chats.slice(0, 200))); } catch (e) {} }
+function newChat() { cur = { id: Date.now().toString(36), title: "New chat", updated: Date.now(), messages: [] }; render(); }
+function open(id) { cur = chats.find(c => c.id === id) || cur; $("list").hidden = true; render(); }
+function render() {
+  $("title").textContent = cur.title; const log = $("log"); log.innerHTML = "";
+  if (!cur.messages.length) { log.innerHTML = `<div class="empty"><svg class="sun" viewBox="0 0 24 24"><path d="M12 8a5 5 0 0 1 5 5H7a5 5 0 0 1 5-5zM11 2h2v3h-2zM3.6 6.2 5 4.8l2.1 2.1-1.4 1.4zM16.9 6.9 19 4.8l1.4 1.4-2.1 2.1zM3 15h18v2H3zM6 19h12v2H6z"/></svg><p>What can I help with?</p></div>`; }
+  cur.messages.forEach((m, i) => add(m, i === cur.messages.length - 1));
+  log.scrollTop = log.scrollHeight;
+}
+function add(m) {
+  const log = $("log");
+  if (m.role === "user") { const d = document.createElement("div"); d.className = "u"; d.textContent = m.content; log.appendChild(d); return d; }
+  const d = document.createElement("div"); d.className = "a"; d.innerHTML = md(m.content || ""); log.appendChild(d);
+  const acts = document.createElement("div"); acts.className = "acts";
+  const cp = document.createElement("button"); cp.textContent = "Copy"; cp.onclick = () => { LC4.copy(m.content); cp.textContent = "Copied"; setTimeout(() => cp.textContent = "Copy", 1200); };
+  acts.appendChild(cp); log.appendChild(acts); return d;
+}
+$("log").addEventListener("click", e => { const b = e.target.closest(".cp"); if (b) { LC4.copy(b.nextElementSibling.textContent); b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy", 1200); }
+  const a = e.target.closest("a"); if (a) { e.preventDefault(); LC4.openUrl(a.href); } });
+
+// ---------- talking to the model (the phone makes the request itself, see MainActivity.stream) ----------
+function ready() { return cfg.prov && cfg.key && (cfg.base || cfg.prov === "claude") && cfg.model; }
+function request(messages) {
+  if (cfg.prov === "claude") {
+    const body = { model: cfg.model, max_tokens: 8192, stream: true, messages: messages.map(m => ({ role: m.role, content: m.content })),
+      system: "You are LightCode⁴, a warm, capable assistant on the user's phone. Answer clearly and concisely, with markdown where it helps." };
+    if ($("web").checked) body.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }];
+    return { url: "https://api.anthropic.com/v1/messages", headers: { "content-type": "application/json", "x-api-key": cfg.key, "anthropic-version": "2023-06-01" }, body };
+  }
+  const base = (cfg.base || PRESETS[cfg.prov].base).replace(/\/+$/, "");
+  return { url: base + "/chat/completions", headers: { "content-type": "application/json", "authorization": "Bearer " + cfg.key },
+    body: { model: cfg.model, stream: true, messages: [{ role: "system", content: "You are LightCode⁴, a warm, capable assistant on the user's phone. Answer clearly and concisely." }, ...messages.map(m => ({ role: m.role, content: m.content }))] } };
+}
+function send() {
+  const text = $("input").value.trim();
+  if (streaming) { LC4.cancel(streaming.id); return; }
+  if (!text) return;
+  if (!ready()) { showSetup(); return; }
+  if (!chats.includes(cur)) chats.unshift(cur);
+  cur.messages.push({ role: "user", content: text });
+  if (cur.title === "New chat") cur.title = text.slice(0, 48);
+  $("input").value = ""; grow(); render();
+  const reply = { role: "assistant", content: "" }; const el = add(reply);
+  const think = document.createElement("div"); think.className = "think"; think.innerHTML = "<i></i>Thinking…"; $("log").appendChild(think);
+  const req = request(cur.messages);
+  streaming = { id: "s" + Date.now(), reply, el, think, raw: "" };
+  setSending(true);
+  LC4.stream(streaming.id, req.url, JSON.stringify(req.headers), JSON.stringify(req.body));
+}
+window.onStreamLine = (id, line) => {
+  const s = streaming; if (!s || s.id !== id) return;
+  s.raw += line + "\n";
+  if (!line.startsWith("data:")) return;
+  const data = line.slice(5).trim(); if (!data || data === "[DONE]") return;
+  let ev; try { ev = JSON.parse(data); } catch (e) { return; }
+  const piece = ev.delta?.type === "text_delta" ? ev.delta.text : ev.choices?.[0]?.delta?.content;
+  if (ev.type === "content_block_start" && ev.content_block?.type === "server_tool_use") s.think.lastChild.textContent = "Searching the web…";
+  if (piece) { s.think.remove(); s.reply.content += piece; s.el.innerHTML = md(s.reply.content);
+    const log = $("log"); if (log.scrollHeight - log.scrollTop - log.clientHeight < 160) log.scrollTop = log.scrollHeight; }
+};
+window.onStreamEnd = (id, info) => {
+  const s = streaming; if (!s || s.id !== id) return; streaming = null; setSending(false); s.think.remove();
+  let r = {}; try { r = JSON.parse(info); } catch (e) {}
+  if (r.error === "stopped") s.reply.content += s.reply.content ? "\n\n*(stopped)*" : "*(stopped)*";
+  else if (r.status >= 400 || (r.error && !s.reply.content)) {
+    let msg = r.error || `The service answered ${r.status}.`;
+    try { const j = JSON.parse(s.raw); msg = j.error?.message || j.error || msg; } catch (e) {}
+    if (r.status === 401) msg = "The API key was rejected. Check it in settings (⚙︎).";
+    const n = document.createElement("div"); n.className = "note"; n.textContent = String(msg).slice(0, 300); $("log").appendChild(n);
+    s.el.remove(); return;
+  }
+  cur.messages.push(s.reply); cur.updated = Date.now(); save(); render();
+};
+function setSending(on) { $("send").innerHTML = on ? '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>'; $("send").setAttribute("aria-label", on ? "Stop" : "Send"); }
+
+// ---------- settings ----------
+function showSetup() {
+  $("prov").value = cfg.prov || "claude"; $("model").value = cfg.model || ""; $("base").value = cfg.base || ""; $("key").value = cfg.key || "";
+  provChanged(false); $("setup").hidden = false;
+}
+function provChanged(reset = true) { const p = $("prov").value, pre = PRESETS[p];
+  $("base").hidden = $("baseL").hidden = p === "claude"; if (reset || !$("base").value) $("base").value = pre.base; if (reset || !$("model").value) $("model").value = pre.model;
+  $("keyHint").textContent = p === "claude" ? "(console.anthropic.com)" : ""; }
+$("prov").onchange = () => provChanged(true);
+$("saveSet").onclick = () => { cfg = { prov: $("prov").value, base: $("base").value.trim(), model: $("model").value.trim(), key: $("key").value.trim() };
+  LC4.set("chatcfg", JSON.stringify(cfg)); $("setup").hidden = true; modelLabel(); };
+function modelLabel() { $("modelBtn").textContent = cfg.model ? cfg.model + " ⌄" : "Set up ⌄"; $("webl").style.visibility = cfg.prov === "claude" ? "visible" : "hidden"; }
+$("modelBtn").onclick = showSetup; $("gear").onclick = showSetup;
+document.querySelectorAll(".sheet").forEach(s => s.addEventListener("click", e => { if (e.target === s) s.hidden = true; }));
+$("chats").onclick = () => { const box = $("items"); box.innerHTML = "";
+  if (!chats.length) box.innerHTML = '<p class="muted">No chats yet.</p>';
+  chats.forEach(c => { const b = document.createElement("button"); b.className = "it" + (c === cur ? " on" : ""); b.innerHTML = "<span></span><small></small>";
+    b.firstChild.textContent = c.title; b.lastChild.textContent = new Date(c.updated).toLocaleString(); b.onclick = () => open(c.id);
+    b.oncontextmenu = e => { e.preventDefault(); if (confirm("Delete this chat?")) { chats = chats.filter(x => x !== c); save(); if (cur === c) newChat(); $("chats").click(); } };
+    box.appendChild(b); }); $("list").hidden = false; };
+$("newc").onclick = () => { if (!streaming) newChat(); };
+$("back").onclick = () => LC4.goHome();
+const grow = () => { const t = $("input"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 160) + "px"; };
+$("input").oninput = grow; $("send").onclick = send;
+modelLabel(); newChat(); if (!ready()) showSetup();
+</script>
+</body></html>

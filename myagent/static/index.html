@@ -1413,6 +1413,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <div><button class="btn small" id="addSched">+ Add scheduled task</button></div>
     </div>
     <div class="pane" data-p="phone">
+      <div class="note" style="margin-bottom:12px"><b>LightCode⁴ for Android</b> — a proper app for your phone: control this computer's sessions (turn on Phone access below, then scan its QR code with the app), get notifications for approvals, and chat on the phone with your own key when this computer is off. <a href="#" id="getAndroid">Download the app</a> (LightCode4-android.apk from the newest release).</div>
       <label class="toggle"><span>Phone access on your Wi-Fi<small>Use LightCode⁴ from your phone's browser on the same network: watch progress, approve actions, send messages. Anyone on your network with the link has full control, so only use it on networks you trust.</small></span><span class="switch"><input type="checkbox" id="phone"><span></span></span></label>
       <div id="phoneBox" class="note" hidden><div id="qr"></div><div style="margin-top:8px;word-break:break-all;font-size:12.5px" id="phoneUrl"></div></div>
       <label class="toggle"><span>Access from anywhere<small>A private internet link to LightCode⁴ on this computer through Cloudflare's free tunnel, so you can check on and control it away from home. This computer must stay on and awake. Anyone with the link has full control — don't share it. Needs cloudflared (Mac: <code>brew install cloudflared</code>).</small></span><span class="switch"><input type="checkbox" id="remote"><span></span></span></label>
@@ -2537,6 +2538,7 @@ function drawRepos() { const q = $("ghSearch").value.trim().toLowerCase(), list 
 $("ghSearch").oninput = drawRepos;
 async function chromeCard(body = {}) { try { const r = await api("/api/chrome", body); $("chCode").textContent = r.code;
   $("chStatus").textContent = !r.listening ? "Another LightCode⁴ window owns the Chrome connection." : r.connected ? `✓ Connected (${r.browser || "Chrome"})` : "Not connected yet. Keep Chrome open after pairing."; } catch (e) {} }
+$("getAndroid").onclick = e => { e.preventDefault(); openUrl("https://github.com/lightcode4/incredible-herness/releases"); };
 $("edDownload").onclick = () => openUrl("https://github.com/lightcode4/incredible-herness/releases");
 $("chCopy").onclick = () => navigator.clipboard?.writeText($("chCode").textContent).then(() => notice("Pairing code copied."));
 $("chNew").onclick = () => { if (confirm("Make a new pairing code? Chrome will need the new one.")) chromeCard({ new_code: true }); };
