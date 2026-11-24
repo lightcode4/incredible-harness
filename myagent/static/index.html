@@ -190,7 +190,12 @@ details.toolcard > summary { padding: 8px 12px; }
 .umsg .user { max-width: 100%; }
 .uacts { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
 .umsg:hover .uacts, .umsg:focus-within .uacts { opacity: 1; }
-.uacts button { border: 0; background: none; color: var(--muted); font-size: 12px; padding: 2px 8px; border-radius: 6px; cursor: pointer; }
+.uacts button { border: 0; background: none; color: var(--muted); padding: 5px; border-radius: 7px; cursor: pointer; display: grid; place-items: center; }
+.uacts button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.rwbox { align-self: flex-end; width: min(520px, 100%); display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding: 12px 14px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: var(--shadow); font-size: 13px; box-sizing: border-box; }
+.rwbox b { font-size: 13.5px; } .rwbox > span { color: var(--muted); line-height: 1.45; }
+.rwbox .uefoot { display: flex; align-items: center; gap: 6px; margin-top: 4px; } .rwbox .uefoot label { display: inline-flex; gap: 6px; align-items: center; margin-right: auto; color: var(--muted); font-size: 12.5px; }
+.rwbox .uefoot button { height: 30px; padding: 0 12px; font-size: 13px; border-radius: 8px; } .rwbox .ghost { background: none; border: 1px solid var(--line); color: var(--text); }
 .uacts button:hover { background: var(--hover); color: var(--text); }
 /* text in chats and files can be selected and copied; buttons, tabs and labels stay unselectable like the Claude app */
 button, label, .ptabs, #tabs, #workbar, .uacts, kbd { -webkit-user-select: none; user-select: none; }
@@ -1776,11 +1781,13 @@ function userMsg(ev) {
   if (ev.files?.length) { const a = el("div", "att"); ev.files.forEach(n => { const s = el("span"); s.textContent = "📎 " + n; a.appendChild(s); }); u.appendChild(a); }
   if (ev.plan) u.appendChild(el("span", "tag", "PLAN"));
   u.appendChild(document.createTextNode(ev.text));
-  if (ev.idx === undefined || !ev.mark || (ev.mark.c || 0) !== compactions) { add(u); scroll(true); return; }
-  const wrap = el("div", "umsg"); wrap.appendChild(u); wrap.dataset.idx = ev.idx; wrap.dataset.text = ev.text;
+  const canRewind = !(ev.idx === undefined || !ev.mark || (ev.mark.c || 0) !== compactions);
+  const wrap = el("div", "umsg"); wrap.appendChild(u); wrap.dataset.text = ev.text; if (canRewind) wrap.dataset.idx = ev.idx;
   const acts = el("div", "uacts");
-  const mk = (t, title, fn) => { const b = el("button"); b.textContent = t; b.title = title; b.onclick = fn; acts.appendChild(b); };
-  mk("Edit", "Change this message and continue from here", () => {
+  const mk = (html, title, fn) => { const b = el("button", "", html); b.title = title; b.setAttribute("aria-label", title); b.onclick = () => fn(b); acts.appendChild(b); return b; };
+  mk(I_COPY, "Copy", b => { navigator.clipboard.writeText(ev.text).catch(() => {}); b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'; b.title = "Copied"; setTimeout(() => { b.innerHTML = I_COPY; b.title = "Copy"; }, 1400); });
+  if (canRewind) {
+  mk('<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>', "Edit: change this message and continue from here", () => {
     if (busy) return notice("Stop the agent first.");
     const box = el("div", "uedit"), ta = el("textarea"); ta.value = ev.text; ta.rows = 1;
     const grow = () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 320) + "px"; }; ta.oninput = grow;
@@ -1792,8 +1799,24 @@ function userMsg(ev) {
     ta.onkeydown = e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) go.click(); if (e.key === "Escape") cancel.click(); };
     row.append(cancel, go); box.append(ta, row); u.replaceWith(box); acts.hidden = true; grow(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
   });
-  mk("Fork", "Copy the chat up to this reply into a new chat, to try another direction", async () => {
+  mk('<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/></svg>', "Rewind to here: go back to just before this message", () => {
+    if (busy) return notice("Stop the agent first.");
+    if (wrap.querySelector(".rwbox")) return;
+    const box = el("div", "rwbox", `<b>Rewind to before this message?</b><span>Everything after it is removed from this chat, and your message goes back into the box so you can change it.</span>
+      <div class="uefoot"><label><input type="checkbox" checked> Also undo file changes made since</label></div>`);
+    const foot = box.querySelector(".uefoot");
+    const cancel = el("button", "ghost"); cancel.textContent = "Cancel"; cancel.onclick = () => box.remove();
+    const go = el("button", "btn primary"); go.textContent = "Rewind";
+    go.onclick = async () => { go.disabled = true;
+      try { const r = await api("/api/rewind", { idx: ev.idx, text: "", undo_files: foot.querySelector("input").checked });
+        const t = $("input"); t.value = ev.text; t.dispatchEvent(new Event("input")); t.focus();
+        notice(r.restored ? "Rewound. Files put back: " + r.restored : "Rewound to before that message."); }
+      catch (e) { go.disabled = false; notice(e.message); } };
+    foot.append(cancel, go); wrap.appendChild(box); go.focus();
+  });
+  mk('<svg viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 4-6 3-11.5 7"/></svg>', "Fork: copy the chat up to this reply into a new chat, to try another direction", async () => {
     try { await api("/api/fork", { idx: ev.idx }); } catch (e) { notice(e.message); } });
+  }
   wrap.appendChild(acts); add(wrap); scroll(true);
 }
 function planReady() {
@@ -1849,7 +1872,7 @@ function handle(ev) {
       else { wt.textContent = "Connection lost"; st.textContent = `Retrying in ${ev.wait}s · picks up where it stopped`; } } break;
     case "interrupted": continueCard(); break;
     case "usage": setCost(ev.cost, ev.tokens, ev.priced); setCtx(ev.context, ev.window); break;
-    case "compacted": setCtx(0, 0); compactions = ev.compactions || compactions + 1; document.querySelectorAll(".uacts").forEach(a => a.remove()); break;
+    case "compacted": setCtx(0, 0); compactions = ev.compactions || compactions + 1; document.querySelectorAll(".uacts").forEach(a => [...a.children].slice(1).forEach(x => x.remove())); document.querySelectorAll(".umsg").forEach(m => delete m.dataset.idx); break;
     case "status": setBusy(ev.busy); if (!ev.busy) { loadChats(); document.body.classList.remove("agent-browsing"); } break;
     case "gh_device": if (!replaying) ghDevice(ev); break;
     case "config": showConfig(ev.config); if ($("settings").open) showPhone(); break;

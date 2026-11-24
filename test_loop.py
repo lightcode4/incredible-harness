@@ -1625,6 +1625,17 @@ def main():
     parts = s.current._parts("read this", [{"name": "notes.txt", "mime": "text/plain", "data": base64.b64encode(sample.encode("utf-16")).decode()}])
     assert sample in parts[0]["text"]
     print("75 text files in any encoding OK")
+    # 76. Rewind to here (no new message): the chat goes back to just before that message, files put back
+    s.new_chat()
+    d.run("first", script=[("text", "one")])
+    d.run("make a file", script=[("tool", "write_file", {"path": "rw.txt", "content": "x"}), ("text", "made")])
+    assert (Path(s.current.cwd) / "rw.txt").exists()
+    idx = [i for i, e in enumerate(s.current.transcript) if e["kind"] == "user"][1]
+    n_req = len(REQUESTS)
+    s.current.rewind(idx, "", True)
+    assert not (Path(s.current.cwd) / "rw.txt").exists() and [e["text"] for e in s.current.transcript if e["kind"] == "user"] == ["first"]
+    assert len(REQUESTS) == n_req and not s.current.busy, "rewinding sends nothing"
+    print("76 rewind to here OK")
     print("ALL TESTS PASSED")
 
 

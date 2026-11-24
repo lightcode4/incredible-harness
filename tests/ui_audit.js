@@ -147,7 +147,8 @@ async function overlaps(pg, label) {
         await pg.click(`#tabs button[data-p="${t}"]`); await pg.waitForTimeout(120); await overlaps(pg, `settings ${t}`);
       }
       await pg.click('#tabs button[data-p="github"]');
-      check('GitHub pane walks you through connecting (create token, paste, connect)', await pg.isVisible('#ghMakeToken') && await pg.isVisible('#ghNewToken') && await pg.isVisible('#ghConnectBtn'));
+      await pg.waitForTimeout(300);
+      check('GitHub pane offers Sign in with GitHub, with a token as the fallback', await pg.isVisible('#ghSignIn') && (await pg.locator('#ghAlt summary').innerText()).includes('token'));
       await pg.click('#tabs button[data-p="services"]');
       check('Services pane has search, image and cloud upload settings', await pg.isVisible('#svSearch') && await pg.isVisible('#svImage') && await pg.isVisible('#s3Bucket')
         && (await pg.evaluate(() => [...document.querySelectorAll('#svSearch option')].map(o => o.value).join(','))).includes('tavily'));
@@ -226,7 +227,10 @@ async function overlaps(pg, label) {
       await pg.keyboard.press('Control+.'); await pg.waitForTimeout(250);
       check('Ctrl/Cmd+. toggles the side panel', await pg.isVisible('#panel')); await pg.keyboard.press('Control+.'); await pg.waitForTimeout(250);
       await pg.locator('.umsg').first().hover(); await pg.waitForTimeout(250);
-      check('Hovering a message shows Edit and Fork', await pg.locator('.umsg').first().getByRole('button', { name: 'Edit' }).isVisible());
+      check('Hovering a message shows Copy, Edit, Rewind and Fork', await pg.locator('.umsg').first().evaluate(m => [...m.querySelectorAll('.uacts button')].map(b => b.title.split(':')[0]).join(',')) === 'Copy,Edit,Rewind to here,Fork');
+      await pg.locator('.umsg').first().getByRole('button', { name: 'Rewind' }).click();
+      check('Rewind asks first, in a small card', await pg.isVisible('.rwbox') && (await pg.innerText('.rwbox')).includes('Rewind to before this message') && (await pg.locator('.rwbox').boundingBox()).height < 200);
+      await pg.locator('.rwbox').getByRole('button', { name: 'Cancel' }).click(); check('Cancel leaves the chat as it was', !(await pg.isVisible('.rwbox')));
       const before = await pg.innerText('#chatHead');
       await pg.locator('.umsg').first().getByRole('button', { name: 'Fork' }).click(); await pg.waitForTimeout(900);
       check('Fork opens a copy of the chat', (await pg.innerText('#chatHead')).startsWith('Fork:') && (await pg.innerText('#log')).includes('Forked from'), await pg.innerText('#chatHead'));
@@ -244,7 +248,7 @@ async function overlaps(pg, label) {
       await pg.fill('#input', '/compact'); await pg.keyboard.press('Enter');
       await pg.waitForFunction(() => document.getElementById('log').innerText.includes('Conversation summarized'), null, { timeout: 15000 });
       check('/compact summarizes the chat', true);
-      check('Older messages can no longer be rewound after a summary', (await pg.locator('.uacts').count()) === 0);
+      check('After a summary older messages keep only Copy', await pg.evaluate(() => [...document.querySelectorAll('.uacts')].every(a => a.children.length === 1 && a.children[0].title === 'Copy')));
       // keyboard shortcuts for the tabs
       for (const [keys, sel, name] of [['Control+Shift+F', '#fTree', 'Files'], ['Control+j', '#termBox', 'Terminal'], ['Control+Shift+D', '#gitView', 'Changes'], ['Control+Shift+T', '#jobList', 'Tasks'], ['Control+Shift+B', '#bview', 'Browser']]) {
         await pg.keyboard.press(keys); await pg.waitForTimeout(350); check(`${keys} opens ${name}`, await pg.isVisible(sel));
