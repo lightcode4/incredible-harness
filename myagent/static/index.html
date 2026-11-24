@@ -325,6 +325,13 @@ body.agent-browsing .agentbadge { display: block; }
   --user: #3a2f1b; --code: #2b2317; --codeblock: #0f0c07; --codetext: #f1e7cf; --ok: #b3c47c; --bad: #e6a08c; --warn: #e8bd72; --plan: #dfbd69;
   --soft: #3a2f1b; --sun: #dfbd69; --brand-ink: #e6cf98; --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
 } }
+:root[data-theme="dark"] {
+  --bg: #17130c; --side: #1d1810; --panel: #241d13; --text: #f1e7cf; --muted: #a8977a; --faint: #786a51; --body: #c4b593;
+  --line: #3a3020; --line-soft: #2f271a; --accent: #dfbd69; --accent-hover: #ecd08c; --accent-text: #1d1810; --hover: #2b2317;
+  --user: #3a2f1b; --code: #2b2317; --codeblock: #0f0c07; --codetext: #f1e7cf; --ok: #b3c47c; --bad: #e6a08c; --warn: #e8bd72; --plan: #dfbd69;
+  --soft: #3a2f1b; --sun: #dfbd69; --brand-ink: #e6cf98; --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
+}
+:root[data-theme="dark"] { color-scheme: dark; } :root[data-theme="light"] { color-scheme: light; }
 body { font-family: var(--sans); font-size: 14.5px; background: var(--bg); }
 .serif, h1.serif, .assistant h1, .assistant h2, .assistant h3 { font-family: var(--serifF); font-weight: 400; }
 .mono, code, pre, .toolcard .sum, kbd, .codeblock pre { font-family: var(--monoF) !important; }
@@ -455,6 +462,26 @@ details.toolcard { border-radius: 10px; box-shadow: none; }
 #railFab .fdot.busy { background: var(--sun); animation: fpulse 1.2s ease-in-out infinite; } #railFab .fdot.done { background: var(--ok); }
 .tbwrap { position: relative; display: inline-flex; }
 #jobCount { background: var(--sun) !important; color: #2b2418 !important; }
+.turnfoot { flex-wrap: wrap; } .turnfoot .racts { display: flex; gap: 2px; margin-left: -6px; } .turnfoot .rtime { color: var(--faint); font-size: 12px; }
+.turnfoot .racts button svg { width: 14px; height: 14px; } .turnfoot button.on { color: var(--accent); }
+.chatitem .cbtns { display: flex; gap: 1px; flex: none; } .chatitem .pinmark { font-style: normal; } .chatitem button.pin:hover, .chatitem button.ren:hover { color: var(--accent); }
+.chatitem.pinned .pinmark { display: grid; color: var(--accent); } .chatitem .pinmark { display: none; } .chatitem .pinmark svg { width: 12px; height: 12px; }
+.chatitem.pinned button.pin { color: var(--accent); }
+.chatitem input.rename { flex: 1; min-width: 0; font: inherit; font-size: 13.5px; border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--line)); border-radius: 6px; padding: 2px 6px; background: var(--panel); color: var(--text); outline: none; }
+.pinsep { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); padding: 8px 10px 2px 14px; }
+#welcomeDlg { width: min(620px, 94vw); padding: 0; border-radius: 20px; }
+.wlhead { display: flex; align-items: center; gap: 12px; padding: 20px 22px 6px; } .wlhead .bmark { width: 40px; height: 40px; color: var(--brand-ink); flex: none; }
+.wlhead h2 { margin: 0; font-size: 26px; font-weight: 400; } .wlhead small { color: var(--muted); font-size: 12.5px; }
+.wlsteps { display: flex; gap: 6px; padding: 8px 22px 0; } .wlsteps i { flex: 1; height: 3px; border-radius: 3px; background: var(--line); } .wlsteps i.on { background: var(--accent); }
+.wlstep { padding: 14px 22px 4px; } .wlp { margin: 0 0 12px; color: var(--body); font-size: 14px; }
+#wlProviders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.wlcard { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); text-align: left; cursor: pointer; color: var(--text); }
+.wlcard:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); } .wlcard.on { border-color: var(--accent); background: var(--soft); }
+.wlcard b { display: block; font-size: 13.5px; } .wlcard small { display: block; font-size: 11px; color: var(--muted); }
+.wlprov { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; } .wlprov b { font-size: 16px; } .wlprov small { display: block; color: var(--muted); font-size: 12px; }
+.wlrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; } .wlrow a { color: var(--accent); font-size: 13px; } #wlTestRes { font-size: 12.5px; }
+.wlnote { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+.wlfoot { display: flex; gap: 8px; padding: 16px 22px 20px; }
 .lsprow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: 10px; margin-bottom: 6px; font-size: 13px; }
 .lsprow > span { flex: 1; min-width: 0; } .lsprow small { display: block; font-size: 11.5px; color: var(--muted); white-space: normal; }
 .lsprow .ok { color: var(--ok); font-size: 12px; font-weight: 600; flex: none; }
@@ -1003,6 +1030,22 @@ body.models-open #modelsView { display: block !important; }
   <div id="scLog" role="log" aria-live="polite"><div class="aempty">Ask anything about this session — what changed, why something failed, how a file works. Side chat can read and search, but never edits files or runs commands.</div></div>
   <div class="scin"><textarea id="scInput" rows="1" placeholder="Ask on the side…" aria-label="Side chat message"></textarea><button class="send" id="scSend" aria-label="Send"><svg><use href="#i-up"/></svg></button></div>
 </aside>
+<dialog id="welcomeDlg" aria-label="Welcome to LightCode⁴">
+  <div class="wlhead"><svg class="bmark" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"><path d="M17 35a15 15 0 0 1 30 0M8 43h48M15 52h34M23 60h18M32 5v9M9 15l7 7M55 15l-7 7"/></g><path d="M17 35a15 15 0 0 1 30 0Z" fill="var(--sun)"/></svg>
+    <div><h2 class="serif">Welcome to LightCode⁴</h2><small id="wlStepLabel">Step 1 of 3 · Choose a model provider</small></div><span class="spacer"></span><button class="linkbtn" id="wlSkip">Skip setup</button></div>
+  <div class="wlsteps" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
+  <section class="wlstep" data-s="1"><p class="wlp">Which AI should do the work? You can add more and switch any time.</p><div id="wlProviders"></div>
+    <button class="linkbtn" id="wlMore">See all providers…</button></section>
+  <section class="wlstep" data-s="2" hidden><div class="wlprov" id="wlProv"></div>
+    <div class="field"><label for="wlKey">API key</label><input id="wlKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key"></div>
+    <div class="wlrow"><a href="#" id="wlGet">Get a key ↗</a><span class="spacer"></span><span id="wlTestRes"></span><button class="btn" id="wlTest">Test</button></div>
+    <p class="wlnote" id="wlNokey" hidden>No key needed: this runs on your computer. Make sure it's open before you chat.</p>
+    <p class="wlnote">Your key is stored only on this computer, readable only by you.</p></section>
+  <section class="wlstep" data-s="3" hidden><p class="wlp">Which folder should LightCode⁴ work in? It can read and change files here (it asks first).</p>
+    <div class="fprow" style="margin:0"><input id="wlFolder" spellcheck="false"><button class="btn" id="wlPick" hidden>Choose…</button></div>
+    <div class="err" id="wlErr"></div></section>
+  <div class="wlfoot"><button class="btn" id="wlBack" hidden>Back</button><span class="spacer"></span><button class="btn primary" id="wlNext" disabled>Continue</button></div>
+</dialog>
 <dialog id="keys" aria-label="Keyboard shortcuts"><div class="dlg-head"><h2 class="serif">Keyboard shortcuts</h2><button class="iconbtn" id="closeKeys" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
   <div class="dlg-body"><table>
     <tr><td><kbd>Enter</kbd></td><td>Send</td></tr><tr><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>New line</td></tr>
@@ -1045,6 +1088,8 @@ body.models-open #modelsView { display: block !important; }
       <div class="field"><label>Working folder</label><div style="display:flex;gap:8px"><input id="cwd" spellcheck="false"><button class="btn" id="pick" hidden>Browse…</button></div></div>
     </div>
     <div class="pane" data-p="tools">
+      <div class="field"><label for="themeSel">Appearance</label><div class="artseg" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content"><button data-t="system">System</button><button data-t="light">Light</button><button data-t="dark">Dark</button></div></div>
+      <label class="toggle"><span>Sound when a task finishes<small>A soft chime when a longer task is done, or when LightCode⁴ is in the background.</small></span><span class="switch"><input type="checkbox" id="soundOn"><span></span></span></label>
       <div class="field"><label for="quickKey">Quick chat shortcut <small>(opens a small LightCode⁴ box over any app; leave empty to turn off)</small></label>
         <div class="fprow" style="margin:0"><input id="quickKey" spellcheck="false" placeholder="ctrl+alt+space"><button class="btn" id="quickTry">Try it</button></div>
         <small style="color:var(--muted);font-size:11.5px">Mac: the first time, allow LightCode4 under System Settings › Privacy &amp; Security › Input Monitoring.</small></div>
@@ -1320,9 +1365,45 @@ function toolResult(ev) {
   if (!ev.error) card.open = false;
 }
 function notice(text) { endBlock(); const n = add(el("div", "notice", icon("warn"))); n.appendChild(document.createTextNode(text)); }
+const I_COPY = '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>';
+const I_RETRY = '<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v5h5"/></svg>';
+const I_SPEAK = '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>';
+function turnText(foot) {  // the agent's reply text for this turn (markdown source)
+  const parts = []; let n = foot.previousElementSibling;
+  while (n && !n.matches(".umsg, .user, .turnfoot")) { if (n.matches(".assistant")) parts.unshift(n._raw || n.innerText); n = n.previousElementSibling; }
+  return parts.join("\n\n").trim();
+}
+function plainText(md) { return md.replace(/```[\s\S]*?```/g, " (code) ").replace(/\$\$[\s\S]*?\$\$/g, " (formula) ").replace(/[*_`#>|]/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/\s+/g, " ").trim(); }
+function fmtTime(t) { const d = new Date(t * 1000), today = new Date().toDateString() === d.toDateString();
+  return today ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : d.toLocaleDateString([], { month: "short", day: "numeric" }) + ", " + d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
+let speaking = null;
+function chime() {
+  try { const ctx = new (window.AudioContext || window.webkitAudioContext)(), now = ctx.currentTime;
+    [[880, 0], [1318.5, .12]].forEach(([f, d]) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0, now + d); g.gain.linearRampToValueAtTime(.12, now + d + .02); g.gain.exponentialRampToValueAtTime(.0001, now + d + .9);
+      o.connect(g).connect(ctx.destination); o.start(now + d); o.stop(now + d + 1); });
+    setTimeout(() => ctx.close(), 1500); } catch (e) {}
+}
 function turnEnd(ev) {
-  if (!ev.files?.length && !ev.cost) return;
+  if (!replaying && config.sound && (ev.secs >= 8 || document.hidden)) chime();
   const f = el("div", "turnfoot");
+  const acts = el("span", "racts");
+  const mk = (html, title, fn, cls = "") => { const b = el("button", cls, html); b.title = title; b.setAttribute("aria-label", title); b.onclick = () => fn(b); acts.appendChild(b); return b; };
+  mk(I_COPY, "Copy reply", b => { const t = turnText(f); if (!t) return; navigator.clipboard.writeText(t); b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'; b.title = "Copied"; setTimeout(() => { b.innerHTML = I_COPY; b.title = "Copy reply"; }, 1400); });
+  mk(I_RETRY, "Retry: ask again for a new answer", async () => {
+    if (busy) return notice("Stop the agent first.");
+    const users = [...log.querySelectorAll(".umsg")]; const u = users[users.length - 1];
+    if (!u || u.dataset.idx === undefined) return notice("This reply can't be retried.");
+    try { await api("/api/rewind", { idx: +u.dataset.idx, text: u.dataset.text, undo_files: true }); } catch (e) { notice(e.message); }
+  }, "retry");
+  if ("speechSynthesis" in window) mk(I_SPEAK, "Read aloud", b => {
+    if (speaking) { speechSynthesis.cancel(); const was = speaking; speaking = null; document.querySelectorAll(".turnfoot button.on").forEach(x => x.classList.remove("on")); if (was === b) return; }
+    const u = new SpeechSynthesisUtterance(plainText(turnText(f))); u.onend = u.onerror = () => { b.classList.remove("on"); if (speaking === b) speaking = null; };
+    speaking = b; b.classList.add("on"); speechSynthesis.speak(u);
+  });
+  f.appendChild(acts);
+  if (ev.t) { const tm = el("span", "rtime"); tm.textContent = fmtTime(ev.t); tm.title = new Date(ev.t * 1000).toLocaleString(); f.appendChild(tm); }
+  log.querySelectorAll(".turnfoot .retry").forEach(b => b.remove());  // only the latest reply can be retried
   if (ev.cost) f.appendChild(document.createTextNode(money(ev.cost)));
   if (ev.files?.length && !replaying) undoable.add(ev.turn);
   if (ev.files?.length) {
@@ -1341,7 +1422,7 @@ function userMsg(ev) {
   if (ev.plan) u.appendChild(el("span", "tag", "PLAN"));
   u.appendChild(document.createTextNode(ev.text));
   if (ev.idx === undefined || !ev.mark || (ev.mark.c || 0) !== compactions) { add(u); scroll(true); return; }
-  const wrap = el("div", "umsg"); wrap.appendChild(u);
+  const wrap = el("div", "umsg"); wrap.appendChild(u); wrap.dataset.idx = ev.idx; wrap.dataset.text = ev.text;
   const acts = el("div", "uacts");
   const mk = (t, title, fn) => { const b = el("button"); b.textContent = t; b.title = title; b.onclick = fn; acts.appendChild(b); };
   mk("Edit", "Change this message and continue from here", () => {
@@ -1409,7 +1490,8 @@ function handle(ev) {
     case "compacted": setCtx(0, 0); compactions = ev.compactions || compactions + 1; document.querySelectorAll(".uacts").forEach(a => a.remove()); break;
     case "status": setBusy(ev.busy); if (!ev.busy) { loadChats(); document.body.classList.remove("agent-browsing"); } break;
     case "config": showConfig(ev.config); if ($("settings").open) showPhone(); break;
-    case "setup": openSettings(); $("dlgError").textContent = ev.text; break;
+    case "setup": if (needsWelcome(config)) { const go = () => PROVS.length ? showWelcome() : setTimeout(go, 200); go(); } else { openSettings(); $("dlgError").textContent = ev.text; } break;
+    case "title": if (ev.chat === currentChat) { $("chatHead").textContent = ev.title; if (!panelTab) $("crumbHere").textContent = ev.title; } loadChats(); break;
     case "replay": replay(ev); break;
     case "hook": endBlock(); hookRow(ev); break;
     case "chats_changed": refreshChats(); break;
@@ -1458,16 +1540,29 @@ es.onerror = () => { $("who").textContent = "Engine disconnected"; $("dot").clas
 es.onopen = () => $("dot").classList.remove("off");
 
 // ---------- Chats ----------
+const I_PIN = '<svg viewBox="0 0 24 24"><path d="M9 3h6l-1 6 4 3v2H6v-2l4-3zM12 14v7"/></svg>';
+const I_PEN = '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/></svg>';
 async function loadChats() {
   try {
     const { chats, current } = await api("/api/chats");
     const list = $("chatList"); list.innerHTML = "";
     chats.forEach(c => {
       const st = c.approval ? '<i class="st ask" title="Needs approval"></i>' : c.running ? '<i class="st run" title="Working"></i>' : "";
-      const it = el("div", "chatitem" + (c.id === current ? " on" : ""), `${st}<span></span>${c.worktree ? '<b class="wt" title="Parallel worktree chat">⑂</b>' : ""}<button title="Delete">${icon("trash")}</button>`);
+      const it = el("div", "chatitem" + (c.id === current ? " on" : "") + (c.pinned ? " pinned" : ""), `<i class="pinmark" title="Pinned">${I_PIN}</i>${st}<span></span>${c.worktree ? '<b class="wt" title="Parallel worktree chat">⑂</b>' : ""}<span class="cbtns"><button class="pin" title="${c.pinned ? "Unpin" : "Pin to top"}" aria-label="${c.pinned ? "Unpin" : "Pin"}">${I_PIN}</button><button class="ren" title="Rename" aria-label="Rename">${I_PEN}</button><button class="del" title="Delete" aria-label="Delete">${icon("trash")}</button></span>`);
+      if (c.pinned && !list.querySelector(".pinsep")) list.appendChild(el("div", "pinsep", "Pinned"));
+      if (!c.pinned && list.querySelector(".pinsep") && !list.querySelector(".pinsep.rest")) list.appendChild(el("div", "pinsep rest", "Recent"));
       it.querySelector("span").textContent = c.title; it.title = c.title; it.dataset.id = c.id; it.draggable = true;
+      const startRename = () => { const sp = it.querySelector("span"), inp = el("input", "rename"); inp.value = c.title; sp.replaceWith(inp); inp.focus(); inp.select();
+        let done = false; const finish = async save => { if (done) return; done = true; const v = inp.value.trim();
+          if (save && v && v !== c.title) { try { await api("/api/chat/rename", { id: c.id, title: v }); } catch (e) { notice(e.message); } } loadChats(); };
+        inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); finish(true); } if (e.key === "Escape") { e.preventDefault(); finish(false); } };
+        inp.onblur = () => finish(true); inp.onclick = e => e.stopPropagation(); };
+      it.querySelector("span").ondblclick = e => { e.stopPropagation(); startRename(); };
       it.onclick = async e => {
-        if (e.target.closest("button")) { if (confirm(`Delete "${c.title}"?`)) { await api("/api/chat/delete", { id: c.id }); loadChats(); } return; }
+        if (e.target.closest("input")) return;
+        if (e.target.closest(".pin")) { await api("/api/chat/pin", { id: c.id, on: !c.pinned }).catch(err => notice(err.message)); loadChats(); return; }
+        if (e.target.closest(".ren")) { startRename(); return; }
+        if (e.target.closest(".del")) { if (confirm(`Delete "${c.title}"?`)) { await api("/api/chat/delete", { id: c.id }); loadChats(); } return; }
         try { await api("/api/chat/open", { id: c.id }); } catch (err) { notice(err.message); }
       };
       list.appendChild(it);
@@ -1486,7 +1581,8 @@ function setPlanTr() { if (typeof uiLang !== "undefined" && uiLang !== "en") { c
 function setPlan(on) { config.plan = on; $("planBtn").classList.toggle("on", on); $("composer").classList.toggle("plan", on); if (typeof updateModeBtn === "function") updateModeBtn();
   $("input").placeholder = on ? "Describe what you want. The agent will research and propose a plan first…" : "Ask LightCode⁴ to build, fix or explain something…"; setPlanTr(); }
 function showConfig(c) {
-  config = c;
+  config = c; if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
+  if (c.theme && !$("settings").open) applyTheme(c.theme);
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
   $("modelName").textContent = c.model + (c.provider === "claude" ? ` · ${c.effort}` : "");
   $("who").textContent = { claude: "Claude", openai: "OpenAI", local: "Local" }[c.provider] + " · " + c.model;
@@ -1525,6 +1621,7 @@ async function openSettings(tab) {
   $("language").value = config.language || ""; $("sandbox").value = config.sandbox || "off";
   $("sandboxHint").textContent = config.sandbox_available ? "Uses the " + config.sandbox_available + "." : "Not supported on this computer (Windows): with the sandbox on, commands won't run.";
   $("lmcpRows").innerHTML = ""; (config.mcp_local || []).forEach(lmcpRow);
+  $("soundOn").checked = !!config.sound; markTheme(config.theme || "system");
   $("diagnostics").checked = config.diagnostics !== false; $("computer").checked = !!config.computer; $("phone").checked = !!config.phone;
   $("voiceKey").value = ""; $("voiceKey").placeholder = config.voice_key ? "Saved — leave empty to keep" : "sk-… (only needed if voice typing isn't built into your system)";
   $("hookEdit").value = config.hooks?.after_edit || ""; $("hookFinish").value = config.hooks?.before_finish || "";
@@ -1545,7 +1642,7 @@ $("saveSettings").onclick = async () => {
   const mcp = [...document.querySelectorAll("#mcpRows .lmcp")].map(r => ({ name: r.querySelector(".n").value.trim(), url: r.querySelector(".u").value.trim(), token: r.querySelector(".t").value.trim() })).filter(m => m.name && m.url);
   const body = { provider, model: $("model").value.trim(), effort: $("effort").value, base_url: $("baseurl").value.trim(), cwd: $("cwd").value.trim(),
     auto: $("auto").checked, web: $("web").checked, compaction: $("compaction").checked, budget: parseFloat($("budget").value) || 0, mcp,
-    rules: { allow: lines("allow"), deny: lines("deny") }, diagnostics: $("diagnostics").checked, computer: $("computer").checked,
+    rules: { allow: lines("allow"), deny: lines("deny") }, diagnostics: $("diagnostics").checked, sound: $("soundOn").checked, computer: $("computer").checked,
     fast_model: $("fastModel").value.trim(), language: $("language").value.trim(), ui_language: $("uiLang").value, sandbox: $("sandbox").value,
     mcp_local: [...document.querySelectorAll(".lmcp")].map(r => ({ name: r.querySelector(".ln").value.trim(), command: r.querySelector(".lc").value.trim(),
       args: r.querySelector(".la").value.trim(), env: Object.fromEntries(r.querySelector(".le").value.split("\n").map(l => l.trim()).filter(l => l.includes("="))
@@ -1730,6 +1827,63 @@ if (new URLSearchParams(location.search).get("quick")) {
   setTimeout(quickFocus, 50);
 }
 $("quickTry").onclick = () => api("/api/quick/toggle").catch(e => notice(e.message));
+// ---------- Appearance ----------
+function applyTheme(t) { if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  try { localStorage.setItem("lc4.theme", t || "system"); } catch (e) {}
+  if (typeof renderProviders === "function") renderProviders(); }
+function markTheme(t) { document.querySelectorAll("#themeSeg button").forEach(b => { b.classList.toggle("on", b.dataset.t === t); b.setAttribute("aria-checked", b.dataset.t === t); }); }
+document.querySelectorAll("#themeSeg button").forEach(b => b.onclick = async () => { markTheme(b.dataset.t); applyTheme(b.dataset.t); config.theme = b.dataset.t;
+  await api("/api/config", { theme: b.dataset.t }).catch(e => notice(e.message)); });
+try { applyTheme(localStorage.getItem("lc4.theme") || "system"); } catch (e) {}
+// ---------- First-run welcome ----------
+const WL_PICKS = ["claude", "openai", "openrouter", "haimaker", "deepseek", "gemini", "xai", "ollama"];
+let wlStep = 1, wlProv = null, wlShown = false;
+function needsWelcome(c) { return !c.onboarded && !(c.keys_set || []).length && !new URLSearchParams(location.search).get("quick"); }
+function showWelcome() {
+  if (wlShown || $("welcomeDlg").open) return; wlShown = true; wlStep = 1; wlProv = null;
+  $("wlFolder").value = config.cwd || ""; wlRender(); $("welcomeDlg").showModal();
+}
+function wlRender() {
+  document.querySelectorAll(".wlstep").forEach(x => x.hidden = +x.dataset.s !== wlStep);
+  document.querySelectorAll(".wlsteps i").forEach((x, i) => x.classList.toggle("on", i < wlStep));
+  $("wlStepLabel").textContent = `Step ${wlStep} of 3 · ` + ["Choose a model provider", "Connect it", "Pick a folder"][wlStep - 1];
+  $("wlBack").hidden = wlStep === 1; $("wlNext").textContent = wlStep === 3 ? "Start" : "Continue";
+  if (wlStep === 1) {
+    const box = $("wlProviders"); box.innerHTML = "";
+    WL_PICKS.map(id => PROVS.find(p => p.id === id)).filter(Boolean).forEach(p => {
+      const c = el("button", "wlcard" + (wlProv === p.id ? " on" : ""), `${logo(p, "sm")}<span><b></b><small></small></span>`);
+      c.querySelector("b").textContent = p.name; c.querySelector("small").textContent = p.by;
+      c.onclick = () => { wlProv = p.id; wlRender(); }; c.ondblclick = () => { wlProv = p.id; $("wlNext").click(); }; box.appendChild(c); });
+    $("wlNext").disabled = !wlProv;
+  } else if (wlStep === 2) {
+    const p = PROVS.find(x => x.id === wlProv);
+    $("wlProv").innerHTML = logo(p, "") + `<span><b></b><small></small></span>`; $("wlProv").querySelector("b").textContent = p.name; $("wlProv").querySelector("small").textContent = p.blurb || p.by;
+    $("wlKey").closest(".field").hidden = !!p.nokey; $("wlNokey").hidden = !p.nokey; $("wlTest").hidden = !!p.nokey; $("wlGet").hidden = !p.keys || !!p.nokey;
+    $("wlTestRes").textContent = ""; $("wlNext").disabled = !p.nokey && !$("wlKey").value.trim() && !p.has_key;
+    if (!p.nokey) setTimeout(() => $("wlKey").focus(), 30);
+  } else { $("wlNext").disabled = false; $("wlErr").textContent = ""; }
+}
+$("wlKey").addEventListener("input", () => { $("wlNext").disabled = !$("wlKey").value.trim(); $("wlTestRes").textContent = ""; });
+$("wlKey").addEventListener("keydown", e => { if (e.key === "Enter" && !$("wlNext").disabled) $("wlNext").click(); });
+$("wlGet").onclick = e => { e.preventDefault(); const p = PROVS.find(x => x.id === wlProv); api("/api/open-url", { url: p.keys }).catch(() => window.open(p.keys)); };
+$("wlTest").onclick = async () => { $("wlTestRes").textContent = "Testing…"; $("wlTestRes").style.color = "var(--muted)";
+  try { const r = await api("/api/provider/check", { service: wlProv, key: $("wlKey").value.trim() });
+    $("wlTestRes").textContent = r.ok ? "✓ Works" : (r.error || "Didn't work"); $("wlTestRes").style.color = r.ok ? "var(--ok)" : "var(--bad)"; }
+  catch (e) { $("wlTestRes").textContent = e.message; $("wlTestRes").style.color = "var(--bad)"; } };
+$("wlBack").onclick = () => { wlStep--; wlRender(); };
+$("wlMore").onclick = () => { $("welcomeDlg").close(); openModelsView(); };
+$("wlSkip").onclick = async () => { $("welcomeDlg").close(); await api("/api/config", { onboarded: true }).catch(() => {}); };
+$("wlNext").onclick = async () => {
+  if (wlStep < 3) { wlStep++; wlRender(); return; }
+  $("wlNext").disabled = true; $("wlErr").textContent = "";
+  try {
+    const key = $("wlKey").value.trim();
+    if (key) await api("/api/provider/key", { service: wlProv, key });
+    await api("/api/config", { service: wlProv, cwd: $("wlFolder").value.trim() || config.cwd, onboarded: true });
+    $("welcomeDlg").close(); await loadProviders(); $("input").focus();
+  } catch (e) { $("wlErr").textContent = e.message; $("wlNext").disabled = false; }
+};
+window.addEventListener("pywebviewready", () => { $("wlPick").hidden = false; $("wlPick").onclick = async () => { const f = await window.pywebview.api.pick_folder(); if (f) $("wlFolder").value = f; }; });
 // ---------- Artifact panel ----------
 $("artClose").onclick = closeArtifact;
 $("artPrev").onclick = () => artView("preview"); $("artShowCode").onclick = () => artView("code");
@@ -2521,7 +2675,7 @@ $("selfCheck").onclick = () => selfCheck(false); $("selfCheckModel").onclick = (
 // ---------- Providers: menu, Models page, provider dialog ----------
 let LOGOS = {}, PROVS = [], provCurrent = "";
 fetch("/vendor/provider-logos.json").then(r => r.json()).then(j => { LOGOS = j; renderProviders(); }).catch(() => {});
-const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light";
+const isDark = () => document.documentElement.dataset.theme === "dark" || (matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light");
 function logo(p, size = "") {
   const hex = "#" + (LOGOS[p.logo]?.hex || p.color || "777777");
   const dark = isDark(), neutral = /^#(000000|111111|191919|211e1e)$/i.test(hex);

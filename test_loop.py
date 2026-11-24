@@ -1096,6 +1096,44 @@ def main():
     assert hotkey_for_pynput("ctrl+alt+space") == "<ctrl>+<alt>+<space>" == hotkey_for_pynput("⌃⌥Space") == hotkey_for_pynput("<ctrl>+<alt>+<space>")
     assert hotkey_for_pynput("cmd+shift+k") == "<cmd>+<shift>+k"
     print("60 quick chat OK")
+    # 61. rename and pin chats; replies carry their time; display settings save without restarting
+    s.new_chat()
+    evs = d.run("time me", script=[("text", "ok")])
+    te = d.kinds(evs, "turn_end")[-1]
+    assert abs(te["t"] - time.time()) < 30 and te["secs"] >= 0 and abs(d.kinds(evs, "user")[0]["t"] - time.time()) < 30
+    cid = s.current.id
+    s.rename_chat(cid, "  Quarterly   report  ")
+    assert s.current.title == "Quarterly report" and next(c for c in s.list_chats() if c["id"] == cid)["title"] == "Quarterly report"
+    s.chats.pop(cid)  # reopen from disk: the custom name sticks
+    s.open_chat(cid)
+    assert s.current.title == "Quarterly report"
+    others = [c["id"] for c in s.list_chats() if c["id"] != cid]
+    s.pin_chat(others[-1], True)
+    s.pin_chat(cid, True)
+    lst = s.list_chats()
+    assert [c["id"] for c in lst[:2]] == [cid, others[-1]] and lst[0]["pinned"] and not lst[2]["pinned"]
+    s.pin_chat(cid, False)
+    assert s.list_chats()[0]["id"] == others[-1] and not next(c for c in s.list_chats() if c["id"] == cid)["pinned"]
+    try:
+        s.rename_chat(cid, "   ")
+        raise AssertionError("empty names are refused")
+    except ValueError:
+        pass
+    s.delete_chat(others[-1])
+    assert others[-1] not in s.config["pinned"]
+    import urllib.request as ur3
+    from myagent.gui import CONFIG_FILE, start_server
+    srv3, url3, _ = start_server(s.current.cwd, session=s)
+    tok = url3.split("token=")[1]
+    s.current.busy = True  # display settings must work even while a task runs
+    req = ur3.Request(url3.split("?")[0].rstrip("/") + "/api/config", data=json.dumps({"theme": "dark", "sound": True}).encode(), method="POST",
+                      headers={"Content-Type": "application/json", "X-Token": tok})
+    ur3.urlopen(req, timeout=5).read()
+    s.current.busy = False
+    assert s.config["theme"] == "dark" and s.config["sound"] is True
+    assert json.loads(CONFIG_FILE.read_text())["theme"] == "dark"
+    srv3.shutdown()
+    print("61 rename, pin, times, display settings OK")
     print("ALL TESTS PASSED")
 
 

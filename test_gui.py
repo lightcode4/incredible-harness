@@ -28,6 +28,7 @@ class Q(SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
 web = ThreadingHTTPServer(("127.0.0.1", 0), Q); threading.Thread(target=web.serve_forever, daemon=True).start()
 server, url, session = start_server(str(work))
+session.config["onboarded"] = True  # the first-run welcome is checked on its own
 r = subprocess.run(["node", str(Path(__file__).with_name("test_gui.js")), url, f"http://127.0.0.1:{web.server_port}/"], capture_output=True, text=True, timeout=120)
 print(r.stdout, r.stderr[-1500:])
 assert "BROWSER OK" in r.stdout

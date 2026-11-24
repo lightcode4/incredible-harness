@@ -751,7 +751,7 @@ class Chat:
         first = not any(e["kind"] == "user" for e in self.transcript)
         mark = {"m": len(self.provider.serialize()), "turn": self.turn + 1, "c": getattr(self.provider, "compactions", 0)}
         self.emit("user", text=text, files=[a.get("name") for a in attachments or []], plan=self.app.config["plan"],
-                  command=bool(expanded), idx=len(self.transcript), mark=mark)
+                  command=bool(expanded), idx=len(self.transcript), mark=mark, t=round(time.time()))
         threading.Thread(target=self._turn, args=(parts, first, text), daemon=True).start()
 
     def _prompt_hooks(self, parts, first: bool, text: str):
@@ -851,6 +851,7 @@ class Chat:
             self.save()
 
     def _turn(self, parts, first: bool = False, text: str = "") -> None:
+        started = time.time()
         self.turn += 1
         turn_id = f"t{self.turn}"
         self.turn_changes, self.turn_cost = {}, 0.0
@@ -871,7 +872,7 @@ class Chat:
             if self.turn_changes:
                 self.checkpoints[turn_id] = self.turn_changes
             self.emit("turn_end", turn=turn_id, files=[Path(p).name for p in self.turn_changes],
-                      cost=round(self.turn_cost, 4))
+                      cost=round(self.turn_cost, 4), t=round(time.time()), secs=round(time.time() - started, 1))
             if self.app.config["plan"]:
                 self.emit("plan_ready")
             self.busy = False
@@ -930,7 +931,8 @@ class Session:
                        "computer": False, "schedules": [], "phone": False, "voice_key": "", "auto": False, "plan": False,
                        "fast_model": "", "mcp_local": [], "sandbox": "off", "language": "", "chat_order": [],
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
-                       "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>"}
+                       "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
+                       "theme": "system", "sound": False, "onboarded": False}
         self.quick_toggle = self.quick_hide = self.focus_main = self.on_hotkey = None  # set by the desktop app
         self.side_chats: dict[str, Chat] = {}  # main chat id -> its side chat
         self.mcp = McpManager()
@@ -1175,7 +1177,8 @@ class Session:
         if d.get("provider") != self.config["provider"] or d.get("model") != self.config["model"]:
             self.config.update(provider=d["provider"], model=d["model"])
         wt = d.get("worktree") if d.get("worktree") and Path(d["worktree"]["path"]).is_dir() else None
-        chat = Chat(self, cwd, chat_id=d["id"], worktree=wt, title=d.get("title", ""), project=d.get("project"))
+        chat = Chat(self, cwd, chat_id=d["id"], worktree=wt, title=(self.config.get("titles") or {}).get(d["id"], d.get("title", "")),
+                    project=d.get("project"))
         chat.provider.restore(d["messages"])
         chat.transcript, chat.checkpoints = d.get("transcript", []), d.get("checkpoints", {})
         chat.cost, chat.tokens, chat.todos, chat.turn = d.get("cost", 0), d.get("tokens", 0), d.get("todos", []), d.get("turn", 0)
@@ -1190,6 +1193,10 @@ class Session:
             raise RuntimeError("Stop that chat before deleting it.")
         self.chats.pop(chat_id, None)
         (CHATS / f"{Path(chat_id).name}.json").unlink(missing_ok=True)
+        if chat_id in (self.config.get("pinned") or []) or chat_id in (self.config.get("titles") or {}):
+            self.config["pinned"] = [p for p in self.config.get("pinned") or [] if p != chat_id]
+            (self.config.get("titles") or {}).pop(chat_id, None)
+            self.save()
         if self.current and self.current.id == chat_id:
             self.current = None
             self.new_chat()
@@ -1306,11 +1313,32 @@ class Session:
                             "running": False, "approval": False, "worktree": bool(d.get("worktree")), "project": d.get("project")})
             except (OSError, ValueError, KeyError):
                 continue
+        titles, pins = self.config.get("titles") or {}, self.config.get("pinned") or []
+        for c in out:
+            c["title"] = titles.get(c["id"], c["title"])
+            c["pinned"] = c["id"] in pins
         order = {cid: i for i, cid in enumerate(self.config.get("chat_order") or [])}
         pinned = sorted([c for c in out if c["id"] in order], key=lambda c: order[c["id"]])
         live = [c for c in out if c["id"] in self.chats and c["id"] not in order]
         rest = [c for c in out if c["id"] not in self.chats and c["id"] not in order]
-        return pinned + live + rest
+        ordered = pinned + live + rest
+        return sorted((c for c in ordered if c["pinned"]), key=lambda c: pins.index(c["id"])) + [c for c in ordered if not c["pinned"]]
+
+    def rename_chat(self, chat_id: str, title: str):
+        title = " ".join(title.split())[:120]
+        if not title:
+            raise ValueError("A chat needs a name.")
+        live = self.chats.get(chat_id)
+        if live:
+            live.title = title
+            live.save()
+        self.config.setdefault("titles", {})[chat_id] = title
+        self.save()
+
+    def pin_chat(self, chat_id: str, on: bool):
+        pins = [p for p in self.config.get("pinned") or [] if p != chat_id]
+        self.config["pinned"] = ([chat_id] + pins) if on else pins
+        self.save()
 
     def finish_worktree(self, merge: bool) -> str:
         chat = self.current
@@ -1694,6 +1722,12 @@ def make_handler(session: Session, token: str):
                 elif path == "/api/chats/order":
                     session.config["chat_order"] = [str(x) for x in data.get("order", [])][:500]
                     session.save()
+                elif path == "/api/chat/rename":
+                    session.rename_chat(str(data.get("id")), str(data.get("title", "")))
+                    if session.current and session.current.id == data.get("id"):
+                        session.events.put({"kind": "title", "chat": session.current.id, "title": session.current.title})
+                elif path == "/api/chat/pin":
+                    session.pin_chat(str(data.get("id")), bool(data.get("on")))
                 elif path == "/api/chat/delete":
                     session.delete_chat(str(data.get("id")))
                 elif path == "/api/worktree/finish":
@@ -1797,8 +1831,11 @@ def make_handler(session: Session, token: str):
                     result = {"url": session.set_remote(bool(data.get("on")))}
                     session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/config":
-                    if set(data) <= {"auto", "plan"}:
-                        session.config.update({k: bool(v) for k, v in data.items()})
+                    if set(data) <= {"auto", "plan", "theme", "sound", "onboarded"}:  # display choices: no restart needed
+                        for k, v in data.items():
+                            session.config[k] = (str(v) if str(v) in ("system", "light", "dark") else "system") if k == "theme" else bool(v)
+                        if set(data) & {"theme", "sound", "onboarded"}:
+                            session.save()
                     else:
                         if chat and chat.busy:
                             raise RuntimeError("Stop the current task before changing settings.")

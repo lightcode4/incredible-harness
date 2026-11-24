@@ -243,6 +243,29 @@ async function overlaps(pg, label) {
       await pg.click('#navProjects'); await pg.waitForTimeout(400);
       check('The project card is listed', (await pg.innerText('#pjGrid')).includes('Website'));
       await pg.click('#pjBack'); await pg.waitForTimeout(200);
+      // reply actions: copy, retry, read aloud, time
+      await pg.click('#navPlay'); await pg.waitForTimeout(200);
+      await pg.fill('#input', 'Say something'); await pg.keyboard.press('Enter');
+      await pg.waitForFunction(() => document.getElementById('log').innerText.includes('First answer.'), null, { timeout: 15000 }); await pg.waitForTimeout(300);
+      const lastFoot = pg.locator('.turnfoot').last();
+      check('Each reply has Copy, Retry and Read aloud', await lastFoot.getByRole('button', { name: 'Copy reply' }).isVisible() && await lastFoot.getByRole('button', { name: /Retry/ }).isVisible() && await lastFoot.getByRole('button', { name: 'Read aloud' }).count() >= 0);
+      check('Each reply shows when it was sent', /\d{1,2}:\d{2}/.test(await lastFoot.locator('.rtime').innerText()));
+      check('Only the latest reply can be retried', (await pg.locator('.turnfoot .retry').count()) === 1);
+      await lastFoot.getByRole('button', { name: /Retry/ }).click();
+      await pg.waitForFunction(() => document.getElementById('log').innerText.includes('Second answer, after Retry.'), null, { timeout: 15000 });
+      check('Retry replaces the answer', !(await pg.innerText('#log')).includes('First answer.'));
+      await overlaps(pg, 'reply actions');
+      // rename and pin a chat
+      if (!(await pg.isVisible('#chatList'))) { await pg.click('#navSessions'); await pg.waitForTimeout(300); }
+      const item = pg.locator('#chatList .chatitem.on'); await item.hover(); await item.locator('.ren').click();
+      await pg.locator('#chatList input.rename').fill('My renamed chat'); await pg.keyboard.press('Enter'); await pg.waitForTimeout(600);
+      check('A chat can be renamed', (await pg.innerText('#chatList')).includes('My renamed chat') && (await pg.innerText('#crumbHere')).includes('My renamed chat'));
+      const other = pg.locator('#chatList .chatitem:not(.on)').last(); const otherName = (await other.locator('span').first().innerText()).trim();
+      await other.hover(); await other.locator('.pin').click(); await pg.waitForTimeout(600);
+      check('A pinned chat moves to the top under “Pinned”', (await pg.locator('#chatList .chatitem').first().innerText()).includes(otherName) && await pg.isVisible('#chatList .pinsep'), otherName);
+      await overlaps(pg, 'pinned chats');
+      await pg.locator('#chatList .chatitem').first().hover(); await pg.locator('#chatList .chatitem').first().locator('.pin').click(); await pg.waitForTimeout(500);
+      check('Unpin works', !(await pg.isVisible('#chatList .pinsep')));
       // artifacts, diagrams and math in replies
       await pg.click('#navPlay'); await pg.waitForTimeout(200);
       await pg.fill('#input', 'Show me a demo'); await pg.keyboard.press('Enter');
@@ -281,6 +304,14 @@ async function overlaps(pg, label) {
       check('Settings lists language servers with their status', (await pg.locator('.lsprow').count()) === 6 && (await pg.innerText('#lspList')).includes('Python'));
       check('Quick chat shortcut is shown in plain words', (await pg.inputValue('#quickKey')) === 'ctrl+alt+space');
       await overlaps(pg, 'settings tools'); await pg.click('#cancelSettings');
+      // appearance switch
+      await pg.click('#openSettings'); await pg.click('#tabs button[data-p="tools"]');
+      await pg.click('#themeSeg button[data-t="dark"]'); await pg.waitForTimeout(200);
+      const darkBg = await pg.evaluate(() => getComputedStyle(document.body).backgroundColor);
+      await pg.click('#themeSeg button[data-t="light"]'); await pg.waitForTimeout(200);
+      const lightBg = await pg.evaluate(() => getComputedStyle(document.body).backgroundColor);
+      check('Appearance switches between dark and light', darkBg !== lightBg && darkBg.includes('23, 19, 12'), darkBg + ' / ' + lightBg);
+      await pg.click('#themeSeg button[data-t="system"]'); await pg.click('#cancelSettings');
       check('Header has no Checkpoints / View code / New session', !(await pg.isVisible('#checkpointsBtn')) && !(await pg.isVisible('#viewCodeBtn')) && !(await pg.isVisible('#newSessionBtn')));
       await overlaps(pg, 'after a turn');
       await pg.screenshot({ path: 'audit-1440.png' });
@@ -290,6 +321,16 @@ async function overlaps(pg, label) {
     errors.forEach(e => problems.push(`[${L}] page error: ${e}`));
     await pg.close();
   }
+  { const w = await b.newPage({ viewport: { width: 1200, height: 820 } }); await w.goto(url); await w.waitForTimeout(1200);
+    await w.evaluate(() => { config.onboarded = false; wlShown = false; showWelcome(); }); await w.waitForTimeout(300);
+    check('First-run welcome shows step 1 with providers', await w.isVisible('#welcomeDlg[open]') && (await w.locator('#wlProviders .wlcard').count()) >= 6);
+    await w.locator('#wlProviders .wlcard', { hasText: 'Ollama' }).click(); await w.click('#wlNext');
+    check('Step 2: Ollama needs no key', await w.isVisible('#wlNokey') && !(await w.isDisabled('#wlNext')));
+    await w.click('#wlNext'); check('Step 3: pick a folder', await w.isVisible('#wlFolder'));
+    const wl = []; w.on('pageerror', e => wl.push(e.message));
+    await w.click('#wlNext'); await w.waitForTimeout(900);
+    check('Start finishes setup with the chosen provider', !(await w.isVisible('#welcomeDlg[open]')) && await w.evaluate(() => config.onboarded === true && config.service === 'ollama'), wl.join('; ') + (await w.innerText('#wlErr').catch(() => '')));
+    await w.close(); }
   { const q = await b.newPage({ viewport: { width: 640, height: 168 } }); await q.goto(url + (url.includes('?') ? '&' : '?') + 'quick=1'); await q.waitForTimeout(800);
     check('Quick chat window shows just the input box', await q.isVisible('#quickInput') && !(await q.isVisible('#side')) && !(await q.isVisible('.topbar')));
     check('Quick chat box is focused, ready to type', await q.evaluate(() => document.activeElement?.id === 'quickInput')); await q.close(); }
