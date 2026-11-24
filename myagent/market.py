@@ -20,7 +20,7 @@ from .market_sources import DEFAULT_SOURCES
 
 HOME = Path.home() / ".incredible-herness"
 STATE = HOME / "market.json"
-MAX_FILES, MAX_BYTES, MAX_ITEMS, MAX_DESCRIBE = 300, 8_000_000, 400, 150
+MAX_FILES, MAX_BYTES, MAX_ITEMS, MAX_DESCRIBE = 2000, 40_000_000, 400, 150
 STALE = 12 * 3600
 
 
@@ -298,15 +298,15 @@ def _refresh(src: str, token: str) -> None:
 
 # ---------------------------------------------------------------- installing
 def _download(repo: str, paths: list[str], token: str, dest_for) -> list[str]:
-    written, total = [], 0
-    for p in paths[:MAX_FILES]:
-        dest = dest_for(p)
-        if dest is None:
-            continue
-        data = _raw(repo, p, token)
-        total += len(data)
-        if total > MAX_BYTES:
-            raise MarketError("That item is too large to install (over 8 MB).")
+    """Fetch files in parallel (skills like Anthropic's Word/Excel skills hold hundreds of small files)."""
+    jobs = [(p, d) for p in paths[:MAX_FILES] if (d := dest_for(p)) is not None]
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(12) as pool:
+        blobs = list(pool.map(lambda j: _raw(repo, j[0], token), jobs))
+    if sum(len(b) for b in blobs) > MAX_BYTES:
+        raise MarketError("That item is too large to install (over 40 MB).")
+    written = []
+    for (p, dest), data in zip(jobs, blobs):
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(data)
         written.append(str(dest))
