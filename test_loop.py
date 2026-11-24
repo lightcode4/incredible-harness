@@ -1457,6 +1457,49 @@ def main():
     assert "Answered the queued one." in c.provider.last_text()
     wait_idle(len(d.events) - 1)
     print("72 queue stop and send-now OK")
+    # 73. update download survives a connection that keeps dropping: pieces retry and resume, and the fingerprint is checked
+    import hashlib, random, re
+    from myagent import platform_extras as px2
+    blob = random.Random(7).randbytes(3 * (8 << 20) + 12345)
+    cuts = {"n": 0}
+    class Dl(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+        def log_message(self, *a):
+            pass
+        def do_GET(self):
+            if self.path == "/rel":
+                body = json.dumps({"assets": [{"name": px2.asset_name(), "size": len(blob), "browser_download_url": base2 + "/file",
+                                               "digest": "sha256:" + hashlib.sha256(blob).hexdigest()}]}).encode()
+                self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+                return
+            a, b = 0, len(blob) - 1
+            m = re.match(r"bytes=(\d+)-(\d+)", self.headers.get("Range", ""))
+            if m:
+                a, b = int(m.group(1)), int(m.group(2))
+            self.send_response(206 if m else 200)
+            self.send_header("Content-Length", str(b - a + 1)); self.end_headers()
+            data = blob[a:b + 1]
+            if cuts["n"] < 6 and len(data) > 100000:  # the first few connections die halfway
+                cuts["n"] += 1
+                self.wfile.write(data[: len(data) // 3]); self.wfile.flush()
+                self.connection.shutdown(2)
+                return
+            self.wfile.write(data)
+    ds = ThreadingHTTPServer(("127.0.0.1", 0), Dl)
+    threading.Thread(target=ds.serve_forever, daemon=True).start()
+    base2 = f"http://127.0.0.1:{ds.server_port}"
+    old_sleep = px2.time.sleep
+    px2.time.sleep = lambda x: None
+    pcts = []
+    try:
+        out = px2.download_update(base2 + "/rel", progress=pcts.append)
+    finally:
+        px2.time.sleep = old_sleep
+    assert Path(out).read_bytes() == blob and cuts["n"] == 6 and pcts[-1] == 100, (cuts, pcts[-3:])
+    assert px2.download_update(base2 + "/rel") == out, "an already-downloaded update is reused"
+    Path(out).unlink()
+    ds.shutdown()
+    print("73 update download resumes through drops OK")
     print("ALL TESTS PASSED")
 
 

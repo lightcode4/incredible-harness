@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
+import hashlib
+import http.client
+import threading
+import time
 import logging
 import logging.handlers
 import os
@@ -161,7 +166,37 @@ open {shlex.quote(str(bundle))}
     return ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", str(path)], script
 
 
+PART = 8 << 20  # download in 8 MB pieces
+WORKERS = 6  # pieces fetched at the same time
+
+
+def _fetch_range(url: str, start: int, end: int, f, lock, on_bytes, tries: int = 10) -> None:
+    """Fetch bytes start..end into the open file; on a dropped connection, wait and continue from the last byte received."""
+    pos, attempt = start, 0
+    while pos <= end:
+        req = urllib.request.Request(url, headers={"User-Agent": "LightCode4", "Range": f"bytes={pos}-{end}"})
+        try:
+            with urllib.request.urlopen(req, timeout=45) as r:
+                if r.status != 206 and pos > 0:
+                    raise RuntimeError("The download server does not support resuming.")
+                while pos <= end and (chunk := r.read(min(256 << 10, end - pos + 1))):
+                    with lock:
+                        f.seek(pos)
+                        f.write(chunk)
+                    pos += len(chunk)
+                    on_bytes(len(chunk))
+                    attempt = 0
+        except (OSError, http.client.HTTPException) as e:  # reset, timeout, dropped Wi-Fi: retry this piece only
+            attempt += 1
+            if attempt > tries:
+                raise RuntimeError(f"The download kept failing ({e}). Check your connection and try again: it continues where it stopped.") from e
+            time.sleep(min(30, 2 ** attempt))
+
+
 def download_update(release_api_url: str, token: str = "", progress=None) -> str:
+    """Download the installer in parallel pieces. Each piece retries by itself, finished pieces are remembered so a
+    later try (even after restarting the app) only fetches what is missing, and the file is checked against GitHub's
+    sha256 before it is used."""
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "LightCode4"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -170,16 +205,65 @@ def download_update(release_api_url: str, token: str = "", progress=None) -> str
     asset = next((a for a in rel.get("assets", []) if a["name"] == asset_name()), None)
     if not asset:
         raise RuntimeError(f"The new release has no {asset_name()}.")
+    size, url = int(asset.get("size") or 0), asset["browser_download_url"]
+    want = (asset.get("digest") or "").removeprefix("sha256:")
     dest = Path(tempfile.gettempdir()) / asset["name"]
-    req = urllib.request.Request(asset["browser_download_url"], headers={"User-Agent": "LightCode4"})
-    with urllib.request.urlopen(req, timeout=600) as r, open(dest, "wb") as f:
-        total, done = int(r.headers.get("Content-Length") or 0), 0
-        while chunk := r.read(1 << 20):
-            f.write(chunk)
-            done += len(chunk)
-            if progress and total:
-                progress(done * 100 // total)
+    part = dest.with_name(dest.name + ".part")
+    state_file = dest.with_name(dest.name + ".pieces.json")
+    if dest.is_file() and size and dest.stat().st_size == size and (not want or _sha256(dest) == want):
+        return str(dest)  # already downloaded
+    ranges = [(a, min(a + PART, size) - 1) for a in range(0, size, PART)] if size else [(0, 0)]
+    key = f"{url}|{size}|{want}"
+    done_set: set[int] = set()
+    try:
+        st = json.loads(state_file.read_text())
+        if st.get("key") == key and part.is_file() and part.stat().st_size == size:
+            done_set = set(st.get("done", []))
+    except Exception:
+        pass
+    if not done_set:
+        with open(part, "wb") as f:
+            f.truncate(size)
+    lock, got = threading.Lock(), [sum(ranges[i][1] - ranges[i][0] + 1 for i in done_set if i < len(ranges))]
+    last = [-1]
+
+    def on_bytes(n):
+        with lock:
+            got[0] += n
+            pct = got[0] * 100 // size if size else 0
+            if progress and pct != last[0]:
+                last[0] = pct
+                progress(min(pct, 99))
+
+    def piece(i):
+        a, b = ranges[i]
+        _fetch_range(url, a, b, f, lock, on_bytes)
+        with lock:
+            done_set.add(i)
+            state_file.write_text(json.dumps({"key": key, "done": sorted(done_set)}))
+
+    with open(part, "r+b") as f:
+        todo = [i for i in range(len(ranges)) if i not in done_set]
+        with ThreadPoolExecutor(WORKERS) as pool:
+            for fut in [pool.submit(piece, i) for i in todo]:
+                fut.result()
+    if want and _sha256(part) != want:
+        part.unlink(missing_ok=True)
+        state_file.unlink(missing_ok=True)
+        raise RuntimeError("The downloaded update was damaged (its fingerprint did not match). Try again.")
+    os.replace(part, dest)
+    state_file.unlink(missing_ok=True)
+    if progress:
+        progress(100)
     return str(dest)
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(4 << 20):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def launch_updater(downloaded: str) -> None:
