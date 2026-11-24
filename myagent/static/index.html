@@ -691,6 +691,34 @@ body.models-open #modelsView { display: block !important; }
 .chips { display: none !important; }
 #welcome .empty { font-size: 34px; }
 #dock { border-top: 0 !important; }
+/* ---- steps as slim rows (Claude-style); details open on click ---- */
+#log details.toolcard { background: none; border: 0; border-radius: 8px; box-shadow: none; margin: -4px 0; }
+#log details.toolcard > summary { padding: 4px 6px; gap: 8px; border-radius: 8px; color: var(--muted); }
+#log details.toolcard > summary:hover { background: var(--hover); color: var(--text); }
+#log details.toolcard > summary svg:first-child { width: 14px; height: 14px; opacity: .75; }
+#log .toolcard .sum { font-size: 12.5px; color: inherit; }
+#log .toolcard .badge { font-size: 10.5px; padding: 1px 7px; } #log .toolcard .badge:empty { display: none; }
+#log .toolcard .badge.ok { background: none; color: var(--ok); padding: 0; } #log .toolcard .badge.ok::before { content: "✓ "; }
+#log .toolcard .chev { opacity: 0; width: 13px; height: 13px; } #log .toolcard > summary:hover .chev, #log .toolcard[open] .chev { opacity: .6; }
+#log details.toolcard[open] > .toolbody { border: 1px solid var(--line); border-radius: 10px; margin: 4px 0 8px 28px; overflow: hidden; background: var(--panel); }
+#log details.toolgroup { margin: -4px 0; } #log details.toolgroup > summary { padding: 4px 6px; gap: 8px; border-radius: 8px; color: var(--muted); font-size: 12.5px; }
+#log details.toolgroup > summary:hover { background: var(--hover); color: var(--text); } #log details.toolgroup > summary svg:first-child { width: 14px; height: 14px; opacity: .75; }
+#log details.toolgroup .tgbody { margin-left: 18px; border-left: 1px solid var(--line-soft); padding-left: 6px; }
+/* ---- approval: a numbered choice card ---- */
+#log details.toolcard.asking { background: var(--panel); border: 1px solid color-mix(in srgb, var(--sun) 55%, var(--line)); border-radius: 14px; margin: 4px 0; box-shadow: 0 0 0 4px color-mix(in srgb, var(--sun) 10%, transparent); }
+#log details.toolcard.asking > summary { color: var(--text); padding: 10px 12px; } #log details.toolcard.asking > .toolbody { margin: 0 12px 4px; }
+.ask { padding: 4px 12px 12px; } .askq { margin: 6px 2px 8px; font-weight: 600; font-size: 14px; }
+.askopts { display: flex; flex-direction: column; gap: 3px; }
+.askopt { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 1px solid transparent; background: none; padding: 7px 10px; border-radius: 10px; color: var(--text); font-size: 13.5px; cursor: pointer; }
+.askopt:hover { background: var(--hover); } .askopt.on { background: var(--soft); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.askopt kbd { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); font: 600 11.5px var(--monoF); color: var(--muted); }
+.askopt.on kbd { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.askopt code { font-size: 12px; background: var(--code); padding: 1px 5px; border-radius: 5px; } .askopt b { font-weight: 600; }
+.askfb { width: 100%; margin-top: 8px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 10px; padding: 8px 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 13.5px; outline: none; box-sizing: border-box; }
+/* ---- folder menu rows: name first, path after ---- */
+#folderMenu { width: 340px; } #folderMenu button span { flex: 1; } #folderMenu button small { max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+/* ---- settings tabs never squeezed ---- */
+#settings .tabs { flex: none; min-height: 44px; align-items: flex-end; overflow-y: hidden; scrollbar-width: none; } #settings .tabs::-webkit-scrollbar { display: none; }
 /* ---- slim top bar ---- */
 .topbar { min-height: 44px !important; padding: 5px 16px !important; gap: 4px !important; }
 .topbar .iconbtn { padding: 6px; border-radius: 8px; } .topbar .iconbtn svg { width: 16px; height: 16px; }
@@ -1431,8 +1459,8 @@ const tools = {};
 const toolIcon = (name, s) => name === "task" ? "agent" : name === "fetch_url" ? "globe" : s.startsWith("$") ? "term" : /^(read|write|edit)/.test(s) ? "file" : "search";
 function toolCard(ev, needsApproval) {
   endBlock();
-  const card = el("details", "step toolcard", `<summary>${icon(toolIcon(ev.name, ev.summary || ""))}<span class="sum"></span><span class="badge"></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="toolbody"></div>`);
-  card.querySelector(".sum").textContent = ev.summary;
+  const card = el("details", "step toolcard" + (READS.has(ev.name) ? " quiet" : ""), `<summary>${icon(toolIcon(ev.name, ev.summary || ""))}<span class="sum"></span><span class="badge"></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="toolbody"></div>`);
+  card.querySelector(".sum").textContent = ev.summary; card.dataset.tool = ev.name || "";
   const badge = card.querySelector(".badge");
   if (ev.blocked) { badge.className = "badge " + (ev.blocked === "Plan mode" ? "plan" : "bad"); badge.textContent = ev.blocked === "Plan mode" ? "Skipped (plan mode)" : ev.blocked; }
   else if (ev.error) { badge.className = "badge bad"; badge.textContent = "Invalid"; }
@@ -1441,28 +1469,65 @@ function toolCard(ev, needsApproval) {
   if (ev.diff) { const pre = el("pre"); pre.innerHTML = diffHtml(ev.diff); card.querySelector(".toolbody").appendChild(pre); }
   add(card);
   if (needsApproval) {
-    card.open = true;
-    const row = el("div", "approve", `<p>Allow LightCode⁴ to ${ev.name === "bash" ? "run this command" : "make this change"}?</p>`);
-    const fb = el("input"); fb.placeholder = "Or tell it what to do instead…";
-    const decide = d => { api("/api/approve", { id: ev.id, decision: d, feedback: fb.value }); row.remove();
-      badge.className = "badge " + (d === "deny" ? "bad" : ""); badge.textContent = d === "deny" ? "Denied" : "Running"; };
-    const mk = (t, cls, d) => { const b = el("button", "btn " + cls); b.textContent = t; b.onclick = () => decide(d); return b; };
-    row.append(mk("Allow", "primary", "allow"), mk(`Always allow ${ev.rule}`, "", "always"), mk("Deny", "", "deny"), fb);
+    card.open = true; card.classList.add("asking");
+    const folder = (config.chat_cwd || config.cwd || "").split(/[\\/]/).filter(Boolean).pop() || "this folder";
+    const what = ev.name === "bash" ? "run this command" : ev.edits ? "make this edit" : ev.name?.startsWith("browser_") ? "do this in the browser" : "do this";
+    const rules = (ev.rule || "").split(", ").filter(Boolean).map(r => r.replace(/^bash\((.*?)\*?\)$/, "$1").trim());
+    const always = ev.edits ? `Yes, allow all edits in <b>${esc(folder)}</b> for this session`
+      : ev.name === "bash" ? `Yes, and don't ask again for ${rules.map(r => `<code>${esc(r)}</code>`).join(", ") || "this"} commands in <b>${esc(folder)}</b>`
+      : `Yes, and don't ask again for this in <b>${esc(folder)}</b>`;
+    const box = el("div", "ask", `<p class="askq">Allow LightCode⁴ to ${what}?</p><div class="askopts" role="listbox" aria-label="Your answer"></div>`);
+    const opts = box.querySelector(".askopts");
+    const fb = el("input", "askfb"); fb.placeholder = "Tell LightCode⁴ what to do instead, then press Enter"; fb.hidden = true;
+    let sel = 0;
+    const done = (d, extra = {}) => { api("/api/approve", { id: ev.id, decision: d, feedback: fb.value, ...extra }); box.remove(); document.removeEventListener("keydown", keys, true);
+      card.classList.remove("asking"); badge.className = "badge " + (d === "deny" ? "bad" : ""); badge.textContent = d === "deny" ? "Denied" : "Running"; card.open = false; };
+    const choices = [["Yes", () => done("allow")], [always, () => done("always")], ["No, and tell LightCode⁴ what to do differently", () => { fb.hidden = false; fb.focus(); }]];
+    choices.forEach(([label, fn], i) => { const o = el("button", "askopt", `<kbd>${i + 1}</kbd><span>${label}</span>`); o.setAttribute("role", "option"); o.onclick = () => { sel = i; paint(); fn(); }; opts.appendChild(o); });
+    const paint = () => opts.querySelectorAll(".askopt").forEach((o, i) => { o.classList.toggle("on", i === sel); o.setAttribute("aria-selected", i === sel); });
+    paint(); box.appendChild(fb);
+    fb.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); done("deny"); } if (e.key === "Escape") { e.preventDefault(); fb.hidden = true; } };
+    const keys = e => {  // 1/2/3, arrows + Enter, Esc = no — unless typing somewhere else
+      if (!box.isConnected) return document.removeEventListener("keydown", keys, true);
+      const t = e.target; if (t === fb || (t.matches?.("input, textarea, select") && !(t.id === "input" && !t.value.trim()))) return;
+      if (document.querySelector(".ask") !== box || document.querySelector("dialog[open]")) return;
+      if (/^[123]$/.test(e.key)) { e.preventDefault(); sel = +e.key - 1; paint(); choices[sel][1](); }
+      else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); sel = (sel + (e.key === "ArrowDown" ? 1 : 2)) % 3; paint(); }
+      else if (e.key === "Enter") { e.preventDefault(); choices[sel][1](); }
+      else if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); done("deny"); }
+    };
+    document.addEventListener("keydown", keys, true);
     if (ev.hunks?.length > 1) {
       const list = el("div", "hunks", `<p style="margin:0;font-size:12.5px;color:var(--muted)">Or choose which of the ${ev.hunks.length} changes to apply:</p>`);
       ev.hunks.forEach(h => { const r = el("label", "hunk"); const c = el("input"); c.type = "checkbox"; c.checked = true; c.value = h.i;
         const pre = el("pre"); pre.innerHTML = `<span style="color:var(--faint)">line ${h.line}</span>\n` + diffHtml(h.text.replace(/\n$/, "")); r.append(c, pre); list.appendChild(r); });
-      const sel = el("button", "btn"); sel.textContent = "Apply selected";
-      sel.onclick = () => { const hs = [...list.querySelectorAll("input:checked")].map(c => +c.value);
-        api("/api/approve", { id: ev.id, decision: hs.length === ev.hunks.length ? "allow" : hs.length ? "partial" : "deny", hunks: hs, feedback: hs.length ? "" : "The user rejected all of these changes." });
+      const selb = el("button", "btn small"); selb.textContent = "Apply selected";
+      selb.onclick = () => { const hs = [...list.querySelectorAll("input:checked")].map(c => +c.value);
         if (hs.length && hs.length < ev.hunks.length) card.dataset.partial = `Applied ${hs.length} of ${ev.hunks.length}`;
-        row.remove(); list.remove(); badge.className = "badge" + (hs.length ? "" : " bad"); badge.textContent = hs.length ? (hs.length < ev.hunks.length ? `Applied ${hs.length} of ${ev.hunks.length}` : "Running") : "Denied"; };
-      row.insertBefore(sel, row.children[2]); card.appendChild(list);
+        done(hs.length === ev.hunks.length ? "allow" : hs.length ? "partial" : "deny", { hunks: hs }); list.remove(); if (!hs.length) badge.textContent = "Denied"; else if (hs.length < ev.hunks.length) badge.textContent = `Applied ${hs.length} of ${ev.hunks.length}`; };
+      list.appendChild(selb); box.appendChild(list);
     }
-    fb.onkeydown = e => { if (e.key === "Enter") decide("deny"); };
-    card.appendChild(row); scroll(true);
+    card.appendChild(box); scroll(true);
   }
   if (ev.id) tools[ev.id] = card;
+  if (!needsApproval && !ev.blocked && READS.has(ev.name)) groupReads(card);
+}
+const READS = new Set(["read_file", "read_pdf", "list_files", "glob", "grep", "code_symbols", "find_references", "code_intel", "web_search", "fetch_url", "bash_output", "notebook_read"]);
+function groupReads(card) {
+  card.dataset.read = card.dataset.read || "1";
+  const prev = card.previousElementSibling;
+  let g = prev?.classList.contains("toolgroup") ? prev : null;
+  if (!g && prev?.matches?.("details.toolcard[data-read]")) {
+    g = el("details", "step toolgroup", `<summary>${icon("search")}<span class="gsum"></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="tgbody"></div>`);
+    prev.before(g); g.querySelector(".tgbody").appendChild(prev);
+  }
+  if (!g) return;
+  g.querySelector(".tgbody").appendChild(card);
+  const cards = [...g.querySelectorAll(".tgbody > details")], names = cards.map(c => c.dataset.tool || "");
+  const n = k => names.filter(x => k.includes(x)).length, parts = [];
+  const r = n(["read_file", "read_pdf", "notebook_read"]), s = n(["grep", "glob", "list_files", "code_symbols", "find_references", "code_intel"]), w = n(["web_search", "fetch_url"]);
+  if (r) parts.push(`Read ${r} file${r > 1 ? "s" : ""}`); if (s) parts.push(`${parts.length ? "searched" : "Searched"} ${s} time${s > 1 ? "s" : ""}`); if (w) parts.push(`${parts.length ? "looked up" : "Looked up"} ${w} page${w > 1 ? "s" : ""}`);
+  g.querySelector(".gsum").textContent = parts.join(" · ") || `${cards.length} steps`;
 }
 function toolResult(ev) {
   const card = tools[ev.id]; if (!card) return;

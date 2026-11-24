@@ -199,6 +199,73 @@ def rule_matches(rule: str, name: str, target: str) -> bool:
     return m.group(2) is None or fnmatch.fnmatch(target, m.group(2).strip())
 
 
+# ---------------------------------------------------------------- fewer approval prompts
+SAFE_COMMANDS = {"cd", "ls", "pwd", "cat", "head", "tail", "wc", "echo", "which", "whoami", "date", "grep", "rg", "tree", "file",
+                 "stat", "du", "df", "less", "basename", "dirname", "realpath", "sort", "uniq", "diff", "true", "printf", "type"}
+SAFE_GIT = {"status", "log", "diff", "show", "branch", "remote", "rev-parse", "blame", "ls-files", "describe", "tag"}
+TWO_WORD = {"git", "npm", "npx", "yarn", "pnpm", "bun", "cargo", "go", "docker", "pip", "pip3", "python", "python3", "uv", "make", "brew", "swift"}
+
+
+def split_command(cmd: str) -> list[str]:
+    """Split a shell line on && || ; | (outside quotes) into its separate commands."""
+    parts, cur, q, i = [], "", None, 0
+    while i < len(cmd):
+        ch = cmd[i]
+        if q:
+            cur += ch
+            if ch == q:
+                q = None
+        elif ch in "'\"":
+            q = ch
+            cur += ch
+        elif cmd.startswith(("&&", "||"), i):
+            parts.append(cur)
+            cur = ""
+            i += 1
+        elif ch in ";|\n":
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += ch
+        i += 1
+    parts.append(cur)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _words(seg: str) -> list[str]:
+    try:
+        w = shlex.split(seg)
+    except ValueError:
+        w = seg.split()
+    while w and re.match(r"^\w+=", w[0]):  # skip VAR=value prefixes
+        w = w[1:]
+    return w
+
+
+def is_safe_command(seg: str) -> bool:
+    """Read-only commands that never need approval (no redirects, no -exec/-delete)."""
+    if re.search(r"(^|[^<>&2])>|`|\$\(", seg):
+        return False
+    w = _words(seg)
+    if not w:
+        return True
+    if w[0] == "git":
+        return len(w) > 1 and w[1] in SAFE_GIT and not any(x in ("-D", "--delete", "-d") for x in w)
+    if w[0] == "find":
+        return not any(x in ("-exec", "-execdir", "-delete", "-ok") for x in w)
+    if w[0] == "sed":
+        return "-i" not in w and not any(x.startswith("-i") for x in w)
+    return w[0] in SAFE_COMMANDS
+
+
+def command_rule(seg: str) -> str:
+    w = _words(seg)
+    if not w:
+        return "bash"
+    key = w[:2] if w[0] in TWO_WORD and len(w) > 1 and not w[1].startswith("-") else w[:1]
+    return f"bash({' '.join(key)}*)"
+
+
 class EventHub:
     """Every connected window (and phone) gets every event."""
 
@@ -251,6 +318,7 @@ class Chat:
         self.app = app
         self.kind = kind if kind in ("chat", "code") else "code"
         self.touched = time.time()  # last time this chat was used (for "most recent")
+        self.allow_edits = False  # set when the user picks "allow all edits for this session"
         self.project = project  # id of the Project this chat belongs to (shared instructions and files)
         self.side = side  # a side chat: read-only quick questions that never touch the main chat
         self.id = chat_id or time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(3)
@@ -407,13 +475,22 @@ class Chat:
                 return str(self.ws.path(args["path"]))
         return args.get("job_id", "")
 
+    def _suggest_rules(self, name: str, args: dict) -> list[str]:
+        if name == "bash":  # one rule per command in the line, by command name (e.g. "npm test", "ls")
+            rules = self.folder_rules().get("allow", [])
+            out = []
+            for seg in split_command(args["command"]):
+                if is_safe_command(seg) or any(rule_matches(r, "bash", seg) for r in rules):
+                    continue
+                r = command_rule(seg)
+                if r not in out:
+                    out.append(r)
+            return out or [command_rule(args["command"])]
+        return [self._suggest_rule(name, args)]
+
     def _suggest_rule(self, name: str, args: dict) -> str:
         if name == "bash":
-            try:
-                words = shlex.split(args["command"])[:2]
-            except ValueError:
-                words = args["command"].split()[:2]
-            return f"bash({' '.join(words)}*)" if words else "bash"
+            return ", ".join(self._suggest_rules(name, args))
         if name.startswith("browser_"):
             host = urlparse(self.app.browser_url).netloc
             return f"browser(*{host}*)" if host else "browser"
@@ -425,6 +502,14 @@ class Chat:
         if any(rule_matches(r, name, target) for r in rules.get("deny", [])):
             return "deny"
         if any(rule_matches(r, name, target) for r in rules.get("allow", [])):
+            return "allow"
+        if name == "bash":
+            segs = split_command(target)
+            if any(rule_matches(r, name, sg) for sg in segs for r in rules.get("deny", [])):
+                return "deny"
+            if segs and all(is_safe_command(sg) or any(rule_matches(r, name, sg) for r in rules.get("allow", [])) for sg in segs):
+                return "allow"
+        if name in FILE_CHANGING and self.allow_edits:
             return "allow"
         if self.app.config["auto"] and not name.startswith("desktop_"):  # screen control always asks
             return "allow"
@@ -445,10 +530,15 @@ class Chat:
             return ("Nobody is available to approve this during a scheduled run, and no permission rule allows it. "
                     "Skip it and mention it in your summary."), True
         if verdict == "ask":
-            rule = self._suggest_rule(name, args)
-            answer = self._ask(info, rule)
+            rules = self._suggest_rules(name, args)
+            info["edits"] = name in FILE_CHANGING
+            answer = self._ask(info, ", ".join(rules))
             if answer.get("decision") == "always":
-                self.app.add_rule(self.rules_dir, rule)
+                if name in FILE_CHANGING:
+                    self.allow_edits = True  # "allow all edits in this folder for this session"
+                else:
+                    for r in rules:
+                        self.app.add_rule(self.rules_dir, r)
             elif answer.get("decision") == "partial" and info.get("hunks"):
                 self._partial = {int(i) for i in answer.get("hunks") or []}
             elif answer.get("decision") != "allow":

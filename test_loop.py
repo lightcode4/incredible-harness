@@ -176,7 +176,7 @@ def main():
     blocked = [e for e in d.kinds(evs, "tool") if e.get("blocked")]
     assert blocked and blocked[0]["summary"] == "$ rm -rf x"
     d.policy = "deny"
-    d.run("decline", script=[("tool", "bash", {"command": "ls"}), ("text", "ok")])
+    d.run("decline", script=[("tool", "bash", {"command": "touch declined.txt"}), ("text", "ok")])
     last_req = REQUESTS[-1][2]["messages"][-1]["content"][0]
     assert last_req["is_error"] and "use python instead" in last_req["content"]
     d.policy = "allow"
@@ -450,7 +450,7 @@ def main():
     # 26. scheduled tasks: due() logic and unattended runs cannot get approvals
     assert s.due({"prompt": "x", "every": 60, "last": 0}, time.time())
     assert not s.due({"prompt": "x", "every": 60, "last": time.time()}, time.time())
-    SCRIPT[:] = [("tool", "bash", {"command": "echo should-not-run"}), ("text", "Summary: skipped one step.")]
+    SCRIPT[:] = [("tool", "bash", {"command": "touch should-not-run.txt"}), ("text", "Summary: skipped one step.")]
     task = {"id": "t1", "name": "Nightly check", "prompt": "check things", "cwd": str(repo), "every": 60}
     s.config["schedules"] = [task]
     chat = s.run_task(task)
@@ -1170,6 +1170,31 @@ def main():
     assert s.current.kind == "chat"
     s.set_mode("code")
     print("63 Chat and Code modes OK")
+    # 64. fewer prompts: read-only commands run without asking; "don't ask again" covers commands by name; edits for the session
+    from myagent.gui import split_command, is_safe_command, command_rule
+    assert split_command("pwd && ls -la | head -20") == ["pwd", "ls -la", "head -20"]
+    assert all(is_safe_command(x) for x in ["pwd", "ls -la", "git status", "cat a.txt", "grep -r x .", "cd src"])
+    assert not any(is_safe_command(x) for x in ["rm -rf x", "echo hi > f", "find . -delete", "git push", "sed -i s/a/b/ f", "npm test"])
+    assert command_rule("npm run build") == "bash(npm run*)" and command_rule("FOO=1 pytest -q") == "bash(pytest*)"
+    s.new_chat()
+    d.policy = "deny"
+    evs = d.run("look", script=[("tool", "bash", {"command": "pwd && ls -la | head -5"}), ("text", "ok")])
+    assert not d.kinds(evs, "approve"), "read-only commands must not ask"
+    d.policy = "always"
+    evs = d.run("test", script=[("tool", "bash", {"command": "cd . && npm --version"}), ("text", "ok")])
+    ap = d.kinds(evs, "approve")
+    assert ap and ap[0]["rule"] == "bash(npm --version*)" or ap[0]["rule"].startswith("bash(npm"), ap[0]["rule"]
+    evs = d.run("again", script=[("tool", "bash", {"command": "npm --version"}), ("text", "ok")])
+    assert not d.kinds(evs, "approve"), "the same command must not ask again"
+    evs = d.run("edit", script=[("tool", "write_file", {"path": "e1.txt", "content": "a"}), ("text", "ok")])
+    assert d.kinds(evs, "approve") and d.kinds(evs, "approve")[0]["edits"] is True
+    d.policy = "deny"
+    evs = d.run("edit2", script=[("tool", "write_file", {"path": "e2.txt", "content": "b"}), ("text", "ok")])
+    assert not d.kinds(evs, "approve") and (Path(s.current.cwd) / "e2.txt").exists(), "edits are allowed for the rest of the session"
+    evs = d.run("other", script=[("tool", "bash", {"command": "rm -f e2.txt"}), ("text", "ok")])
+    assert d.kinds(evs, "approve"), "something new still asks"
+    d.policy = "allow"
+    print("64 fewer approval prompts OK")
     print("ALL TESTS PASSED")
 
 

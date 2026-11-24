@@ -147,7 +147,10 @@ async function overlaps(pg, label) {
       await pg.click('#cancelSettings');
       // --- conversation flow
       await pg.fill('#input', 'Make total() handle an empty list'); await pg.keyboard.press('Enter');
-      await pg.getByRole('button', { name: 'Allow', exact: true }).click({ timeout: 15000 });
+      await pg.waitForSelector('.ask .askopt', { timeout: 15000 });
+      check('Approval offers numbered choices: Yes / don\'t ask again / No', (await pg.locator('.ask .askopt').count()) === 3 && (await pg.innerText('.ask')).includes("Yes, allow all edits"));
+      await overlaps(pg, 'approval card');
+      await pg.keyboard.press('1');  // keyboard answers work
       await pg.waitForSelector('.turnfoot', { timeout: 15000 });
       check('A message runs, asks approval and finishes', true);
       check('Run overview shows the plan', (await pg.textContent('#todoList')).includes('Handle empty input'));
