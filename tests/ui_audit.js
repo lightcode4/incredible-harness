@@ -226,10 +226,14 @@ async function overlaps(pg, label) {
       await pg.locator('.umsg').first().hover(); await pg.locator('.umsg').first().getByRole('button', { name: 'Edit' }).click();
       check('Edit turns the message into an editor', await pg.isVisible('.uedit textarea'));
       await overlaps(pg, 'message editor');
-      await pg.fill('.uedit textarea', 'Make total() handle None too'); await pg.getByRole('button', { name: 'Save & resend' }).click();
+      { const f = await pg.evaluate(() => { const r = document.querySelector('.uedit .uefoot').getBoundingClientRect(); const bs = [...document.querySelectorAll('.uedit .uefoot button')].map(b => b.getBoundingClientRect());
+          return { h: r.height, wide: Math.max(...bs.map(b => b.width)), sameRow: bs.every(b => Math.abs(b.top - bs[0].top) < 2) }; });
+        check('Edit box footer is one compact row (small Cancel / Save buttons)', f.h <= 40 && f.wide < 120 && f.sameRow, JSON.stringify(f)); }
+      check('Chat text can be selected for copying', await pg.evaluate(() => getComputedStyle(document.querySelector('#log')).userSelect !== 'none'));
+      await pg.fill('.uedit textarea', 'Make total() handle None too'); await pg.getByRole('button', { name: 'Save', exact: true }).click();
       await pg.waitForFunction(() => document.getElementById('log').innerText.includes('Edited answer.'), null, { timeout: 15000 });
       const log2 = await pg.innerText('#log');
-      check('Save & resend replaces the message and continues', log2.includes('Make total() handle None too') && !log2.includes('handle an empty list'), log2.slice(0, 200));
+      check('Save replaces the message and continues', log2.includes('Make total() handle None too') && !log2.includes('handle an empty list'), log2.slice(0, 200));
       await pg.fill('#input', '/compact'); await pg.keyboard.press('Enter');
       await pg.waitForFunction(() => document.getElementById('log').innerText.includes('Conversation summarized'), null, { timeout: 15000 });
       check('/compact summarizes the chat', true);

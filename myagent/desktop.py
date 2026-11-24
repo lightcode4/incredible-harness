@@ -97,7 +97,7 @@ class QuickChat:
     def __init__(self, url: str, main_win):
         self.main_win, self.listener, self.shown = main_win, None, False
         sep = "&" if "?" in url else "?"
-        self.win = webview.create_window(f"{APP_NAME} quick chat", url + sep + "quick=1", js_api=Bridge(), width=640, height=168,
+        self.win = webview.create_window(f"{APP_NAME} quick chat", url + sep + "quick=1", js_api=Bridge(), text_select=True, width=640, height=168,
                                          frameless=True, on_top=True, hidden=True, resizable=False, easy_drag=True)
 
     def toggle(self):
@@ -164,7 +164,7 @@ def main():
     windows = []
 
     def new_window():
-        windows.append(webview.create_window(APP_NAME, url, js_api=Bridge(), width=1180, height=820, min_size=(720, 520)))
+        windows.append(webview.create_window(APP_NAME, url, js_api=Bridge(), text_select=True, width=1180, height=820, min_size=(720, 520)))
 
     def quit_app():
         for w in list(webview.windows):
@@ -173,8 +173,8 @@ def main():
             except Exception:
                 pass
     session.new_window, session.quit_app = new_window, quit_app
-    session.preview_opener = lambda target: webview.create_window(f"Preview — {target}", target, width=1100, height=760)
-    main_win = webview.create_window(APP_NAME, url, js_api=Bridge(), width=1180, height=820, min_size=(720, 520))
+    session.preview_opener = lambda target: webview.create_window(f"Preview — {target}", target, text_select=True, width=1100, height=760)
+    main_win = webview.create_window(APP_NAME, url, js_api=Bridge(), text_select=True, width=1180, height=820, min_size=(720, 520))
     quick = QuickChat(url, main_win)
     session.quick_toggle, session.quick_hide, session.focus_main = quick.toggle, quick.hide, quick.focus_main
     session.on_hotkey = quick.listen

@@ -38,7 +38,7 @@ from .mcp_remote import McpRemoteError, sign_in as mcp_sign_in
 from ._build import BUILD, REPO
 from .browser import Browser, NeedsBrowser, install_chromium
 from .computer import Computer, ComputerError
-from .providers import COMPACT_AT, ClaudeProvider, OpenAIProvider, cost_of
+from .providers import is_transient, COMPACT_AT, ClaudeProvider, OpenAIProvider, cost_of
 from .terminal import Terminal
 from .tools import (FILE_CHANGING, MUTATING, READONLY_TOOLS, TOOLS, ToolError, Workspace, apply_hunks, describe, hunks,
                     project_instructions, validate)
@@ -332,6 +332,8 @@ class Chat:
         self.kind = kind if kind in ("chat", "code") else "code"
         self.touched = time.time()  # last time this chat was used (for "most recent")
         self.allow_edits = False  # set when the user picks "allow all edits for this session"
+        self.interrupted = False  # a reply was cut off (lost connection for too long, or the app closed mid-reply)
+        self._req_mark = 0  # transcript length when the current model request started (dropped on a reconnect)
         self.unread = False  # finished while you were looking elsewhere
         self.queue: list[dict] = []  # messages sent while busy; they run one after another
         self.checkpoint_meta: dict[str, dict] = {}  # turn -> {t, text}: for the checkpoint list
@@ -483,9 +485,23 @@ class Chat:
 
     def before_request(self):
         self._check()
+        if self._open is None:
+            self._req_mark = len(self.transcript)
         budget = float(self.app.config.get("budget") or 0)
         if budget > 0 and self.cost >= budget:
             raise Stop(f"Budget of ${budget:.2f} for this chat reached. Raise it in Settings to continue.")
+
+    def reconnecting(self, wait: int, attempt: int, error: Exception):
+        """The connection dropped mid-request: forget the half-streamed text, then the same step is tried again."""
+        kept = self.transcript[: self._req_mark]
+        dropped = len(self.transcript) - len(kept)
+        self.transcript, self._open = kept, None
+        if dropped:
+            self.app.events.put(self.replay_event())
+        self.emit("reconnect", wait=wait, attempt=attempt, reason=type(error).__name__)
+
+    def reconnected(self):
+        self.emit("reconnect", ok=True)
 
     def _check(self):
         if self.cancel.is_set():
@@ -956,6 +972,7 @@ class Chat:
         expanded = extras.expand_command(text, self.cwd) if text.startswith("/") else None
         parts = self._parts(expanded or text, (attachments or []) + self._mentions(text))
         self.busy = True
+        self.interrupted = False
         self.cancel.clear()
         if not self.title:
             self.title = clean_title(text) or "Attachment"
@@ -1063,6 +1080,17 @@ class Chat:
             self.emit("status", busy=False)
             self.save()
 
+    def continue_reply(self) -> bool:
+        """Pick up a reply that was cut off, from the step it stopped at."""
+        if self.busy:
+            raise RuntimeError("This chat is already working.")
+        self.interrupted = False
+        self.busy = True
+        self.cancel.clear()
+        self.touched = time.time()
+        threading.Thread(target=self._turn, args=(None,), kwargs={"text": "(continued)"}, daemon=True).start()
+        return True
+
     def _turn(self, parts, first: bool = False, text: str = "") -> None:
         started = time.time()
         self.turn += 1
@@ -1070,8 +1098,12 @@ class Chat:
         self.turn_changes, self.turn_cost = {}, 0.0
         self.emit("status", busy=True)
         try:
-            self._prompt_hooks(parts, first, text)
-            self.provider.turn(parts, self.run_tool, self)
+            if parts is None:  # Continue: no new message, carry on from where the reply stopped
+                if not self.provider.resume(self.run_tool, self):
+                    self.notice("Nothing to continue: the last reply had finished.")
+            else:
+                self._prompt_hooks(parts, first, text)
+                self.provider.turn(parts, self.run_tool, self)
             self._finish_hook()
         except Stop as e:
             self.notice(str(e))
@@ -1079,7 +1111,11 @@ class Chat:
         except Exception as e:
             px.log.exception("Turn failed in chat %s", self.id)
             self.notice(explain_error(e, {**self.app.config, "cwd": self.cwd}))
-            self.provider.close_interrupted()
+            if is_transient(e):  # keep the conversation as it is so Continue picks up from the same step
+                self.interrupted = True
+                self.emit("interrupted")
+            else:
+                self.provider.close_interrupted()
         finally:
             self.end_block()
             if self.turn_changes:
@@ -1123,7 +1159,8 @@ class Chat:
                     "provider": self._provider_kind, "model": self.app.config["model"], "cwd": self.cwd,
                     "worktree": self.worktree, "messages": self.provider.serialize(), "transcript": self.transcript,
                     "checkpoints": self.checkpoints, "checkpoint_meta": self.checkpoint_meta, "cost": self.cost, "tokens": self.tokens, "todos": self.todos,
-                    "turn": self.turn, "context": self.context, "project": self.project, "kind": self.kind, "compactions": getattr(self.provider, "compactions", 0)}
+                    "turn": self.turn, "context": self.context, "project": self.project, "kind": self.kind, "compactions": getattr(self.provider, "compactions", 0),
+                    "running": self.busy or self.interrupted}
             path = CHATS / f"{self.id}.json"
             path.write_text(json.dumps(data, default=str))
             os.chmod(path, 0o600)
@@ -1136,7 +1173,7 @@ class Chat:
                                            "cwd": self.cwd, "project": proj["name"] if proj else None, "mode": self.kind},
                 "events": list(self.transcript), "cost": round(self.cost, 4), "tokens": self.tokens, "todos": self.todos,
                 **self.context_info(), "compactions": getattr(self.provider, "compactions", 0),
-                "undoable": list(self.checkpoints), "busy": self.busy, "pending": list(self.pending_info.values())}
+                "undoable": list(self.checkpoints), "busy": self.busy, "interrupted": self.interrupted and not self.busy, "pending": list(self.pending_info.values())}
 
 
 # ==================================================================================================== Session
@@ -1433,6 +1470,7 @@ class Session:
         chat.cost, chat.tokens, chat.todos, chat.turn = d.get("cost", 0), d.get("tokens", 0), d.get("todos", []), d.get("turn", 0)
         chat.context = d.get("context", 0)
         chat.provider.compactions = d.get("compactions", 0)
+        chat.interrupted = bool(d.get("running")) and bool(d.get("messages"))  # the app closed while it was replying
         self.chats[chat.id] = chat
         self.select(chat, client)
 
@@ -2013,6 +2051,9 @@ class Session:
         try:
             self.open_chat(str(cid))
             self.config["mode"] = self.current.kind
+            if self.current.interrupted and self.config.get("auto_continue", True):
+                self.current.notice("Picking up where this reply stopped when the app closed.")
+                self.current.continue_reply()
             return True
         except Exception:
             return False
@@ -2250,6 +2291,8 @@ def make_handler(session: Session, token: str):
                             f = f.with_name(f"{name} ({n}){f.suffix}")
                         f.write_text(content, encoding="utf-8")
                         result = {"path": str(f)}
+                elif path == "/api/continue":
+                    result = {"ok": chat.continue_reply()}
                 elif path == "/api/rewind":
                     result = {"restored": chat.rewind(int(data.get("idx", -1)), str(data.get("text", "")),
                                                       bool(data.get("undo_files", True)))}

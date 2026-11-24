@@ -69,6 +69,16 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(out)
             return
         step = SCRIPT.pop(0) if SCRIPT else ("text", "Done.")
+        if step[0] == "drop":  # the internet cuts out mid-reply: half the stream arrives, then the connection dies
+            data = _claude_events(("text", step[1]), len(REQUESTS)) if "/messages" in self.path else _openai_events(("text", step[1]))
+            self.send_response(200)
+            self.send_header("content-type", "text/event-stream")
+            self.send_header("content-length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data[: len(data) // 2])
+            self.wfile.flush()
+            self.close_connection = True
+            return
         data = _claude_events(step, len(REQUESTS)) if "/messages" in self.path else _openai_events(step)
         self.send_response(200)
         self.send_header("content-type", "text/event-stream")
@@ -1374,6 +1384,36 @@ def main():
         print("69 services OK (incl. video frames)")
     else:
         print("69 services OK")
+    # 70. lost connection mid-reply: it waits, retries the same step, and the half-streamed text is not kept twice
+    s.set_mode("code")
+    s.new_chat()
+    evs = d.run("keep going", script=[("tool", "bash", {"command": "touch step1.txt"}), ("drop", "HALF-SENT words that never finish"),
+                                      ("text", "All finished after the reconnect.")])
+    rc = d.kinds(evs, "reconnect")
+    assert rc and rc[0].get("wait") and any(e.get("ok") for e in rc), rc
+    txt = " ".join(e["text"] for e in s.current.transcript if e["kind"] == "text")
+    assert "All finished after the reconnect." in txt and "HALF-SENT" not in txt, txt
+    assert (Path(s.current.cwd) / "step1.txt").exists() and not s.current.interrupted
+    # the app closed mid-reply (after a tool ran): reopening carries on from that step
+    c = s.current
+    c.provider.messages.append({"role": "user", "content": [{"type": "text", "text": "and one more thing"}]})
+    c.busy = True
+    c.save()
+    c.busy = False
+    cid = c.id
+    s.chats.pop(cid)
+    s.current = None
+    s.open_chat(cid)
+    assert s.current.interrupted and s.current.replay_event()["interrupted"]
+    SCRIPT[:] = [("text", "Picked up the last request.")]
+    start = len(d.events)
+    s.current.continue_reply()
+    deadline = time.time() + 20
+    while time.time() < deadline and not any(e["kind"] == "status" and e["busy"] is False for e in d.events[start:]):
+        time.sleep(0.05)
+    assert "Picked up the last request." in s.current.provider.last_text() and not s.current.interrupted
+    assert json.loads((CHATS / f"{cid}.json").read_text())["running"] is False
+    print("70 reconnect and continue OK")
     print("ALL TESTS PASSED")
 
 

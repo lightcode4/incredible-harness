@@ -13,6 +13,7 @@ User messages are lists of neutral parts:
 from __future__ import annotations
 
 import json
+import time
 import os
 from typing import Callable, Protocol
 
@@ -99,6 +100,45 @@ def _text_of(parts) -> str:
     if isinstance(parts, str):
         return parts
     return "\n".join(p["text"] for p in parts if p["type"] == "text")
+
+
+# --------------------------------------------------------------------------- staying connected
+TRANSIENT_NAMES = {"APIConnectionError", "APITimeoutError", "ConnectError", "ConnectTimeout", "ReadError", "ReadTimeout",
+                   "WriteError", "RemoteProtocolError", "ProtocolError", "InternalServerError", "RateLimitError",
+                   "OverloadedError", "ServiceUnavailableError", "IncompleteRead", "ChunkedEncodingError"}
+RETRY_FOR = 30 * 60  # keep trying for up to 30 minutes of lost connection
+
+
+def is_transient(e: BaseException) -> bool:
+    """Errors worth waiting out: no internet, timeouts, dropped streams, rate limits, busy or failing servers."""
+    code = getattr(e, "status_code", None)
+    if code in (408, 409, 425, 429, 500, 502, 503, 504, 520, 522, 524, 529):
+        return True
+    if type(e).__name__ in TRANSIENT_NAMES or isinstance(e, (ConnectionError, TimeoutError)):
+        return True
+    return "overloaded" in str(e).lower()
+
+
+def with_reconnect(ui, call):
+    """Run one model request; if the connection drops, wait (2s, 4s, 8s ... up to 60s) and repeat that same step.
+    Nothing is added to the conversation until a request completes, so a retry picks up exactly where it stopped."""
+    started, attempt = time.time(), 0
+    while True:
+        try:
+            result = call()
+            if attempt and hasattr(ui, "reconnected"):
+                ui.reconnected()
+            return result
+        except Exception as e:
+            if not is_transient(e) or time.time() - started > RETRY_FOR:
+                raise
+            attempt += 1
+            wait = min(60, 2 ** attempt)
+            if hasattr(ui, "reconnecting"):
+                ui.reconnecting(wait, attempt, e)
+            for _ in range(wait * 2):
+                ui.before_request()  # Stop still works while waiting
+                time.sleep(0.5)
 
 
 # --------------------------------------------------------------------------- Claude
@@ -213,10 +253,28 @@ class ClaudeProvider:
 
     def turn(self, parts, run_tool: RunTool, ui: UI) -> None:
         self.messages.append({"role": "user", "content": self._content(parts)})
+        self._loop(run_tool, ui)
+
+    def resume(self, run_tool: RunTool, ui: UI) -> bool:
+        """Carry on a reply that was cut off (app closed, crash). False when there is nothing left to do."""
+        if not self.messages:
+            return False
+        last = self.messages[-1]
+        if last["role"] == "assistant":
+            pending = [b for b in last["content"] if (getattr(b, "type", None) or (b.get("type") if isinstance(b, dict) else None)) == "tool_use"]
+            if not pending:
+                return False
+            self.messages.append({"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": getattr(b, "id", None) or b["id"], "is_error": True,
+                 "content": "Not run: the app closed before this ran. Run it again if it is still needed."} for b in pending]})
+        self._loop(run_tool, ui)
+        return True
+
+    def _loop(self, run_tool: RunTool, ui: UI) -> None:
         bad = 0
         for _ in range(MAX_STEPS):
             ui.before_request()
-            msg = self._stream(ui)
+            msg = with_reconnect(ui, lambda: self._stream(ui))
             if msg is None:
                 bad += 1
                 if bad > 2:
@@ -411,11 +469,30 @@ class OpenAIProvider:
         self.compactions = getattr(self, "compactions", 0) + 1
 
     def turn(self, parts, run_tool: RunTool, ui: UI) -> None:
-        self._maybe_compact(ui)
+        with_reconnect(ui, lambda: self._maybe_compact(ui))
         self.messages.append({"role": "user", "content": self._content(parts)})
+        self._loop(run_tool, ui)
+
+    def resume(self, run_tool: RunTool, ui: UI) -> bool:
+        """Carry on a reply that was cut off (app closed, crash). False when there is nothing left to do."""
+        last = self.messages[-1] if self.messages else None
+        if not last or last["role"] == "system":
+            return False
+        if last["role"] == "assistant":
+            if not last.get("tool_calls"):
+                return False
+            answered = {m.get("tool_call_id") for m in self.messages if m["role"] == "tool"}
+            for tc in last["tool_calls"]:
+                if tc["id"] not in answered:
+                    self.messages.append({"role": "tool", "tool_call_id": tc["id"],
+                                          "content": "ERROR: not run, the app closed before this ran. Run it again if it is still needed."})
+        self._loop(run_tool, ui)
+        return True
+
+    def _loop(self, run_tool: RunTool, ui: UI) -> None:
         for _ in range(MAX_STEPS):
             ui.before_request()
-            text, calls, finish = self._stream(ui)
+            text, calls, finish = with_reconnect(ui, lambda: self._stream(ui))
             assistant: dict = {"role": "assistant", "content": text or None}
             if calls:
                 assistant["tool_calls"] = [{"id": c["id"], "type": "function",
