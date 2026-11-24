@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 os.environ["HOME"] = os.environ["USERPROFILE"] = tempfile.mkdtemp()  # keep settings/chats out of the real home
+os.environ["LC4_NO_MARKET_REFRESH"] = "1"  # no background GitHub calls during tests
 REQUESTS: list = []
 SCRIPT: list = []  # steps popped per model request: ("text", str) | ("tool", name, input) | ("tools", [(name, input), ...])
 
@@ -1681,22 +1682,32 @@ def main():
     assert desktop.forward_link(["LightCode4"]) is False
     srv78.shutdown()
     print("78 notification click opens its chat OK")
-    # 79. marketplace: browse a GitHub repo of skills/agents/commands and a Claude Code plugin marketplace; install + remove
+    # 79. marketplace: skills/agents/commands repos, plugin marketplaces (bundles, folders, other repos), sub-folder sources,
+    #     install + remove, background refresh
     from myagent import market
     repos = {
         "acme/skills": {"skills/pdf-tools/SKILL.md": "---\nname: pdf-tools\ndescription: Work with PDF files\n---\nUse pypdf.",
                         "skills/pdf-tools/scripts/split.py": "print('split')",
                         "agents/reviewer.md": "---\nname: reviewer\ndescription: Strict code reviewer\n---\nReview hard.",
                         "commands/ship.md": "---\ndescription: Ship it\n---\nRun the release for $ARGUMENTS", "README.md": "# hi"},
-        "acme/plugins": {".claude-plugin/marketplace.json": json.dumps({"plugins": [{"name": "dev-kit", "description": "Dev helpers", "source": "./plugins/dev"},
-                                                                                     {"name": "elsewhere", "source": {"source": "github", "repo": "x/y"}}]}),
+        "acme/plugins": {".claude-plugin/marketplace.json": json.dumps({"plugins": [
+                             {"name": "dev-kit", "description": "Dev helpers", "source": "./plugins/dev"},
+                             {"name": "doc-bundle", "source": "./", "skills": ["./skills/word"]},
+                             {"name": "remote-kit", "source": {"source": "git-subdir", "url": "https://github.com/other/kits.git", "path": "kits/remote"}},
+                             {"name": "npm-only", "source": {"source": "npm", "package": "x"}}]}),
+                         "skills/word/SKILL.md": "---\nname: word\ndescription: Word docs\n---\nDocx.",
                          "plugins/dev/skills/lint/SKILL.md": "---\nname: lint\ndescription: Lint code\n---\nRun the linter.",
                          "plugins/dev/agents/fixer.md": "---\nname: fixer\ndescription: Fixes lint\n---\nFix.",
-                         "plugins/dev/hooks/hooks.json": "{}"}}
+                         "plugins/dev/.claude-plugin/plugin.json": json.dumps({"name": "dev-kit", "description": "Dev helpers"}),
+                         "plugins/dev/hooks/hooks.json": "{}"},
+        "other/kits": {"kits/remote/commands/deploy.md": "---\ndescription: Deploy\n---\nDeploy now."},
+        "acme/app": {"src/main.py": "print()", "README.md": "# an app"}}
+    calls = []
     class MK(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
         def do_GET(self):
+            calls.append(self.path)
             m = re.match(r"^/api/repos/([\w.-]+/[\w.-]+)/git/trees/HEAD", self.path)
             if m and m.group(1) in repos:
                 body = json.dumps({"tree": [{"path": k, "type": "blob"} for k in repos[m.group(1)]]}).encode()
@@ -1712,31 +1723,45 @@ def main():
     os.environ["LC4_MARKET_RAW"] = f"http://127.0.0.1:{ms.server_port}/raw"
     market.HOME = ex.HOME
     market.STATE = ex.HOME / "market.json"
-    assert market.load_state()["sources"] == ["anthropics/skills"]
+    assert "anthropics/skills" in market.load_state()["sources"] and len(market.load_state()["sources"]) >= 100
+    assert market.parse_source("https://github.com/anthropics/claude-plugins-official/tree/main/plugins/claude-code-setup") == \
+        ("anthropics/claude-plugins-official", "plugins/claude-code-setup")
+    assert market.normalize("https://github.com/ScrapeCreators/social-media-research-skills\\") == "ScrapeCreators/social-media-research-skills"
     try:
         market.add_source("nobody/missing")
         raise AssertionError("a missing repository is refused")
     except market.MarketError:
         pass
-    market.add_source("https://github.com/acme/skills/")
+    assert market.add_source("https://github.com/acme/skills/")[0] == "acme/skills"
     items = {i["id"]: i for i in market.browse("acme/skills")}
     assert items["skill:skills/pdf-tools"]["description"] == "Work with PDF files" and "agent:agents/reviewer.md" in items and "command:commands/ship.md" in items
-    market.install("acme/skills", "skill:skills/pdf-tools")
-    market.install("acme/skills", "agent:agents/reviewer.md")
-    market.install("acme/skills", "command:commands/ship.md")
+    for iid in ("skill:skills/pdf-tools", "agent:agents/reviewer.md", "command:commands/ship.md"):
+        market.install("acme/skills", iid)
     assert (ex.HOME / "skills" / "pdf-tools" / "scripts" / "split.py").is_file()
     s.new_chat()
     assert "pdf-tools" in ex.skills(s.current.cwd) and "reviewer" in ex.agents(s.current.cwd) and "ship" in ex.commands(s.current.cwd)
     assert ex.expand_command("/ship v2", s.current.cwd) == "Run the release for v2"
-    assert all(i["installed"] for i in market.browse("acme/skills") if i["kind"] != "plugin")
+    assert all(i["installed"] for i in market.browse("acme/skills"))
     market.uninstall("acme/skills", "skill:skills/pdf-tools")
     assert not (ex.HOME / "skills" / "pdf-tools").exists() and "pdf-tools" not in ex.skills(s.current.cwd)
-    plug = market.browse("acme/plugins")
-    assert [p["name"] for p in plug] == ["dev-kit"], plug
-    assert market.install("acme/plugins", "plugin:plugins/dev")["installed"] == 2
+    plug = {i["name"]: i for i in market.browse("acme/plugins") if i["kind"] == "plugin"}
+    assert set(plug) == {"dev-kit", "doc-bundle", "remote-kit"}, plug
+    assert market.install("acme/plugins", "plugin:dev-kit")["installed"] == 2
     assert "lint" in ex.skills(s.current.cwd) and "fixer" in ex.agents(s.current.cwd)
-    market.uninstall("acme/plugins", "plugin:plugins/dev")
+    assert market.install("acme/plugins", "plugin:doc-bundle")["installed"] == 1 and "word" in ex.skills(s.current.cwd)
+    assert market.install("acme/plugins", "plugin:remote-kit")["installed"] == 1 and "deploy" in ex.commands(s.current.cwd)
+    market.uninstall("acme/plugins", "plugin:dev-kit")
     assert "lint" not in ex.skills(s.current.cwd) and "fixer" not in ex.agents(s.current.cwd)
+    sub = market.browse("acme/plugins/plugins/dev")  # a folder inside a repository
+    assert {i["kind"] for i in sub} == {"plugin", "skill", "agent"} and market.install("acme/plugins/plugins/dev", "plugin:@plugins/dev")["installed"] == 2
+    assert market.browse("acme/app") == [], "an app repository simply offers nothing"
+    # background refresh: checks the source looked at longest ago, one at a time
+    st = market.load_state(); st["sources"] = ["acme/app", "acme/skills"]; st["removed"] = list(market.DEFAULT_SOURCES); market.save_state(st)
+    market._trees.clear()
+    old = market.cached("acme/app"); old["t"] = 0; market._cache_file("acme/app").write_text(json.dumps(old))
+    assert market.refresh_next() == "acme/app" and market.cached("acme/app")["t"] > 0
+    assert market.refresh_next() is None, "everything is fresh"
+    assert {x["repo"] for x in market.overview()} == {"acme/app", "acme/skills"} and len(market.all_items()) == 3
     ms.shutdown()
     print("79 marketplace OK")
     print("ALL TESTS PASSED")

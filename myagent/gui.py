@@ -2023,6 +2023,23 @@ class Session:
     # ---------------------------------------------------------------- scheduled tasks
     def start_scheduler(self):
         threading.Thread(target=self._scheduler, daemon=True).start()
+        threading.Thread(target=self._market_refresher, daemon=True).start()
+
+    def _market_refresher(self):
+        """Keep the marketplaces fresh in the background: one source at a time, paced to GitHub's limits
+        (60 requests an hour without GitHub connected, far more with it)."""
+        if os.environ.get("LC4_NO_MARKET_REFRESH"):
+            return
+        wait = 20
+        while not self._sched_stop.wait(wait):
+            token = self.config.get("github_token", "")
+            try:
+                done = market.refresh_next(token)
+                wait = (8 if token else 75) if done else 600
+            except market.RateLimited:
+                wait = 1200
+            except Exception:
+                wait = 300
 
     def due(self, task: dict, now: float) -> bool:
         if not task.get("enabled", True) or not task.get("prompt"):
@@ -2451,13 +2468,12 @@ def make_handler(session: Session, token: str):
                     session.quick_toggle()
                 elif path == "/api/market":
                     tok = session.config.get("github_token", "")
-                    st = market.load_state()
-                    src = str(data.get("source") or (st["sources"][0] if st["sources"] else ""))
+                    src = str(data.get("source") or "")
                     try:
-                        items = market.browse(src, tok) if src else []
+                        items = market.browse(src, tok, refresh=bool(data.get("refresh"))) if src else market.all_items()
                     except market.MarketError as e:
                         raise ValueError(str(e))
-                    result = {"sources": st["sources"], "source": src, "items": items}
+                    result = {"sources": market.overview(), "source": src, "items": items}
                 elif path == "/api/market/source":
                     try:
                         result = {"sources": market.remove_source(str(data.get("repo", ""))) if data.get("remove")
