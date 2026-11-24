@@ -1176,7 +1176,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <button class="iconbtn" id="sidePanelBtn" title="Show side panel (⌘.)" aria-label="Show side panel" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M15 4.5v15"/></svg></button>
     <button class="iconbtn" id="keysBtn" title="Help and keyboard shortcuts" aria-label="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg></button>
   </div>
-  <div id="banner"><span id="bannerText"></span><span class="spacer"></span><button class="btn small primary" id="bannerBtn">Download</button><button class="iconbtn" id="bannerX" aria-label="Dismiss"><svg><use href="#i-x"/></svg></button></div>
+  <div id="banner"><span id="bannerText"></span><span class="spacer"></span><button class="btn small primary" id="bannerBtn">Download</button><button class="btn small ghost" id="bannerLater" hidden>Later</button><button class="iconbtn" id="bannerX" aria-label="Dismiss"><svg><use href="#i-x"/></svg></button></div>
   <div class="page">
     <div class="pagehead">
       <div><div class="eyebrow">Your personal agent</div><h1 class="serif" id="greet">Begin, a little brighter.</h1><p class="sub">A little light. A lot of possibility.</p></div>
@@ -1660,6 +1660,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     </div>
     <div class="pane" data-p="about">
       <div class="note" id="aboutText">LightCode⁴</div>
+      <label class="toggle"><span>Update automatically<small>New versions download quietly in the background. When one is ready you choose: restart and install now, or later.</small></span><span class="switch"><input type="checkbox" id="autoUpdate"><span></span></span></label>
       <div><button class="btn" id="checkUpdate">Check for updates</button> <button class="btn primary" id="installUpdate" hidden>Install &amp; restart</button> <span id="updateResult" style="font-size:13px;color:var(--muted)"></span></div>
       <div class="field"><label>Settings on another computer</label><div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn small" id="exportSettings">Export settings</button><button class="btn small" id="exportSettingsKeys">Export with API keys</button>
@@ -2109,7 +2110,8 @@ function handle(ev) {
     case "status": setBusy(ev.busy); if (!ev.busy) { loadChats(); document.body.classList.remove("agent-browsing"); } break;
     case "gh_device": if (!replaying) ghDevice(ev); break;
     case "compose": if (!replaying) { const t = $("input"); t.value = ev.text + t.value; t.dispatchEvent(new Event("input")); t.focus(); t.setSelectionRange(t.value.length, t.value.length); } break;
-    case "config": showConfig(ev.config); if ($("settings").open) showPhone(); break;
+    case "config": showConfig(ev.config); if ($("settings").open) showPhone(); if (ev.config?.update_ready) showReady(ev.config.update_ready.build); break;
+    case "update_ready": showReady(ev.build); break;
     case "setup": if (needsWelcome(config)) { const go = () => PROVS.length ? showWelcome() : setTimeout(go, 200); go(); } else { openSettings(); $("dlgError").textContent = ev.text; } break;
     case "title": if (ev.chat === currentChat) { $("chatHead").textContent = ev.title; if (!panelTab) $("crumbHere").textContent = ev.title; } loadChats(); break;
     case "replay": replay(ev); break;
@@ -2211,6 +2213,7 @@ function setPlan(on) { config.plan = on; $("planBtn").classList.toggle("on", on)
   $("input").placeholder = on ? "Describe what you want. The agent will research and propose a plan first…" : defaultPH(); setPlanTr(); }
 function defaultPH() { return document.body.classList.contains("chatting") ? "Reply to LightCode⁴…" : document.body.classList.contains("mode-chat") ? "How can I help you today?" : "What should we build? Describe a coding task…"; }
 function showConfig(c) {
+  if ($("autoUpdate")) $("autoUpdate").checked = c.auto_update !== false;
   config = c; if (c.chat_kind) setModeUI(c.chat_kind); setTimeout(() => { if (typeof folderLabel === "function") { folderLabel(); if (!document.body.classList.contains("chatting")) $("hello").textContent = greeting(); } }, 0); if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
   if (c.theme && !$("settings").open) applyTheme(c.theme);
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
@@ -2324,7 +2327,17 @@ $("checkUpdate").onclick = async () => {
   try { const r = await api("/api/update"); $("updateResult").textContent = r.error || (r.update ? `Build ${r.latest} is available.` : "You have the latest build."); if (r.update) showUpdate(r); }
   catch (e) { $("updateResult").textContent = e.message; }
 };
-function showUpdate(r) { $("bannerText").innerHTML = `<b>Update ready</b><br><span style="color:var(--muted)">Build ${esc(String(r.latest))}</span>`; $("banner").classList.add("show");
+let readyShown = 0;
+function showReady(build) {  // downloaded in the background: one click to install
+  if (!build || readyShown === build) return; readyShown = build;
+  $("bannerText").innerHTML = `<b>Update ready to install</b><br><span style="color:var(--muted)">Build ${esc(String(build))} is downloaded</span>`; $("banner").classList.add("show");
+  $("bannerBtn").textContent = "Restart & install"; $("bannerBtn").disabled = false; $("bannerLater").hidden = false;
+  $("bannerBtn").onclick = () => { $("bannerBtn").disabled = true; $("bannerLater").hidden = true; $("bannerText").textContent = "Installing… LightCode⁴ will reopen in a moment."; api("/api/update/install"); };
+  $("installUpdate").hidden = false; $("updateResult").textContent = `Build ${build} is downloaded and ready.`;
+}
+$("bannerLater").onclick = () => { $("banner").classList.remove("show"); $("bannerLater").hidden = true; notice("OK. It stays downloaded; you'll be asked again next time you open LightCode⁴."); };
+$("autoUpdate").onchange = () => { config.auto_update = $("autoUpdate").checked; api("/api/config", { auto_update: config.auto_update }).catch(e => notice(e.message)); };
+function showUpdate(r) { $("bannerLater").hidden = true; $("bannerText").innerHTML = `<b>Update ready</b><br><span style="color:var(--muted)">Build ${esc(String(r.latest))}</span>`; $("banner").classList.add("show");
   $("bannerBtn").textContent = "Install"; $("bannerBtn").onclick = () => { $("bannerBtn").disabled = true; $("bannerText").textContent = "Downloading the update…"; api("/api/update/install"); };
   $("installUpdate").hidden = false; }
 $("bannerX").onclick = () => $("banner").classList.remove("show");
@@ -4004,7 +4017,8 @@ document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.sh
 loadChats(); $("input").focus();
 // look for a new build at start and then every hour while the app is open; a dismissed build is not shown again
 let updSeen = 0;
-function autoUpdateCheck() { if (config.build > 0) api("/api/update").then(r => { if (r.update && r.latest !== updSeen) { updSeen = r.latest; showUpdate(r); } }).catch(() => {}); }
+function autoUpdateCheck() { if (config.update_ready) return showReady(config.update_ready.build); if (config.auto_update !== false) return;  // automatic: downloaded in the background first
+  if (config.build > 0) api("/api/update").then(r => { if (r.update && r.latest !== updSeen) { updSeen = r.latest; showUpdate(r); } }).catch(() => {}); }
 setTimeout(autoUpdateCheck, 4000); setInterval(autoUpdateCheck, 60 * 60 * 1000);
 </script>
 </body>

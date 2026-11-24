@@ -26,7 +26,6 @@ import socket
 import subprocess
 import threading
 import time
-import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -1261,7 +1260,7 @@ class Session:
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
                        "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code", "services": {},
-                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "", "teams": [], "team_shares": {},
+                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "", "teams": [], "team_shares": {}, "auto_update": True,
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.set_badge = None  # set by the desktop app (Dock badge)
@@ -1467,6 +1466,8 @@ class Session:
         c = {k: v for k, v in self.config.items() if k not in hidden}
         c["api_key"] = bool(self.config["api_key"])
         c["github_token"] = bool(self.config["github_token"])
+        ready = self.update_ready()
+        c["update_ready"] = {"build": ready["build"]} if ready else None
         c["voice_key"] = bool(self.config["voice_key"])
         chat = self.current
         c["rules"] = chat.folder_rules() if chat else {"allow": [], "deny": []}
@@ -1929,13 +1930,8 @@ class Session:
         return r.text
 
     def check_update(self) -> dict:
-        req = urllib.request.Request(f"https://api.github.com/repos/{REPO}/releases?per_page=5",
-                                     headers={"Accept": "application/vnd.github+json", "User-Agent": "LightCode4"})
-        if self.config["github_token"]:
-            req.add_header("Authorization", f"Bearer {self.config['github_token']}")
         try:
-            with urllib.request.urlopen(req, timeout=15) as r:
-                releases = json.loads(r.read())
+            releases = px.github_json(f"{px.RELEASES_API}/repos/{REPO}/releases?per_page=8", self.config.get("github_token", ""))
         except Exception as e:
             return {"error": f"Could not check for updates ({e})."}
         best = None
@@ -2002,15 +1998,58 @@ class Session:
                 self.events.put({"kind": "toast", "text": f"{name} sign-in failed: {e}"})
         threading.Thread(target=run, daemon=True).start()
 
+    # ---------------------------------------------------------------- automatic updates
+    UPDATE_READY = HOME / "update-ready.json"
+
+    def update_ready(self) -> dict | None:
+        """A newer build already downloaded in the background, waiting to be installed."""
+        try:
+            r = json.loads(self.UPDATE_READY.read_text())
+        except Exception:
+            return None
+        if int(r.get("build", 0)) > BUILD and Path(r.get("path", "")).is_file():
+            return r
+        return None
+
+    def fetch_update(self, quiet: bool = True) -> dict | None:
+        """Download the newest build in the background (resumable) and remember it; tell the window it's ready."""
+        info = self.check_update()
+        if not info.get("update"):
+            return None
+        ready = self.update_ready()
+        if ready and ready["build"] >= info["latest"]:
+            return ready
+        path = px.download_update(f"{px.RELEASES_API}/repos/{REPO}/releases/tags/build-{info['latest']}", self.config.get("github_token", ""),
+                                  None if quiet else (lambda pct: self.events.put({"kind": "update_progress", "pct": pct})))
+        ready = {"build": info["latest"], "path": path, "t": time.time()}
+        HOME.mkdir(parents=True, exist_ok=True)
+        self.UPDATE_READY.write_text(json.dumps(ready))
+        self.events.put({"kind": "update_ready", "build": ready["build"]})
+        return ready
+
+    def _auto_update_loop(self):
+        wait = 90  # first look shortly after start, then every hour
+        while not self._sched_stop.wait(wait):
+            wait = 3600
+            if BUILD > 0 and self.config.get("auto_update", True):
+                try:
+                    self.fetch_update()
+                except Exception as e:
+                    px.log.warning("Background update download failed: %s", e)
+                    wait = 900
+
     def install_update(self):
         def run():
             try:
-                url = f"https://api.github.com/repos/{REPO}/releases/latest"
-                info = self.check_update()
-                if info.get("url"):
-                    url = f"https://api.github.com/repos/{REPO}/releases/tags/build-{info['latest']}"
-                path = px.download_update(url, self.config["github_token"],
-                                          lambda pct: self.events.put({"kind": "update_progress", "pct": pct}))
+                ready = self.update_ready()
+                if ready:  # already downloaded in the background
+                    path = ready["path"]
+                else:
+                    info = self.check_update()
+                    url = f"{px.RELEASES_API}/repos/{REPO}/releases/tags/build-{info['latest']}" if info.get("latest") else f"{px.RELEASES_API}/repos/{REPO}/releases/latest"
+                    path = px.download_update(url, self.config.get("github_token", ""),
+                                              lambda pct: self.events.put({"kind": "update_progress", "pct": pct}))
+                self.UPDATE_READY.unlink(missing_ok=True)
                 px.launch_updater(path)
                 self.events.put({"kind": "update_progress", "pct": 100, "text": "Installing… the app will restart."})
                 time.sleep(1.5)
@@ -2256,6 +2295,7 @@ class Session:
     def start_scheduler(self):
         threading.Thread(target=self._scheduler, daemon=True).start()
         threading.Thread(target=self._sync_loop, daemon=True).start()
+        threading.Thread(target=self._auto_update_loop, daemon=True).start()
         threading.Thread(target=self._market_refresher, daemon=True).start()
 
     def _market_refresher(self):
@@ -2873,11 +2913,11 @@ def make_handler(session: Session, token: str):
                     result = {"url": session.set_remote(bool(data.get("on")))}
                     session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/config":
-                    if set(data) <= {"auto", "plan", "theme", "sound", "onboarded", "name"}:  # display choices: no restart needed
+                    if set(data) <= {"auto", "plan", "theme", "sound", "onboarded", "name", "auto_update"}:  # display choices: no restart needed
                         for k, v in data.items():
                             session.config[k] = ((str(v) if str(v) in ("system", "light", "dark") else "system") if k == "theme"
                                                  else " ".join(str(v).split())[:40] if k == "name" else bool(v))
-                        if set(data) & {"theme", "sound", "onboarded", "name"}:
+                        if set(data) & {"theme", "sound", "onboarded", "name", "auto_update"}:
                             session.save()
                     else:
                         if chat and chat.busy:

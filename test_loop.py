@@ -2101,6 +2101,50 @@ def main():
     tr.quit()
     assert log84[-2:] == ["tray-stop", "quit-all"] and tr.on_closing() is True, "Quit lets the window close"
     print("84 tray OK")
+    # 85. updates: an expired GitHub token can't break the check; new builds download in the background, then wait for "install"
+    from myagent import platform_extras as px5, gui as gui5
+    blob5 = b"NEW-BUILD" * 5000
+    class UP(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+        def log_message(self, *a):
+            pass
+        def _out(self, obj, code=200):
+            b = obj if isinstance(obj, bytes) else json.dumps(obj).encode()
+            self.send_response(code); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        def do_GET(self):
+            if self.headers.get("Authorization"):
+                return self._out({"message": "Bad credentials"}, 401)  # like an expired token
+            if "/releases?" in self.path:
+                return self._out([{"tag_name": "build-999", "html_url": "https://example/rel"}, {"tag_name": "build-998"}])
+            if self.path.endswith("/releases/tags/build-999"):
+                return self._out({"assets": [{"name": px5.asset_name(), "size": len(blob5), "browser_download_url": f"{ub}/file",
+                                              "digest": "sha256:" + __import__("hashlib").sha256(blob5).hexdigest()}]})
+            m = re.match(r"bytes=(\d+)-(\d+)", self.headers.get("Range", ""))
+            a, b = (int(m.group(1)), int(m.group(2))) if m else (0, len(blob5) - 1)
+            self.send_response(206 if m else 200); self.send_header("Content-Length", str(b - a + 1)); self.end_headers(); self.wfile.write(blob5[a:b + 1])
+    us = ThreadingHTTPServer(("127.0.0.1", 0), UP)
+    threading.Thread(target=us.serve_forever, daemon=True).start()
+    ub = f"http://127.0.0.1:{us.server_port}"
+    px5.RELEASES_API = ub
+    s.config["github_token"] = "expired-token"
+    info = s.check_update()
+    assert info.get("latest") == 999 and info["update"] and "error" not in info, info
+    gui5.Session.UPDATE_READY = Path(tempfile.mkdtemp()) / "update-ready.json"
+    got = []
+    sub5 = s.events.subscribe()
+    ready = s.fetch_update()
+    assert ready["build"] == 999 and Path(ready["path"]).read_bytes() == blob5
+    while not sub5.empty():
+        got.append(sub5.get())
+    assert any(e["kind"] == "update_ready" and e["build"] == 999 for e in got), "the window is told it's ready"
+    assert s.public_config()["update_ready"] == {"build": 999}, "it's offered again after a restart (Later)"
+    assert s.fetch_update()["path"] == ready["path"], "not downloaded twice"
+    Path(ready["path"]).unlink()
+    assert s.update_ready() is None and s.public_config()["update_ready"] is None
+    s.config["github_token"] = ""
+    px5.RELEASES_API = "https://api.github.com"
+    us.shutdown()
+    print("85 updates OK")
     print("ALL TESTS PASSED")
 
 

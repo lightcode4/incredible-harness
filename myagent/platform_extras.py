@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -193,15 +194,30 @@ def _fetch_range(url: str, start: int, end: int, f, lock, on_bytes, tries: int =
             time.sleep(min(30, 2 ** attempt))
 
 
+RELEASES_API = os.environ.get("LC4_RELEASES_API", "https://api.github.com")
+
+
+def github_json(url: str, token: str = ""):
+    """Read GitHub's public release information. Tries without a token first (releases are public), so an expired
+    or revoked GitHub token can't break update checks; uses the token only if GitHub needs it (a private repository)."""
+    for auth in ([False, True] if token else [False]):
+        headers = {"Accept": "application/vnd.github+json", "User-Agent": "LightCode4"}
+        if auth:
+            headers["Authorization"] = f"Bearer {token}"
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            if not auth and token and e.code in (401, 403, 404):
+                continue
+            raise
+
+
 def download_update(release_api_url: str, token: str = "", progress=None) -> str:
     """Download the installer in parallel pieces. Each piece retries by itself, finished pieces are remembered so a
     later try (even after restarting the app) only fetches what is missing, and the file is checked against GitHub's
     sha256 before it is used."""
-    headers = {"Accept": "application/vnd.github+json", "User-Agent": "LightCode4"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    with urllib.request.urlopen(urllib.request.Request(release_api_url, headers=headers), timeout=30) as r:
-        rel = json.loads(r.read())
+    rel = github_json(release_api_url, token)
     asset = next((a for a in rel.get("assets", []) if a["name"] == asset_name()), None)
     if not asset:
         raise RuntimeError(f"The new release has no {asset_name()}.")
