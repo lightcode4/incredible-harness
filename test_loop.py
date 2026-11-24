@@ -2086,6 +2086,21 @@ def main():
     os.environ.pop("LC4_GITHUB_WEB", None)
     tsrv.shutdown()
     print("83 teams OK")
+    # 84. Windows tray: closing the window hides it (the app keeps running); Quit really quits
+    from myagent.desktop import Tray
+    log84 = []
+    class FakeWin:
+        def hide(self): log84.append("hide")
+    class FakeIcon:
+        def notify(self, msg, title): log84.append("notify")
+        def stop(self): log84.append("tray-stop")
+    tr = Tray(FakeWin(), lambda: log84.append("show"), lambda: log84.append("quit-all"))
+    tr.icon = FakeIcon()
+    assert tr.on_closing() is False and log84 == ["hide", "notify"], "closing hides to the tray and says so once"
+    assert tr.on_closing() is False and log84 == ["hide", "notify", "hide"]
+    tr.quit()
+    assert log84[-2:] == ["tray-stop", "quit-all"] and tr.on_closing() is True, "Quit lets the window close"
+    print("84 tray OK")
     print("ALL TESTS PASSED")
 
 

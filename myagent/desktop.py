@@ -169,6 +169,58 @@ def win_extras(session, main_win):
     session.set_badge = set_badge
 
 
+class Tray:
+    """Windows: closing the window hides LightCode⁴ to the system tray, so it keeps working (and notifying) in the
+    background. Click the tray icon to bring it back; right-click > Quit to really quit."""
+
+    def __init__(self, main_win, show, quit_all):
+        self.main_win, self.show, self.quit_all = main_win, show, quit_all
+        self.icon, self.quitting, self.told = None, False, False
+
+    def start(self) -> bool:
+        if os.name != "nt":
+            return False
+        try:
+            import pystray
+            from PIL import Image
+            img = Image.open(Path(__file__).parent / "static" / "extensions" / "chrome" / "icon128.png")
+            menu = pystray.Menu(pystray.MenuItem(f"Open {APP_NAME}", lambda: self.show(), default=True),
+                                pystray.Menu.SEPARATOR,
+                                pystray.MenuItem("Quit", lambda: self.quit()))
+            self.icon = pystray.Icon("LightCode4", img, APP_NAME, menu)
+            self.icon.run_detached()
+        except Exception as e:  # no tray: closing the window quits, as before
+            import logging
+            logging.getLogger("lightcode4").warning("Tray icon unavailable: %s", e)
+            return False
+        self.main_win.events.closing += self.on_closing
+        return True
+
+    def on_closing(self):
+        if self.quitting:
+            return True
+        try:
+            self.main_win.hide()
+        except Exception:
+            pass
+        if not self.told and self.icon is not None:
+            self.told = True
+            try:
+                self.icon.notify("Still running in the background. Click the tray icon to open it; right-click it to quit.", APP_NAME)
+            except Exception:
+                pass
+        return False  # keep running
+
+    def quit(self):
+        self.quitting = True
+        try:
+            if self.icon is not None:
+                self.icon.stop()
+        except Exception:
+            pass
+        self.quit_all()
+
+
 def hotkey_for_pynput(text: str) -> str:
     """'ctrl+alt+space' / '⌃⌥Space' / '<ctrl>+<alt>+<space>' -> pynput's '<ctrl>+<alt>+<space>'."""
     t = (text or "").strip().lower()
@@ -341,6 +393,9 @@ def main():
     session.on_hotkey = quick.listen
     mac_extras(session, quick.focus_main)
     win_extras(session, main_win)
+    tray = Tray(main_win, quick.focus_main, quit_app)
+    if tray.start():
+        session.quit_app = tray.quit  # "Quit" anywhere in the app really quits
     webview.start(lambda: quick.listen(session.config.get("quick_hotkey", DEFAULT_HOTKEY)))
     quick.stop()
     session.shutdown()
