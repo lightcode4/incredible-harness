@@ -405,7 +405,7 @@ class Chat:
         self.ws.sandbox = self.app.config.get("sandbox", "off")
         self.ws.services = self.app.services_for_tools()
         self.ws.github_token = self.app.config.get("github_token", "")
-        self.ws.env_extra = github.git_env(self.ws.github_token)
+        self.ws.env_extra = github.git_env(self.ws.github_token, self.app.config.get("github_user"))
         self.instruction_files = project_instructions(self.cwd)[1]
 
     # ---------------------------------------------------------------- events
@@ -1333,8 +1333,14 @@ class Session:
             text = (projects.context(proj) + ("\n\n" + text if text else ""))
         gh = (self.config.get("github_user") or {}).get("login") if self.config.get("github_token") else ""
         if gh:
-            text = (f"GitHub is connected as @{gh}. git push/pull over https and the gh command line are already signed in; "
-                    "github_get / github_api reach GitHub's REST API (issues, pull requests, Actions).\n\n" + text).strip()
+            text = (f"GitHub is connected as @{gh}. git push/pull over https and the gh command line are already signed in, and "
+                    "commits are made as that account automatically: never ask the user for a git name, email, token or "
+                    "password, and don't change git's user settings. github_get / github_api reach GitHub's REST API "
+                    "(issues, pull requests, Actions).\n\n" + text).strip()
+        else:
+            text = ("GitHub is not connected yet. If a task needs GitHub (push, pull request, private repository), call "
+                    "connect_github instead of asking the user for tokens, passwords or their git name and email; continue "
+                    "once they say they approved it.\n\n" + text).strip()
         return system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")), cfg.get("language", ""),
                              extras.skills(cfg["cwd"]))
 
@@ -2103,6 +2109,17 @@ class Session:
                 pass
         return info
 
+    def refresh_github_user(self):
+        """Older connections were saved without the account number used for the no-reply commit email."""
+        token, u = self.config.get("github_token"), self.config.get("github_user") or {}
+        if token and not u.get("id"):
+            try:
+                self.config["github_user"] = github.whoami(token)
+                self.save()
+                self._rebuild_tools()
+            except Exception:
+                pass
+
     def github_disconnect(self) -> dict:
         self.config.update(github_token="", github_user={})
         self.save()
@@ -2113,7 +2130,7 @@ class Session:
         for c in self.chats.values():  # new sign-in for commands, without losing the conversation
             if c.ws and not c.busy:
                 c.ws.github_token = self.config.get("github_token", "")
-                c.ws.env_extra = github.git_env(c.ws.github_token)
+                c.ws.env_extra = github.git_env(c.ws.github_token, self.config.get("github_user"))
 
     def github_repos(self) -> list[dict]:
         try:
@@ -2648,6 +2665,7 @@ def start_server(cwd: str | None = None, port: int = 0, session: Session | None 
     try:
         session.apply_config({"cwd": cwd} if cwd else {})
         if not cwd or cwd == str(Path.home()):
+            threading.Thread(target=session.refresh_github_user, daemon=True).start()
             session.resume()  # pick up the last conversation, like a proper chat app
     except Exception as e:  # e.g. no API key yet: the window opens Settings
         session.config["cwd"] = cwd or session.config["cwd"]

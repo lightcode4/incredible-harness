@@ -58,7 +58,17 @@ def api(token: str, method: str, path: str, body=None, timeout: int = 30):
 def whoami(token: str) -> dict:
     u = api(token, "GET", "/user")
     return {"login": u.get("login", ""), "name": u.get("name") or "", "avatar": u.get("avatar_url", ""),
-            "url": u.get("html_url", "")}
+            "url": u.get("html_url", ""), "id": u.get("id")}
+
+
+def identity(user: dict) -> tuple[str, str]:
+    """Commit name and GitHub's private no-reply email for the connected account (commits link to the profile)."""
+    login = (user or {}).get("login") or ""
+    if not login:
+        return "", ""
+    uid = (user or {}).get("id")
+    email = f"{uid}+{login}@users.noreply.github.com" if uid else f"{login}@users.noreply.github.com"
+    return (user.get("name") or login), email
 
 
 def repos(token: str) -> list[dict]:
@@ -89,12 +99,17 @@ def askpass_path() -> Path:
     return p
 
 
-def git_env(token: str) -> dict:
-    """Environment for commands: git over https and the gh command line sign in with the connected account."""
+def git_env(token: str, user: dict | None = None) -> dict:
+    """Environment for commands: git over https and the gh command line sign in with the connected account,
+    and commits are made as that account, so nobody has to set a name and email by hand."""
     if not token:
         return {}
-    return {"LC4_GH_TOKEN": token, "GH_TOKEN": token, "GITHUB_TOKEN": token, "GIT_ASKPASS": str(askpass_path()),
-            "GIT_TERMINAL_PROMPT": "0"}
+    env = {"LC4_GH_TOKEN": token, "GH_TOKEN": token, "GITHUB_TOKEN": token, "GIT_ASKPASS": str(askpass_path()),
+           "GIT_TERMINAL_PROMPT": "0"}
+    name, email = identity(user or {})
+    if name:
+        env.update(GIT_AUTHOR_NAME=name, GIT_COMMITTER_NAME=name, GIT_AUTHOR_EMAIL=email, GIT_COMMITTER_EMAIL=email)
+    return env
 
 
 def clone(token: str, full_name: str, parent: Path) -> Path:

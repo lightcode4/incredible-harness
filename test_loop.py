@@ -1531,7 +1531,7 @@ def main():
             if self.headers.get("Authorization") != "Bearer tok123":
                 return self._out({"message": "Bad credentials"}, 401)
             if self.path == "/user":
-                return self._out({"login": "octo", "name": "Octo Cat", "avatar_url": "", "html_url": "https://github.com/octo"})
+                return self._out({"login": "octo", "name": "Octo Cat", "avatar_url": "", "id": 42, "html_url": "https://github.com/octo"})
             if self.path.startswith("/user/repos"):
                 return self._out([{"full_name": "octo/demo", "private": True, "description": "Demo repo", "pushed_at": "2026-11-20T00:00:00Z",
                                    "html_url": "https://github.com/octo/demo", "default_branch": "main"}])
@@ -1586,7 +1586,10 @@ def main():
     assert "signed-in" in ws.run("bash", {"command": 'test "$GH_TOKEN" = tok123 && test "$GIT_TERMINAL_PROMPT" = 0 && echo signed-in'})
     assert ws.run("bash", {"command": '"$GIT_ASKPASS" "Password for https://github.com"'}).strip() == "tok123"
     assert ws.run("bash", {"command": '"$GIT_ASKPASS" "Username for https://github.com"'}).strip() == "x-access-token"
-    assert "@octo" in s.system_for({**s.config, "cwd": str(dest)})
+    assert "@octo" in s.system_for({**s.config, "cwd": str(dest)}) and "never ask the user for a git name" in s.system_for({**s.config, "cwd": str(dest)})
+    ws.run("bash", {"command": "git -c user.name='Orbit Workspace' -c user.email=workspace@local commit -q --allow-empty -m test 2>&1 || git commit -q --allow-empty -m test"})
+    who = ws.run("bash", {"command": "git log -1 --format='%an <%ae> / %cn <%ce>'"}).strip()
+    assert who == "Octo Cat <42+octo@users.noreply.github.com> / Octo Cat <42+octo@users.noreply.github.com>", who
     evs = d.run("file an issue", script=[("tool", "github_get", {"path": "/repos/octo/demo/issues"}),
                                          ("tool", "github_api", {"method": "post", "path": "/repos/octo/demo/issues", "body": {"title": "From LightCode"}}),
                                          ("text", "Filed #8.")])
@@ -1596,6 +1599,7 @@ def main():
     assert "tok123" not in json.dumps(s.current.transcript)
     s.github_disconnect()
     assert not s.github_status()["connected"] and not s.current.ws.env_extra
+    assert "call connect_github instead of asking" in s.system_for({**s.config, "cwd": str(dest)})
     os.environ.pop("LC4_GITHUB_WEB", None)
     gs.shutdown()
     print("74 GitHub connect, clone and tools OK")
