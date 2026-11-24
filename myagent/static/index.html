@@ -693,6 +693,14 @@ body.models-open #modelsView { display: block !important; }
 .chips { display: none !important; }
 #welcome .empty { font-size: 34px; }
 #dock { border-top: 0 !important; }
+#dock { position: relative; }
+#workbar { display: flex; align-items: center; gap: 8px; padding: 0 6px 8px; font-size: 12.5px; color: var(--muted); min-width: 0; }
+#workbar[hidden] { display: none; } #workbar .wbm .mascot { width: 22px; height: 20px; }
+#workbar .wbt { color: var(--text); font-weight: 500; flex: none; } #workbar .wbstep { font-family: var(--monoF); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#workbar .wbtime { font-family: var(--monoF); font-size: 11.5px; flex: none; } #workbar .wbesc { flex: none; font-size: 11px; color: var(--faint); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; }
+#jumpLatest { position: absolute; left: 50%; transform: translateX(-50%); top: -40px; display: flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+  border-radius: 999px; padding: 5px 12px 5px 9px; font-size: 12.5px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.14); z-index: 6; }
+#jumpLatest[hidden] { display: none; } #jumpLatest svg { width: 14px; height: 14px; }
 #effortRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; color: var(--muted); }
 #effortRow[hidden] { display: none; } #effortRow .artseg button { padding: 3px 8px; font-size: 12px; }
 .cbody { position: relative; }
@@ -1036,6 +1044,8 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
           <div id="scroll"><div class="col"><div id="log" role="log" aria-live="polite" aria-label="Conversation"></div></div></div>
         </div>
         <div id="dock">
+<div id="workbar" hidden><span class="wbm"></span><span class="wbt">Working…</span><span class="wbstep" id="wbStep"></span><span class="spacer"></span><span class="wbtime" id="wbTime"></span><span class="wbesc">esc to stop</span></div>
+<button id="jumpLatest" hidden aria-label="Jump to the latest message"><svg style="transform:rotate(180deg)"><use href="#i-up"/></svg>Latest</button>
 <div class="composer" id="composer">
       <div id="queueBar" hidden></div>
       <div id="atMenu" role="listbox" aria-label="Project files" hidden></div>
@@ -1344,8 +1354,14 @@ async function api(path, body) {
 const nearBottom = () => { const s = $("scroll"); return s.scrollHeight - s.scrollTop - s.clientHeight < 140; };
 function scroll(force) { const s = $("scroll"); if (force || nearBottom()) s.scrollTop = s.scrollHeight; }
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
-function add(node) { const stick = nearBottom(); $("working")?.remove(); log.appendChild(node); if (stick || replaying) scroll(true); if (busy && !replaying) showWorking(); return node; }
-function showWorking() { $("working")?.remove(); const w = el("div", "working", mascot(true) + "<span>Working…</span>"); w.id = "working"; log.appendChild(w); }
+function add(node) { const stick = nearBottom(); log.appendChild(node); if (stick || replaying) scroll(true); return node; }
+let workStart = 0, workTimer = null;
+function showWorking() {  // the work line stays pinned above the message box, wherever you scroll
+  const w = $("workbar"); if (!w.hidden) return; workStart = Date.now(); $("wbStep").textContent = ""; w.querySelector(".wbm").innerHTML = mascot(true); w.hidden = false;
+  const tick = () => { const s = Math.round((Date.now() - workStart) / 1000); $("wbTime").textContent = s < 60 ? s + "s" : Math.floor(s / 60) + "m " + (s % 60) + "s"; };
+  tick(); clearInterval(workTimer); workTimer = setInterval(tick, 1000);
+}
+function hideWorking() { $("workbar").hidden = true; clearInterval(workTimer); }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const money = v => v < 0.01 && v > 0 ? "<$0.01" : "$" + v.toFixed(2);
 const fmtTok = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(n);
@@ -1484,7 +1500,7 @@ function setBusy(b) {
   busy = b; const s = $("send");
   s.classList.toggle("stop", b); s.innerHTML = icon(b ? "stop" : "up"); s.title = b ? "Stop" : "Send (Enter)";
   updateSend();
-  if (b) showWorking(); else { endBlock(); $("working")?.remove(); }
+  if (b) showWorking(); else { endBlock(); hideWorking(); }
 }
 function updateSend() { if (!busy) $("send").disabled = !$("input").value.trim() && !pendingFiles.length; else $("send").disabled = false;
   if (busy) { const q = !!$("input").value.trim(); $("send").classList.toggle("stop", !q); $("send").innerHTML = icon(q ? "up" : "stop"); $("send").title = q ? "Queue: send when the current reply is done" : "Stop"; } }
@@ -1685,7 +1701,7 @@ function handle(ev) {
     case "end_block": endBlock(); break;
     case "notice": notice(ev.text); break;
     case "server_tool": endBlock(); { const s = add(el("div", "srv", icon(/search/.test(ev.text) ? "search" : /fetch/.test(ev.text) ? "globe" : "plug"))); s.appendChild(document.createTextNode(ev.text)); } break;
-    case "tool": toolCard(ev, false); break;
+    case "tool": toolCard(ev, false); if (!replaying && ev.summary) $("wbStep").textContent = "· " + ev.summary; break;
     case "approve": toolCard(ev, true); break;
     case "tool_result": toolResult(ev); break;
     case "todos": endBlock(); setTodos(ev.todos); break;
@@ -2108,7 +2124,7 @@ function greeting() {
 }
 function placeComposer() {
   const chatting = document.body.classList.contains("chatting");
-  if (chatting) { if (!$("dock").contains($("composer"))) { $("dock").prepend($("compbar")); $("dock").prepend($("composer")); } }
+  if (chatting) { if (!$("dock").contains($("composer")) || $("composer").previousElementSibling !== $("jumpLatest")) $("dock").prepend($("workbar"), $("jumpLatest"), $("composer"), $("compbar")); }
   else if (!$("wslot").contains($("composer"))) { $("wslot").append($("composer"), $("compbar")); }
   if (!config.plan) $("input").placeholder = defaultPH();
   if (!chatting) { $("hello").textContent = greeting(); loadRecents(); }
@@ -2230,6 +2246,11 @@ $("findNext").onclick = () => findStep(1); $("findPrev").onclick = () => findSte
 document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "f" && !e.target.closest?.("#fEdit, dialog")) { e.preventDefault(); openFind(); } });
 // ---------- export a whole project ----------
 $("pjExport").onclick = async () => { if (!pjCur) return; try { const r = await api("/api/project/export", { id: pjCur }); notice("Project saved to " + r.path); $("pjErr").textContent = ""; } catch (e) { $("pjErr").textContent = e.message; } };
+// ---------- pinned work line + jump to latest ----------
+const syncJump = () => { const sc = $("scroll"); $("jumpLatest").hidden = !document.body.classList.contains("chatting") || sc.scrollHeight - sc.scrollTop - sc.clientHeight < 240; };
+$("scroll").addEventListener("scroll", syncJump, { passive: true });
+$("jumpLatest").onclick = () => { $("scroll").scrollTo({ top: $("scroll").scrollHeight, behavior: "smooth" }); };
+new MutationObserver(syncJump).observe(log, { childList: true });
 // ---------- Artifact panel ----------
 $("artClose").onclick = closeArtifact;
 $("artPrev").onclick = () => artView("preview"); $("artShowCode").onclick = () => artView("code");

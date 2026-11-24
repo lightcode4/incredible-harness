@@ -326,7 +326,13 @@ async function overlaps(pg, label) {
       await pg.keyboard.press('Escape'); await pg.waitForTimeout(150);
       check('Esc closes find and removes highlights', !(await pg.isVisible('#findBar')) && (await pg.locator('#log mark.findhit').count()) === 0);
       // artifacts, diagrams and math in replies
-      check('While working, the mascot hops', await pg.evaluate(() => { showWorking(); const ok = !!document.querySelector('#working .mascot.work'); document.getElementById('working')?.remove(); return ok; }));
+      { const wl = await pg.evaluate(() => { showWorking(); const w = document.getElementById('workbar'), c = document.getElementById('composer');
+        const ok = !w.hidden && !!w.querySelector('.mascot.work') && w.getBoundingClientRect().bottom <= c.getBoundingClientRect().top + 2 && /\d+s/.test(document.getElementById('wbTime').textContent); const d = [w.hidden, !!w.querySelector('.mascot.work'), w.getBoundingClientRect().bottom, c.getBoundingClientRect().top, document.getElementById('wbTime').textContent]; hideWorking(); return ok || JSON.stringify(d); });
+      check('While working, a pinned work line shows the hopping mascot above the message box', wl === true, String(wl)); }
+      await pg.evaluate(() => { const sc = document.getElementById('scroll'); sc.scrollTop = 0; sc.dispatchEvent(new Event('scroll')); }); await pg.waitForTimeout(150);
+      if (await pg.evaluate(() => { const sc = document.getElementById('scroll'); return sc.scrollHeight - sc.clientHeight > 300; })) {
+        check('Scrolling up shows a Latest button', await pg.isVisible('#jumpLatest'));
+        await pg.click('#jumpLatest'); await pg.waitForTimeout(700); check('Latest jumps back down', !(await pg.isVisible('#jumpLatest'))); }
       await pg.click('#navPlay'); await pg.waitForTimeout(200);
       await pg.fill('#input', 'Show me a demo'); await pg.keyboard.press('Enter');
       await pg.waitForSelector('#artifact:not([hidden])', { timeout: 15000 });
