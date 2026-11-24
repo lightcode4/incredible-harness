@@ -184,6 +184,15 @@ def sync_project(token: str, user: dict, proj: dict, files_dir: Path, joining: b
         raise SyncError("This project isn't shared.")
     repo = HOME / "sync" / "projects" / full.replace("/", "__")
     env = checkout(token, user, full, repo)
+    changed = merge_project(repo, proj, files_dir, user, joining)
+    publish(repo, env, f"Update {proj.get('name', 'project')} {time.strftime('%Y-%m-%d %H:%M')}")
+    return {"changed": changed}
+
+
+def merge_project(repo: Path, proj: dict, files_dir: Path, user: dict, joining: bool = False) -> list[str]:
+    """Three-way merge of a project's files and settings between files_dir and repo (a folder in a checkout).
+    The state of the last sync is kept next to files_dir, so we know who changed what."""
+    repo.mkdir(parents=True, exist_ok=True)
     rfiles = repo / "files"
     rfiles.mkdir(exist_ok=True)
     files_dir.mkdir(parents=True, exist_ok=True)
@@ -224,8 +233,7 @@ def sync_project(token: str, user: dict, proj: dict, files_dir: Path, joining: b
         proj.update({k: v for k, v in remote_meta.items() if k in mine})
     elif mine != remote_meta:
         meta_p.write_text(json.dumps(mine, indent=1))
-    publish(repo, env, f"Update {proj.get('name', 'project')} {time.strftime('%Y-%m-%d %H:%M')}")
     meta_now = {k: proj.get(k, "") for k in ("name", "instructions", "color")}
     state_p.write_text(json.dumps({"files": {p.name: _hash(p) for p in files_dir.iterdir() if p.is_file()}, "meta": meta_now,
                                    "t": time.time()}))
-    return {"changed": changed}
+    return changed

@@ -532,6 +532,21 @@ body.usage-open #usageView { display: block !important; }
 .usempty { padding: 26px 8px; text-align: center; color: var(--muted); font-size: 13px; }
 body.projects-open .page > .pagehead, body.projects-open .page > .modelbar, body.projects-open .page > .grid { display: none; }
 body.projects-open #projectsView { display: block !important; }
+body.teams-open .page > .pagehead, body.teams-open .page > .modelbar, body.teams-open .page > .grid { display: none; }
+body.teams-open #teamsView { display: block !important; }
+.tmhead { display: flex; align-items: center; gap: 10px; margin: 6px 0 14px; } .tmhead h2 { margin: 0; font-size: 20px; }
+.tmcols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; } @media (max-width: 980px) { .tmcols { grid-template-columns: 1fr; } }
+.tmcol { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; min-width: 0; }
+.tmrow { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line-soft); } .tmrow:last-child { border-bottom: 0; }
+.tmav { width: 30px; height: 30px; border-radius: 50%; flex: none; background: var(--soft); display: grid; place-items: center; font: 600 12px var(--monoF); color: var(--accent); overflow: hidden; } .tmav img { width: 100%; height: 100%; }
+.tmrow .tmi { flex: 1; min-width: 0; } .tmrow b { font-size: 13.5px; } .tmrow small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tmrole { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; } .tmrole.owner { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.tminv { display: flex; gap: 6px; margin-top: 10px; } .tminv input { flex: 1; min-width: 0; }
+.tminv input, .tminv select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px; font: inherit; font-size: 13px; outline: none; }
+.tminv input:focus, .tminv select:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.tmcol > .rsec:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.tmact { font-size: 12.5px; color: var(--muted); padding: 6px 2px; border-bottom: 1px solid var(--line-soft); } .tmact b { color: var(--text); font-weight: 600; }
+.tminvite { display: flex; align-items: center; gap: 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, var(--panel)); border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
 #pjGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; padding-bottom: 20px; }
 .pjcard { min-height: 150px; } .pjcard .pjicon { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: var(--soft); color: var(--accent); }
 .pjcard .pjicon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; }
@@ -1007,6 +1022,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <div class="sesssearch"><svg><use href="#i-search"/></svg><input id="chatSearch" type="search" placeholder="Search chats…" aria-label="Search chats" spellcheck="false"></div>
     <button class="navbtn small" id="parallelChat" title="Run another agent at the same time on its own git branch and folder"><svg><use href="#i-agent"/></svg>Parallel session (worktree)</button>
     <div id="chatList"></div></div>
+  <button class="navbtn" id="navTeams"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 13.7c3 .2 5.5 2.1 5.5 5.3"/></svg>Teams</button>
   <button class="navbtn" id="navProjects"><svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 10.5h17"/></svg>Projects</button>
   <button class="navbtn" data-set="model"><svg><use href="#i-brain"/></svg>Models</button>
   <div class="more" id="more">
@@ -1082,6 +1098,25 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <div class="uscard"><div class="ushead"><b id="usChartTitle">Cost per day</b><button class="linkbtn" id="usTableBtn">Show as table</button></div>
         <div id="usChart"></div><div id="usTip" role="tooltip" hidden></div><div id="usDayTable" hidden></div></div>
       <div class="uscard"><div class="ushead"><b>By model</b><small id="usUnpriced"></small></div><div id="usModels"></div></div>
+    </section>
+    <section id="teamsView" hidden>
+      <div class="pagehead"><div><div class="eyebrow">Work together</div><h1 class="serif">Teams</h1>
+        <p class="sub">Share projects and chats with the people you work with. Each team lives in a private repository on GitHub.</p></div>
+        <span class="spacer"></span><button class="btn primary" id="tmNew"><svg><use href="#i-plus"/></svg>New team</button><button class="btn" id="tmBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+      <div id="tmInvites"></div>
+      <div id="tmGrid" class="pgrid"></div>
+      <div id="tmDetail" hidden>
+        <div class="tmhead"><button class="btn small ghost" id="tmAll">← All teams</button><h2 id="tmName"></h2><span class="spacer"></span>
+          <small id="tmSynced" style="color:var(--muted)"></small><button class="btn small" id="tmSync">Sync now</button></div>
+        <div class="tmcols">
+          <div class="tmcol"><div class="rsec">Members</div><div id="tmMembers"></div>
+            <div class="tminv" id="tmInviteBox"><input id="tmWho" placeholder="GitHub username" spellcheck="false"><select id="tmRole"><option value="member">Member</option><option value="owner">Owner</option></select><button class="btn small primary" id="tmInvite">Invite</button></div></div>
+          <div class="tmcol"><div class="rsec">Projects</div><div id="tmProjects"></div><button class="btn small" id="tmNewProject" style="margin-top:8px"><svg><use href="#i-plus"/></svg>New team project</button>
+            <div class="rsec" style="margin-top:18px">Shared chats</div><div id="tmChats"></div><button class="btn small" id="tmShareChat" style="margin-top:8px">Share the chat I have open</button></div>
+          <div class="tmcol"><div class="rsec">Activity</div><div id="tmActivity"></div></div>
+        </div>
+        <button class="btn small ghost" id="tmLeave" style="margin-top:18px">Leave this team</button>
+      </div>
     </section>
     <section id="projectsView" hidden>
       <div class="pagehead"><div><div class="eyebrow">Your work, together</div><h1 class="serif">Projects</h1>
@@ -1948,7 +1983,7 @@ function replay(ev) {
   if (ev.chat?.mode) setModeUI(ev.chat.mode); if (typeof showQueue === "function") showQueue(ev.queue || []);
   if ((ev.chat?.id || null) !== currentChat) { $("scLog").innerHTML = ""; scAdd(el("div", "aempty", "Ask anything about this session. Side chat can read and search, but never edits files or runs commands.")); sideCur = null; }
   currentChat = ev.chat?.id || null; compactions = ev.compactions || 0;
-  document.body.classList.remove("projects-open", "usage-open", "gallery-open");
+  document.body.classList.remove("projects-open", "usage-open", "gallery-open", "teams-open");
   log.innerHTML = ""; endBlock(); Object.keys(tools).forEach(k => delete tools[k]);
   const wt = ev.chat?.worktree; $("wtPill").hidden = !wt; if (wt) $("wtName").textContent = wt.branch;
   undoable = new Set(ev.undoable || []);
@@ -2663,11 +2698,11 @@ async function runSearch() {
 let pjData = { projects: [], chats: [] }, pjCur = null;
 const pjIcon = '<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 10.5h17"/></svg>';
 async function openProjects(pid) {
-  document.body.classList.remove("models-open", "usage-open", "gallery-open");
+  document.body.classList.remove("models-open", "usage-open", "gallery-open", "teams-open");
   closePanel(); document.body.classList.add("projects-open"); $("crumbHere").textContent = "Projects";
   navSet("navProjects"); await loadProjects(); pid ? showProject(pid) : showProjectGrid();
 }
-function closeProjects() { document.body.classList.remove("projects-open"); }
+function closeProjects() { document.body.classList.remove("projects-open", "teams-open"); }  // also leaves Teams
 async function loadProjects() { try { pjData = await api("/api/projects"); } catch (e) { notice(e.message); } }
 function showProjectGrid() {
   pjCur = null; $("pjDetail").hidden = true; $("pjGrid").hidden = false; const g = $("pjGrid"); g.innerHTML = "";
@@ -2701,6 +2736,80 @@ function renderPjFiles(files) {
     r.appendChild(x); box.appendChild(r); });
 }
 $("navProjects").onclick = () => openProjects();
+// ---------- Teams ----------
+let tmData = { teams: [], invitations: [] }, tmCur = null;
+const ago = t => { if (!t) return "never"; const s = Date.now() / 1000 - t; return s < 90 ? "just now" : s < 3600 ? Math.round(s / 60) + " min ago" : s < 86400 ? Math.round(s / 3600) + " h ago" : new Date(t * 1000).toLocaleDateString(); };
+async function openTeams(repo) {
+  document.body.classList.remove("models-open", "usage-open", "gallery-open", "projects-open");
+  closePanel(); document.body.classList.add("teams-open"); $("crumbHere").textContent = "Teams"; navSet("navTeams");
+  await loadTeams(); repo ? showTeam(repo) : showTeamGrid();
+}
+function closeTeams() { document.body.classList.remove("teams-open"); }
+async function loadTeams() { try { tmData = await api("/api/teams"); } catch (e) { notice(e.message); } }
+function showTeamGrid() {
+  tmCur = null; $("tmDetail").hidden = true; $("tmGrid").hidden = false; const g = $("tmGrid"); g.innerHTML = "";
+  const inv = $("tmInvites"); inv.innerHTML = "";
+  if (!tmData.connected) { inv.appendChild(el("div", "tminvite", `<span style="flex:1">Teams use your GitHub account to invite people and keep everyone's projects in sync.</span>`));
+    const b = el("button", "btn small primary", "Connect GitHub"); b.onclick = () => openSettings("github"); inv.firstChild.appendChild(b); }
+  (tmData.invitations || []).forEach(i => { const r = el("div", "tminvite", `<span style="flex:1"><b>@${esc(i.from)}</b> invited you to the team <b>${esc(i.name)}</b></span>`);
+    const b = el("button", "btn small primary", "Join"); b.onclick = async () => { b.disabled = true; b.textContent = "Joining…";
+      try { await api("/api/team/accept", { id: i.id, repo: i.repo }); await loadTeams(); showTeam(i.repo); notice(`You joined ${i.name}.`); } catch (e) { notice(e.message); b.disabled = false; b.textContent = "Join"; } };
+    r.appendChild(b); inv.appendChild(r); });
+  (tmData.teams || []).forEach(t => { const n = (t.members || []).length;
+    const c = el("button", "pcard pjcard", `<span class="pjicon">${icon("plus").replace(/<svg/, "<svg style='display:none'")}</span><h3></h3><p></p><div class="pfoot"><span>${n || "?"} member${n === 1 ? "" : "s"}</span><span>${(t.projects || []).length} project${(t.projects || []).length === 1 ? "" : "s"}</span></div>`);
+    c.querySelector("h3").textContent = t.name; c.querySelector("p").textContent = t.repo; c.onclick = () => showTeam(t.repo); g.appendChild(c); });
+  const add = el("button", "pcard pjcard add", `${icon("plus")}<span>New team</span>`); add.onclick = () => $("tmNew").click(); g.appendChild(add);
+}
+function drawTeam(t) {
+  $("tmName").textContent = t.name || "Team"; $("tmSynced").textContent = t.synced ? "Synced " + ago(t.synced) : "";
+  const me = tmData.me, owner = (t.members || []).some(m => m.login === me && m.role === "owner");
+  $("tmInviteBox").hidden = !owner; $("tmLeave").hidden = (t.repo || "").split("/")[0] === me;
+  const mb = $("tmMembers"); mb.innerHTML = "";
+  (t.members || []).forEach(m => { const r = el("div", "tmrow", `<span class="tmav"></span><span class="tmi"><b></b> <span class="tmrole ${m.role}">${m.role}</span><small></small></span>`);
+    const av = r.querySelector(".tmav"); if (m.avatar) av.innerHTML = `<img alt="" src="${esc(m.avatar)}">`; else av.textContent = (m.name || m.login).slice(0, 1).toUpperCase();
+    r.querySelector("b").textContent = (m.name || m.login) + (m.login === me ? " (you)" : "");
+    r.querySelector("small").textContent = !m.joined ? `@${m.login} · invited, hasn't joined yet` : `@${m.login} · ${m.working_on ? "on " + m.working_on + " · " : ""}active ${ago(m.t)}`;
+    if (owner && m.login !== me && m.login !== (t.repo || "").split("/")[0]) { const x = el("button", "iconbtn", icon("x")); x.title = "Remove from team";
+      x.onclick = async () => { if (!confirm(`Remove @${m.login} from ${t.name}?`)) return; try { drawTeam(await api("/api/team/remove", { repo: t.repo, who: m.login })); } catch (e) { notice(e.message); } }; r.appendChild(x); }
+    mb.appendChild(r); });
+  const pj = $("tmProjects"); pj.innerHTML = "";
+  if (!(t.projects || []).length) pj.appendChild(el("div", "aempty", "No team projects yet."));
+  (t.projects || []).forEach(p => { const r = el("button", "chathit", "<b></b>"); r.querySelector("b").textContent = p.name || "Project"; r.onclick = () => { closeTeams(); openProjects(p.id); }; pj.appendChild(r); });
+  const ch = $("tmChats"); ch.innerHTML = "";
+  if (!(t.chats || []).length) ch.appendChild(el("div", "aempty", "Nobody has shared a chat yet."));
+  (t.chats || []).forEach(c => { const r = el("div", "tmrow", `<span class="tmi"><b></b><small></small></span>`); r.querySelector("b").textContent = c.title;
+    r.querySelector("small").textContent = `shared by @${c.by}` + (c.updated ? " · " + ago(c.updated) : "");
+    const b = el("button", "btn small", c.by === me ? "Stop sharing" : "Open a copy");
+    b.onclick = async () => { try { if (c.by === me) drawTeam(await api("/api/team/share-chat", { repo: t.repo, chat: c.id, on: false }));
+      else { await api("/api/team/open-chat", { repo: t.repo, id: c.id }); closeTeams(); navSet("navPlay"); } } catch (e) { notice(e.message); } };
+    r.appendChild(b); ch.appendChild(r); });
+  const ac = $("tmActivity"); ac.innerHTML = "";
+  if (!(t.activity || []).length) ac.appendChild(el("div", "aempty", "Nothing yet."));
+  (t.activity || []).slice(0, 40).forEach(a => { const r = el("div", "tmact", `<b></b> <span></span> · ${ago(a.t)}`); r.querySelector("b").textContent = "@" + a.who; r.querySelector("span").textContent = a.text; ac.appendChild(r); });
+}
+async function showTeam(repo) {
+  tmCur = repo; $("tmGrid").hidden = true; $("tmInvites").innerHTML = ""; $("tmDetail").hidden = false;
+  const t = (tmData.teams || []).find(x => x.repo === repo) || { repo, name: "Team" }; drawTeam(t);
+  if (!t.synced) $("tmSync").click();
+}
+$("navTeams").onclick = () => openTeams();
+$("tmBack").onclick = () => { closeTeams(); navSet("navPlay"); setTab("chat"); };
+$("tmAll").onclick = async () => { await loadTeams(); showTeamGrid(); };
+$("tmSync").onclick = async () => { const b = $("tmSync"); b.disabled = true; b.textContent = "Syncing…";
+  try { const t = await api("/api/team/sync", { repo: tmCur }); const i = tmData.teams.findIndex(x => x.repo === tmCur); if (i >= 0) tmData.teams[i] = { ...tmData.teams[i], ...t, synced: Date.now() / 1000 }; drawTeam({ ...t, synced: Date.now() / 1000 }); }
+  catch (e) { notice(e.message); } finally { b.disabled = false; b.textContent = "Sync now"; } };
+$("tmNew").onclick = async () => { if (!tmData.connected) return openSettings("github"); const name = prompt("Team name:", ""); if (!name) return;
+  try { const t = await api("/api/team/create", { name }); await loadTeams(); showTeam(t.repo); notice(`Created ${name}. Invite people by their GitHub username.`); } catch (e) { notice(e.message); } };
+$("tmInvite").onclick = async () => { const who = $("tmWho").value.trim(); if (!who) return $("tmWho").focus(); $("tmInvite").disabled = true;
+  try { drawTeam(await api("/api/team/invite", { repo: tmCur, who, role: $("tmRole").value })); $("tmWho").value = ""; notice(`Invited @${who.replace(/^@/, "")}. They'll see it under Teams in LightCode⁴ (and in their GitHub email).`); }
+  catch (e) { notice(e.message); } finally { $("tmInvite").disabled = false; } };
+$("tmWho").onkeydown = e => { if (e.key === "Enter") $("tmInvite").click(); };
+$("tmNewProject").onclick = async () => { const name = prompt("Project name:", ""); if (!name) return;
+  try { const r = await api("/api/team/project", { repo: tmCur, name }); closeTeams(); openProjects(r.project.id); } catch (e) { notice(e.message); } };
+$("tmShareChat").onclick = async () => { if (!currentChat) return notice("Open a chat first, then share it from here.");
+  try { drawTeam(await api("/api/team/share-chat", { repo: tmCur, chat: currentChat, on: true })); notice("Shared with the team."); } catch (e) { notice(e.message); } };
+$("tmLeave").onclick = async () => { if (!confirm("Leave this team? Its projects are removed from this computer.")) return;
+  try { await api("/api/team/remove", { repo: tmCur, who: tmData.me }); await loadTeams(); showTeamGrid(); } catch (e) { notice(e.message); } };
 $("pjBack").onclick = () => { closeProjects(); navSet("navPlay"); setTab("chat"); };
 $("pjNew").onclick = () => { if (!document.body.classList.contains("projects-open")) openProjects(); showProject(null); };
 $("pjSave").onclick = async () => {
@@ -3160,7 +3269,7 @@ const CONN_BLURB = { Linear: "Issues and projects. Sign in with one click.", Not
   GitHub: "Repositories, issues and pull requests (needs a token).", "Files (another folder)": "Let the agent read and write a folder outside the project.",
   "SQLite database": "Query a local SQLite database.", Postgres: "Query a PostgreSQL database.", Slack: "Read and post Slack messages (needs a bot token)." };
 async function openGallery() {
-  document.body.classList.remove("models-open", "projects-open", "usage-open"); closePanel(); document.body.classList.add("gallery-open");
+  document.body.classList.remove("models-open", "projects-open", "usage-open", "teams-open"); closePanel(); document.body.classList.add("gallery-open");
   $("crumbHere").textContent = "Skills & connectors"; navSet("navGallery"); await loadGallery();
 }
 function closeGallery() { document.body.classList.remove("gallery-open"); }
@@ -3218,7 +3327,7 @@ $("navGallery").onclick = e => { e.stopPropagation(); openGallery(); };
 $("gaBack").onclick = () => { closeGallery(); navSet("navPlay"); setTab("chat"); };
 let usDays = 30, usData = null, usTable = false;
 async function openUsage() {
-  document.body.classList.remove("models-open", "projects-open", "gallery-open"); closePanel(); document.body.classList.add("usage-open");
+  document.body.classList.remove("models-open", "projects-open", "gallery-open", "teams-open"); closePanel(); document.body.classList.add("usage-open");
   $("crumbHere").textContent = "Usage & cost"; navSet("navUsage"); await loadUsage();
 }
 function closeUsage() { document.body.classList.remove("usage-open"); }

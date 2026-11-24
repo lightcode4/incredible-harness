@@ -31,7 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, bridge, extras, gallery, github, gitops, lsp, market, projects, sync
+from . import __version__, bridge, extras, gallery, github, gitops, lsp, market, projects, sync, teams
 from .catalog import BY_ID as PROVIDER_BY_ID, PROVIDERS, guess_service
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
@@ -1260,7 +1260,7 @@ class Session:
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
                        "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code", "services": {},
-                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "",
+                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "", "teams": [], "team_shares": {},
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.set_badge = None  # set by the desktop app (Dock badge)
@@ -1272,9 +1272,9 @@ class Session:
         self.new_window = None  # set by the desktop app: opens another window
         self.pending: dict[str, tuple[threading.Event, dict]] = {}
         self.preview_opener = webbrowser.open
-        self.open_url = webbrowser.open
+        self.open_url = webbrowser.open  # GitHub sign-in page etc. (tests replace it)
         self.chrome = bridge.ChromeBridge()
-        self._sync_lock = threading.Lock()  # GitHub sign-in page etc. (tests replace it)
+        self._sync_lock = threading.RLock()  # one sync with GitHub at a time
         self.browser = Browser(HOME / "browser", self._browser_frame, self._browser_state)
         self.browser_url = ""
         self.computer = Computer()
@@ -2051,6 +2051,11 @@ class Session:
                             if self.current is live:
                                 self.current = None
                                 self.open_chat(cid)
+                for t in list(self.config.get("teams") or []):
+                    try:
+                        self.team_sync(t["repo"])
+                    except Exception:
+                        pass
                 for proj in self.config.get("projects") or []:
                     if proj.get("shared"):
                         sync.sync_project(token, user, proj, projects.folder(proj["id"]))
@@ -2064,11 +2069,117 @@ class Session:
 
     def _sync_loop(self):
         while not self._sched_stop.wait(300):
-            if self.config.get("github_token") and (self.config.get("sync_chats") or any(p.get("shared") for p in self.config.get("projects") or [])):
+            if self.config.get("github_token") and (self.config.get("sync_chats") or self.config.get("teams") or any(p.get("shared") for p in self.config.get("projects") or [])):
                 try:
                     self.sync_now()
                 except Exception:
                     pass
+
+    # ---------------------------------------------------------------- teams
+    def _gh(self):
+        return self.config.get("github_token", ""), self.config.get("github_user") or {}
+
+    def _team_call(self, fn, *a):
+        try:
+            with self._sync_lock:
+                return fn(*a)
+        except (teams.TeamError, sync.SyncError, github.GitHubError) as e:
+            raise ValueError(str(e))
+
+    def team_list(self) -> dict:
+        token, user = self._gh()
+        invites = []
+        if token:
+            try:
+                invites = teams.invitations(token)
+                mine = {t["repo"] for t in self.config.get("teams") or []}
+                for r in github.repos(token):  # teams you're already in (e.g. joined on another computer)
+                    if r["full_name"].split("/")[1].startswith(teams.PREFIX) and r["full_name"] not in mine:
+                        self.config.setdefault("teams", []).append({"repo": r["full_name"], "name": r["full_name"].split("/")[1][len(teams.PREFIX):].replace("-", " ").title()})
+            except Exception:
+                pass
+        cache = getattr(self, "team_cache", {})
+        return {"connected": bool(token), "me": user.get("login", ""), "invitations": invites,
+                "teams": [{**t, **cache.get(t["repo"], {})} for t in self.config.get("teams") or []]}
+
+    def team_create(self, name: str) -> dict:
+        full = self._team_call(teams.create, *self._gh(), name)
+        self.config.setdefault("teams", []).append({"repo": full, "name": name.strip() or "Team"})
+        self.save()
+        return self.team_sync(full)
+
+    def team_accept(self, inv_id: int, full: str) -> dict:
+        self._team_call(teams.accept, *self._gh(), inv_id, full)
+        if full not in {t["repo"] for t in self.config.get("teams") or []}:
+            self.config.setdefault("teams", []).append({"repo": full, "name": full.split("/")[1][len(teams.PREFIX):].replace("-", " ").title()})
+        self.save()
+        return self.team_sync(full)
+
+    def team_invite(self, full: str, who: str, role: str) -> dict:
+        self._team_call(teams.invite, *self._gh(), full, who, role)
+        return self.team_sync(full)
+
+    def team_remove(self, full: str, who: str) -> dict:
+        self._team_call(teams.remove, *self._gh(), full, who)
+        if who == self._gh()[1].get("login"):  # I left
+            self.config["teams"] = [t for t in self.config.get("teams") or [] if t["repo"] != full]
+            self.config["projects"] = [p for p in self.config.get("projects") or [] if p.get("team") != full]
+            teams.forget(full)
+            self.save()
+            return {}
+        return self.team_sync(full)
+
+    def team_sync(self, full: str) -> dict:
+        token, user = self._gh()
+        mine = [p for p in self.config.get("projects") or [] if p.get("team") == full]
+        shared = {cid: 1 for cid, r in (self.config.get("team_shares") or {}).items() if r == full}
+        cur = self.current
+        working = (cur.title or "a new chat") if cur and cur.project in {p["id"] for p in mine} else ""
+        for c in list(self.chats.values()):
+            if c.id in shared and not c.busy:
+                c.save()
+        r = self._team_call(teams.sync_team, token, user, full, mine, projects.folder, shared, CHATS, working)
+        for np in r["new_projects"]:  # a teammate's new project appears here too
+            if not re.fullmatch(r"p[0-9a-f]{8}", np["id"]):
+                continue
+            self.config.setdefault("projects", []).append({**np, "team": full, "created": time.time(), "files": []})
+        team = next((t for t in self.config.get("teams") or [] if t["repo"] == full), None)
+        if team:
+            team["name"] = r["summary"]["name"]
+        self.team_cache = {**getattr(self, "team_cache", {}), full: {**r["summary"], "synced": time.time()}}
+        self.save()
+        return {"repo": full, **r["summary"]}
+
+    def team_project(self, full: str, name: str) -> dict:
+        proj = self.save_project({"name": name or "Team project"})
+        proj["team"] = full
+        self.save()
+        self._team_call(teams.note, *self._gh(), full, f"started the project {proj['name']}")
+        self.team_sync(full)
+        return proj
+
+    def team_share_chat(self, chat_id: str, full: str, on: bool) -> dict:
+        shares = self.config.setdefault("team_shares", {})
+        if on:
+            shares[chat_id] = full
+        else:
+            shares.pop(chat_id, None)
+        self.save()
+        title = (self.chats.get(chat_id).title if self.chats.get(chat_id) else "") or "a chat"
+        if on:
+            self._team_call(teams.note, *self._gh(), full, f"shared the chat “{title}”")
+        return self.team_sync(full)
+
+    def team_open_chat(self, full: str, chat_id: str, client: str = "") -> str:
+        """Open a teammate's shared chat as your own copy, to read it and carry on from there."""
+        data = self._team_call(teams.read_shared_chat, full, chat_id)
+        chat = self._new_chat_obj(self.config["cwd"], title=f"From @{data.get('shared_by', 'team')}: {data.get('title', 'chat')}"[:80])
+        chat.provider.restore(data.get("messages") or [])
+        chat.transcript = [{**e, "chat": chat.id} for e in data.get("transcript") or []]
+        chat.notice(f"A copy of @{data.get('shared_by', 'a teammate')}'s shared chat. Changes here stay yours.")
+        chat.save()
+        self.select(chat, client)
+        return chat.id
 
     def share_project(self, pid: str, invite: list[str]) -> str:
         proj = self.project_by_id(pid)
@@ -2559,6 +2670,24 @@ def make_handler(session: Session, token: str):
                         session.config["sync_chats"] = bool(data["chats"])
                         session.save()
                     result = session.sync_now() if data.get("now") or data.get("chats") else session.config.get("last_sync") or {}
+                elif path == "/api/teams":
+                    result = session.team_list()
+                elif path == "/api/team/create":
+                    result = session.team_create(str(data.get("name", "")))
+                elif path == "/api/team/accept":
+                    result = session.team_accept(int(data.get("id", 0)), str(data.get("repo", "")))
+                elif path == "/api/team/invite":
+                    result = session.team_invite(str(data.get("repo", "")), str(data.get("who", "")), str(data.get("role", "member")))
+                elif path == "/api/team/remove":
+                    result = session.team_remove(str(data.get("repo", "")), str(data.get("who", "")))
+                elif path == "/api/team/sync":
+                    result = session.team_sync(str(data.get("repo", "")))
+                elif path == "/api/team/project":
+                    result = {"project": session.team_project(str(data.get("repo", "")), str(data.get("name", "")))}
+                elif path == "/api/team/share-chat":
+                    result = session.team_share_chat(str(data.get("chat") or (chat.id if chat else "")), str(data.get("repo", "")), bool(data.get("on", True)))
+                elif path == "/api/team/open-chat":
+                    result = {"chat": session.team_open_chat(str(data.get("repo", "")), str(data.get("id", "")), client)}
                 elif path == "/api/project/delete":
                     session.delete_project(str(data.get("id")))
                 elif path == "/api/project/file":

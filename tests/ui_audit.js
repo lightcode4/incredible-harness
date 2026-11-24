@@ -146,6 +146,10 @@ async function overlaps(pg, label) {
       for (const t of ['model', 'tools', 'perms', 'instr', 'memory', 'sched', 'mcp', 'services', 'github', 'phone', 'about']) {
         await pg.click(`#tabs button[data-p="${t}"]`); await pg.waitForTimeout(120); await overlaps(pg, `settings ${t}`);
       }
+      await pg.click('#cancelSettings'); await pg.click('#navTeams'); await pg.waitForTimeout(500);
+      check('Teams page opens with New team and asks to connect GitHub first', await pg.isVisible('#teamsView') && await pg.isVisible('#tmNew') && (await pg.innerText('#tmInvites')).includes('Connect GitHub'));
+      await overlaps(pg, 'teams page');
+      await pg.click('#tmBack'); await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
       await pg.click('#tabs button[data-p="github"]');
       await pg.waitForTimeout(300);
       check('GitHub pane offers Sign in with GitHub, with a token as the fallback', await pg.isVisible('#ghSignIn') && (await pg.locator('#ghAlt summary').innerText()).includes('token'));
@@ -280,8 +284,8 @@ async function overlaps(pg, label) {
       await pg.fill('#chatSearch', ''); await pg.waitForTimeout(500);
       // projects
       await pg.click('#navProjects'); await pg.waitForTimeout(400);
-      check('Projects opens the Projects page', await pg.isVisible('#projectsView') && await pg.isVisible('.pjcard.add'));
-      await pg.click('.pjcard.add'); await pg.fill('#pjName', 'Website'); await pg.fill('#pjInstr', 'Use British spelling.');
+      check('Projects opens the Projects page', await pg.isVisible('#projectsView') && await pg.isVisible('#pjGrid .pjcard.add'));
+      await pg.click('#pjGrid .pjcard.add'); await pg.fill('#pjName', 'Website'); await pg.fill('#pjInstr', 'Use British spelling.');
       await pg.click('#pjSave'); await pg.waitForTimeout(600);
       check('A project can be created', !(await pg.isDisabled('#pjChat')) && (await pg.inputValue('#pjName')) === 'Website', await pg.innerText('#pjErr'));
       await overlaps(pg, 'project page');

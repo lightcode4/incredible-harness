@@ -1919,6 +1919,103 @@ def main():
         pass
     srv82.shutdown()
     print("82 editor extensions OK")
+    # 83. teams: create, invite, accept in the app, team projects both ways, shared chats, presence, activity, roles
+    from myagent import teams as tm, sync as sy3, github as gh3
+    troot = Path(tempfile.mkdtemp())
+    invites83, users = [], {"tok-octo": "octo", "tok-bob": "bob"}
+    class TM(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+        def _who(self):
+            return users.get(self.headers.get("Authorization", "").replace("Bearer ", ""), "")
+        def _out(self, obj, code=200):
+            b = json.dumps(obj).encode(); self.send_response(code); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        def _body(self):
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            return json.loads(self.rfile.read(n) or b"{}") if n else {}
+        def do_GET(self):
+            if self.path == "/user/repository_invitations":
+                return self._out([{"id": i["id"], "repository": {"full_name": i["repo"], "name": i["repo"].split("/")[1]}, "inviter": {"login": "octo"}}
+                                  for i in invites83 if i["to"] == self._who() and not i["done"]])
+            if self.path.startswith("/user/repos"):
+                return self._out([])
+            m = re.match(r"^/repos/([\w.-]+)/([\w.-]+)$", self.path)
+            return self._out({"ok": 1}) if m and (troot / m.group(1) / (m.group(2) + ".git")).is_dir() else self._out({"message": "Not Found"}, 404)
+        def do_POST(self):
+            body = self._body()
+            bare = troot / self._who() / (body["name"] + ".git")
+            seed = Path(tempfile.mkdtemp())
+            for c in (["init", "-q", "-b", "main"], ["-c", "user.email=a@b", "-c", "user.name=A", "commit", "-q", "--allow-empty", "-m", "init"]):
+                subprocess.run(["git", *c], cwd=seed, check=True)
+            subprocess.run(["git", "clone", "-q", "--bare", str(seed), str(bare)], check=True)
+            self._out({}, 201)
+        def do_PUT(self):
+            self._body()
+            m = re.match(r"^/repos/([\w.-]+/[\w.-]+)/collaborators/([\w-]+)$", self.path)
+            invites83.append({"id": len(invites83) + 1, "repo": m.group(1), "to": m.group(2), "done": False}); self._out({}, 201)
+        def do_PATCH(self):
+            self._body()
+            for i in invites83:
+                if self.path.endswith(f"/{i['id']}"):
+                    i["done"] = True
+            self._out({}, 204)
+        def do_DELETE(self):
+            self._body(); self._out({}, 204)
+    tsrv = ThreadingHTTPServer(("127.0.0.1", 0), TM)
+    threading.Thread(target=tsrv.serve_forever, daemon=True).start()
+    gh3.API = f"http://127.0.0.1:{tsrv.server_port}"
+    os.environ["LC4_GITHUB_WEB"] = troot.as_uri()
+    octo = {"login": "octo", "name": "Octo", "id": 1}; bob = {"login": "bob", "name": "Bob", "id": 2}
+    hA, hB = Path(tempfile.mkdtemp()), Path(tempfile.mkdtemp())
+    def as_(h):
+        sy3.HOME = h
+    as_(hA)
+    full = tm.create("tok-octo", octo, "Design Team")
+    assert full == "octo/lc4-team-design-team"
+    tm.invite("tok-octo", octo, full, "@bob")
+    as_(hB)
+    inv = tm.invitations("tok-bob")
+    assert inv == [{"id": 1, "repo": full, "from": "octo", "name": "Design Team"}]
+    try:
+        tm.invite("tok-bob", bob, full, "carol"); raise AssertionError("only owners invite")
+    except tm.TeamError:
+        pass
+    tm.accept("tok-bob", bob, 1, full)
+    # octo: a team project with a file, and a shared chat
+    as_(hA)
+    pA = {"id": "p00000001", "name": "Website", "instructions": "Use the brand voice."}
+    fA = hA / "projects" / "p00000001" / "files"; fA.mkdir(parents=True); (fA / "brief.md").write_text("v1")
+    cA = hA / "chats"; cA.mkdir()
+    (cA / "c1.json").write_text(json.dumps({"id": "c1", "title": "Homepage copy", "updated": 5, "messages": [{"role": "user", "content": "hi"}], "transcript": []}))
+    r = tm.sync_team("tok-octo", octo, full, [pA], lambda pid: hA / "projects" / pid / "files", {"c1": 1}, cA, "Homepage copy")
+    sm = r["summary"]
+    roles = {m["login"]: (m["role"], m["joined"]) for m in sm["members"]}
+    assert roles == {"octo": ("owner", True), "bob": ("member", True)}, roles
+    assert [c["title"] for c in sm["chats"]] == ["Homepage copy"] and sm["chats"][0]["by"] == "octo"
+    texts = [a["text"] for a in sm["activity"]]
+    assert "joined the team" in texts and "invited @bob as member" in texts and "created the team Design Team" in texts
+    # bob: gets the project and its file, edits it
+    as_(hB)
+    r = tm.sync_team("tok-bob", bob, full, [], lambda pid: hB / "projects" / pid / "files", {}, hB / "chats")
+    assert [p["name"] for p in r["new_projects"]] == ["Website"] and (hB / "projects" / "p00000001" / "files" / "brief.md").read_text() == "v1"
+    pB = {**r["new_projects"][0]}
+    assert pB["instructions"] == "Use the brand voice."
+    (hB / "projects" / "p00000001" / "files" / "brief.md").write_text("v2 by bob")
+    tm.sync_team("tok-bob", bob, full, [pB], lambda pid: hB / "projects" / pid / "files", {}, hB / "chats", "Website")
+    as_(hA)
+    r = tm.sync_team("tok-octo", octo, full, [pA], lambda pid: hA / "projects" / pid / "files", {}, cA)
+    assert (fA / "brief.md").read_text() == "v2 by bob", "a teammate's edit arrives"
+    assert r["summary"]["chats"] == [], "stopping sharing removes the chat from the team"
+    who = {m["login"]: m["working_on"] for m in r["summary"]["members"]}
+    assert who["bob"] == "Website"
+    tm.remove("tok-octo", octo, full, "bob")
+    as_(hA)
+    r = tm.sync_team("tok-octo", octo, full, [pA], lambda pid: hA / "projects" / pid / "files", {}, cA)
+    assert [m["login"] for m in r["summary"]["members"]] == ["octo"]
+    sy3.HOME = ex.HOME
+    os.environ.pop("LC4_GITHUB_WEB", None)
+    tsrv.shutdown()
+    print("83 teams OK")
     print("ALL TESTS PASSED")
 
 
