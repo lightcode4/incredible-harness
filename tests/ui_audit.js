@@ -149,7 +149,7 @@ async function overlaps(pg, label) {
       await pg.click('#cancelSettings'); await pg.click('#navTeams'); await pg.waitForTimeout(500);
       check('Teams page opens with New team and asks to connect GitHub first', await pg.isVisible('#teamsView') && await pg.isVisible('#tmNew') && (await pg.innerText('#tmInvites')).includes('Connect GitHub'));
       await overlaps(pg, 'teams page');
-      await pg.click('#tmBack'); await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
+      await pg.click('#navPlay'); await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
       await pg.click('#tabs button[data-p="github"]');
       await pg.waitForTimeout(300);
       check('GitHub pane offers Sign in with GitHub, with a token as the fallback', await pg.isVisible('#ghSignIn') && (await pg.locator('#ghAlt summary').innerText()).includes('token'));

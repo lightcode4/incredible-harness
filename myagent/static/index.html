@@ -534,29 +534,71 @@ body.projects-open .page > .pagehead, body.projects-open .page > .modelbar, body
 body.projects-open #projectsView { display: block !important; }
 body.teams-open .page > .pagehead, body.teams-open .page > .modelbar, body.teams-open .page > .grid { display: none; }
 body.teams-open #teamsView { display: block !important; }
-.tmhead { display: flex; align-items: center; gap: 10px; margin: 6px 0 14px; } .tmhead h2 { margin: 0; font-size: 20px; }
-.tmcols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; } @media (max-width: 980px) { .tmcols { grid-template-columns: 1fr; } }
-.tmcol { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; min-width: 0; }
-.tmrow { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line-soft); } .tmrow:last-child { border-bottom: 0; }
-.tmav { width: 30px; height: 30px; border-radius: 50%; flex: none; background: var(--soft); display: grid; place-items: center; font: 600 12px var(--monoF); color: var(--accent); overflow: hidden; } .tmav img { width: 100%; height: 100%; }
-.tmrow .tmi { flex: 1; min-width: 0; } .tmrow b { font-size: 13.5px; } .tmrow small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tmrole { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; } .tmrole.owner { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
-.tminv { display: flex; gap: 6px; margin-top: 10px; } .tminv input { flex: 1; min-width: 0; }
-.tminv input, .tminv select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 6px 10px; font: inherit; font-size: 13px; outline: none; }
+body.team-detail #teamsView > .pagehead { display: none; }
+/* ---- Teams ---- */
+.tmtop { display: flex; align-items: center; gap: 12px; margin: 4px 0 16px; }
+.tmbadge { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; font: 700 19px var(--serifF, Georgia, serif); color: #2b2012;
+  background: linear-gradient(145deg, #f3d58a, #d9a441); box-shadow: inset 0 -2px 0 rgba(0,0,0,.12), 0 6px 18px -8px rgba(217,164,65,.6); flex: none; }
+.tmtitle h2 { margin: 0; font-size: 21px; letter-spacing: -.01em; } .tmtitle small { color: var(--muted); font-size: 12.5px; }
+.tmfaces { display: flex; padding-left: 8px; } .tmfaces .av { margin-left: -8px; border: 2px solid var(--bg); width: 30px; height: 30px; font-size: 11.5px; }
+.av { position: relative; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font: 650 12.5px var(--sans, inherit); color: #1d160e; flex: none; overflow: visible; }
+.av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; } .av .dot { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border-radius: 50%; background: #79c27a; border: 2px solid var(--panel); }
+.tminvpop { position: relative; background: var(--panel); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 14px; padding: 12px 14px; margin: -6px 0 14px; box-shadow: var(--shadow); }
+.tminvpop[hidden] { display: none; } .tminvpop b { display: block; font-size: 13.5px; } .tminvpop small { color: var(--muted); font-size: 12px; }
+.tminv { display: flex; gap: 8px; margin-top: 10px; } .tminv input { flex: 1; min-width: 0; }
+.tminv input, .tminv select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; font: inherit; font-size: 13px; outline: none; }
 .tminv input:focus, .tminv select:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
-.tmcol > .rsec:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
-.tmcols2 { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 18px; margin-top: 18px; } @media (max-width: 980px) { .tmcols2 { grid-template-columns: 1fr; } }
-#tmMsgs { max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px 2px 8px; }
-.tmmsg { max-width: 82%; background: var(--soft); border: 1px solid var(--line-soft); border-radius: 14px 14px 14px 4px; padding: 7px 11px; font-size: 13.5px; white-space: pre-wrap; word-break: break-word; }
-.tmmsg.me { align-self: flex-end; border-radius: 14px 14px 4px 14px; background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
-.tmmsg small { display: block; color: var(--muted); font-size: 11.5px; margin-bottom: 2px; }
-.tmsend { display: flex; gap: 6px; align-items: flex-end; margin-top: 6px; } .tmsend textarea { flex: 1; resize: none; max-height: 120px; }
-.tmsend textarea, #tmNoteEd input, #tmNoteEd textarea { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 13.5px; outline: none; box-sizing: border-box; }
-#tmNoteEd { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; } #tmNoteEd[hidden] { display: none; } #tmNoteEd textarea { resize: vertical; font-family: var(--monoF); font-size: 12.5px; }
+.tmbody { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; } @media (max-width: 1000px) { .tmbody { grid-template-columns: 1fr; } }
+.tmmain { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; display: flex; flex-direction: column; height: min(72vh, 720px); min-height: 440px; overflow: hidden; box-shadow: var(--shadow); }
+.tmtabs { display: flex; gap: 4px; padding: 8px 10px 0; border-bottom: 1px solid var(--line-soft); }
+.tmtabs button { border: 0; background: none; color: var(--muted); font-size: 13.5px; padding: 8px 12px 10px; border-bottom: 2px solid transparent; cursor: pointer; display: flex; gap: 6px; align-items: center; }
+.tmtabs button.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; } .tmtabs em { font-style: normal; font-size: 11px; color: var(--muted); background: var(--soft); border-radius: 999px; padding: 0 6px; }
+.tmtabs em:empty { display: none; }
+.tmpane { flex: 1; min-height: 0; display: flex; flex-direction: column; } .tmpane[hidden] { display: none; }
+#tmMsgs { flex: 1; overflow-y: auto; padding: 14px 18px 6px; }
+.tmday { display: flex; align-items: center; gap: 10px; color: var(--faint); font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 8px; }
+.tmday::before, .tmday::after { content: ""; flex: 1; height: 1px; background: var(--line-soft); }
+.tmgrp { display: flex; gap: 10px; margin: 10px 0 2px; } .tmgrp .av { margin-top: 2px; } .tmgrp .gb { flex: 1; min-width: 0; }
+.tmgrp .gh { display: flex; gap: 8px; align-items: baseline; } .tmgrp .gh b { font-size: 13.5px; } .tmgrp .gh small { color: var(--faint); font-size: 11.5px; }
+.tmline { font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; padding: 1px 0; color: var(--text); }
+.tmgrp.me .gh b { color: var(--accent); }
+.tmevt { text-align: center; color: var(--faint); font-size: 12px; margin: 8px 0; } .tmevt b { color: var(--muted); font-weight: 600; }
+.tmcompose { display: flex; align-items: flex-end; gap: 8px; margin: 8px 12px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 6px 6px 6px 14px; }
+.tmcompose:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.tmcompose textarea { flex: 1; border: 0; background: none; color: var(--text); font: inherit; font-size: 14px; resize: none; outline: none; padding: 7px 0; max-height: 140px; }
+.tmsendbtn { width: 34px; height: 34px; border-radius: 11px; border: 0; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; cursor: pointer; flex: none; }
+.tmsendbtn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; } .tmsendbtn:disabled { opacity: .45; }
+.tmempty { margin: auto; text-align: center; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 30px; max-width: 320px; font-size: 13px; }
+.tmempty svg { width: 40px; height: 40px; fill: none; stroke: var(--accent); stroke-width: 1.4; opacity: .8; } .tmempty b { color: var(--text); font-size: 14.5px; }
+.tmnotes { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+.tmnlist { border-right: 1px solid var(--line-soft); padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; } .tmnlist > .btn { margin-bottom: 6px; }
+.tmnote { width: 100%; text-align: left; border: 1px solid transparent; background: none; color: var(--text); border-radius: 11px; padding: 8px 10px; cursor: pointer; }
+.tmnote:hover { background: var(--hover); } .tmnote.on { background: var(--soft); border-color: var(--line); }
+.tmnote b { display: block; font-size: 13.5px; } .tmnote small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tmned { min-width: 0; display: flex; flex-direction: column; padding: 14px 16px; }
+#tmNoteEd { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; } #tmNoteEd[hidden] { display: none; } #tmNoteEmpty[hidden] { display: none; }
+.tmedhead { display: flex; align-items: center; gap: 10px; } .tmedhead input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: 650 19px inherit; outline: none; padding: 4px 0; }
+#tmNoteText { flex: 1; min-height: 160px; resize: none; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font: 13px/1.6 var(--monoF); outline: none; }
+#tmNoteText:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.tmnoteview { flex: 1; overflow-y: auto; border: 1px solid var(--line-soft); border-radius: 12px; padding: 6px 16px; font-size: 14px; } .tmnoteview[hidden] { display: none; }
 .tmedfoot { display: flex; gap: 6px; align-items: center; }
-.tmact { font-size: 12.5px; color: var(--muted); padding: 6px 2px; border-bottom: 1px solid var(--line-soft); } .tmact b { color: var(--text); font-weight: 600; }
+.tmside { display: flex; flex-direction: column; gap: 12px; }
+.tmcard { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px 12px 6px; }
+.tmch { display: flex; align-items: center; gap: 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0 2px 6px; }
+.tmch em { font-style: normal; color: var(--faint); } .tmch .linkbtn { margin-left: auto; text-transform: none; letter-spacing: 0; font-size: 12.5px; }
+.tmrow { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-radius: 10px; } .tmrow:hover { background: var(--hover); }
+.tmrow .tmi { flex: 1; min-width: 0; } .tmrow b { font-size: 13.5px; } .tmrow small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tmrow .iconbtn { opacity: 0; } .tmrow:hover .iconbtn { opacity: 1; }
+.tmrole { font-size: 10.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; margin-left: 4px; vertical-align: 1px; }
+.tmrole.owner { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.tmpj { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; border: 0; background: none; color: var(--text); padding: 7px 4px; border-radius: 10px; cursor: pointer; font-size: 13.5px; }
+.tmpj:hover { background: var(--hover); } .tmpj svg { width: 16px; height: 16px; fill: none; stroke: var(--accent); stroke-width: 1.6; flex: none; }
+.tmside .aempty { font-size: 12.5px; padding: 4px 4px 10px; } .tmleave { align-self: center; color: var(--faint); font-size: 12.5px; margin-top: 2px; }
+#tmSync.spin svg { animation: spin 1s linear infinite; }
+.tmgridcard { text-align: left; } .tmgridcard .tmbadge { width: 38px; height: 38px; font-size: 16px; border-radius: 11px; margin-bottom: 10px; }
+.tmgridcard .tmfaces { padding-left: 8px; margin-top: 10px; } .tmgridcard .last { color: var(--muted); font-size: 12.5px; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tminvite { display: flex; align-items: center; gap: 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, var(--panel)); border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
-#pjGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; padding-bottom: 20px; }
+#pjGrid, #tmGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; padding-bottom: 20px; }
 .pjcard { min-height: 150px; } .pjcard .pjicon { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: var(--soft); color: var(--accent); }
 .pjcard .pjicon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; }
 .pjcard.add { border-style: dashed; background: none; box-shadow: none; align-items: center; justify-content: center; color: var(--muted); }
@@ -1111,27 +1153,53 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <section id="teamsView" hidden>
       <div class="pagehead"><div><div class="eyebrow">Work together</div><h1 class="serif">Teams</h1>
         <p class="sub">Projects, chats, messages and notes, shared with your team (kept in a private GitHub repository).</p></div>
-        <span class="spacer"></span><button class="btn primary" id="tmNew"><svg><use href="#i-plus"/></svg>New team</button><button class="btn" id="tmBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+        <span class="spacer"></span><button class="btn primary" id="tmNew"><svg><use href="#i-plus"/></svg>New team</button><button class="btn" id="tmBack" hidden><svg><use href="#i-undo"/></svg>Back to chat</button></div>
       <div id="tmInvites"></div>
       <div id="tmGrid" class="pgrid"></div>
       <div id="tmDetail" hidden>
-        <div class="tmhead"><button class="btn small ghost" id="tmAll">← All teams</button><h2 id="tmName"></h2><span class="spacer"></span>
-          <small id="tmSynced" style="color:var(--muted)"></small><button class="btn small" id="tmSync">Sync now</button></div>
-        <div class="tmcols">
-          <div class="tmcol"><div class="rsec">Members</div><div id="tmMembers"></div>
-            <div class="tminv" id="tmInviteBox"><input id="tmWho" placeholder="GitHub username" spellcheck="false"><select id="tmRole"><option value="member">Member</option><option value="owner">Owner</option></select><button class="btn small primary" id="tmInvite">Invite</button></div></div>
-          <div class="tmcol"><div class="rsec">Projects</div><div id="tmProjects"></div><button class="btn small" id="tmNewProject" style="margin-top:8px"><svg><use href="#i-plus"/></svg>New team project</button>
-            <div class="rsec" style="margin-top:18px">Shared chats</div><div id="tmChats"></div><button class="btn small" id="tmShareChat" style="margin-top:8px">Share the chat I have open</button></div>
-          <div class="tmcol"><div class="rsec">Activity</div><div id="tmActivity"></div></div>
+        <div class="tmtop">
+          <button class="iconbtn" id="tmAll" title="All teams" aria-label="All teams"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <span class="tmbadge" id="tmBadge"></span>
+          <div class="tmtitle"><h2 id="tmName"></h2><small id="tmSub"></small></div>
+          <span class="spacer"></span>
+          <div class="tmfaces" id="tmFaces"></div>
+          <button class="btn small" id="tmInviteBtn"><svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.2"/><path d="M4 19c0-3.3 2.7-5.5 6-5.5 1.3 0 2.5.3 3.4.9M18 13v6M15 16h6"/></svg>Invite</button>
+          <button class="iconbtn" id="tmSync" title="Sync now" aria-label="Sync now"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
         </div>
-        <div class="tmcols2">
-          <div class="tmcol"><div class="rsec">Messages</div><div id="tmMsgs"></div>
-            <div class="tmsend"><textarea id="tmMsg" rows="1" placeholder="Message the team…"></textarea><button class="btn small primary" id="tmSend">Send</button></div></div>
-          <div class="tmcol"><div class="rsec">Notes</div><div id="tmNotes"></div><button class="btn small" id="tmNewNote" style="margin-top:8px"><svg><use href="#i-plus"/></svg>New note</button>
-            <div id="tmNoteEd" hidden><input id="tmNoteName" placeholder="Note title" spellcheck="false"><textarea id="tmNoteText" rows="10" placeholder="Write anything the team should see: plans, meeting notes, decisions…"></textarea>
-              <div class="tmedfoot"><button class="btn small ghost" id="tmNoteDel">Delete</button><span class="spacer"></span><button class="btn small ghost" id="tmNoteClose">Close</button><button class="btn small primary" id="tmNoteSave">Save</button></div></div></div>
+        <div class="tminvpop" id="tmInviteBox" hidden><b>Invite to the team</b><small>They'll see it under Teams in LightCode⁴ (and get a GitHub email).</small>
+          <div class="tminv"><input id="tmWho" placeholder="GitHub username" spellcheck="false"><select id="tmRole"><option value="member">Member</option><option value="owner">Owner</option></select><button class="btn small primary" id="tmInvite">Send invite</button></div></div>
+        <div class="tmbody">
+          <section class="tmmain">
+            <div class="tmtabs" role="tablist"><button class="on" data-tm="msgs" role="tab">Messages</button><button data-tm="notes" role="tab">Notes<em id="tmNoteCount"></em></button></div>
+            <div class="tmpane" data-tm="msgs">
+              <div id="tmMsgs" aria-live="polite"></div>
+              <div class="tmcompose"><textarea id="tmMsg" rows="1" placeholder="Message the team…"></textarea>
+                <button class="tmsendbtn" id="tmSend" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+            </div>
+            <div class="tmpane" data-tm="notes" hidden>
+              <div class="tmnotes">
+                <div class="tmnlist"><button class="btn small primary" id="tmNewNote"><svg><use href="#i-plus"/></svg>New note</button><div id="tmNotes"></div></div>
+                <div class="tmned">
+                  <div id="tmNoteEmpty" class="tmempty"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><b>Shared notes</b><span>Plans, meeting notes and decisions the whole team can edit.</span></div>
+                  <div id="tmNoteEd" hidden>
+                    <div class="tmedhead"><input id="tmNoteName" placeholder="Untitled note" spellcheck="false">
+                      <div class="artseg"><button id="tmNoteWrite" class="on">Write</button><button id="tmNotePrev">Preview</button></div></div>
+                    <textarea id="tmNoteText" placeholder="Write in plain text or Markdown: # headings, - lists, **bold**…"></textarea>
+                    <div id="tmNoteView" class="tmnoteview" hidden></div>
+                    <div class="tmedfoot"><button class="btn small ghost" id="tmNoteDel">Delete</button><span class="spacer"></span><button class="btn small ghost" id="tmNoteClose">Close</button><button class="btn small primary" id="tmNoteSave">Save for the team</button></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+          <div class="tmside">
+            <div class="tmcard"><div class="tmch">Members <em id="tmMemberCount"></em></div><div id="tmMembers"></div></div>
+            <div class="tmcard"><div class="tmch">Projects <button class="linkbtn" id="tmNewProject">+ New</button></div><div id="tmProjects"></div></div>
+            <div class="tmcard"><div class="tmch">Shared chats <button class="linkbtn" id="tmShareChat" title="Share the chat you have open with the team">+ Share</button></div><div id="tmChats"></div></div>
+            <div id="tmActivity" hidden></div>
+            <button class="linkbtn tmleave" id="tmLeave">Leave this team</button>
+          </div>
         </div>
-        <button class="btn small ghost" id="tmLeave" style="margin-top:18px">Leave this team</button>
       </div>
     </section>
     <section id="projectsView" hidden>
@@ -2718,7 +2786,7 @@ async function openProjects(pid) {
   closePanel(); document.body.classList.add("projects-open"); $("crumbHere").textContent = "Projects";
   navSet("navProjects"); await loadProjects(); pid ? showProject(pid) : showProjectGrid();
 }
-function closeProjects() { document.body.classList.remove("projects-open", "teams-open"); }  // also leaves Teams
+function closeProjects() { document.body.classList.remove("projects-open", "teams-open", "team-detail"); }  // also leaves Teams
 async function loadProjects() { try { pjData = await api("/api/projects"); } catch (e) { notice(e.message); } }
 function showProjectGrid() {
   pjCur = null; $("pjDetail").hidden = true; $("pjGrid").hidden = false; const g = $("pjGrid"); g.innerHTML = "";
@@ -2760,10 +2828,22 @@ async function openTeams(repo) {
   closePanel(); document.body.classList.add("teams-open"); $("crumbHere").textContent = "Teams"; navSet("navTeams");
   await loadTeams(); repo ? showTeam(repo) : showTeamGrid();
 }
-function closeTeams() { document.body.classList.remove("teams-open"); }
+function closeTeams() { document.body.classList.remove("teams-open", "team-detail"); }
 async function loadTeams() { try { tmData = await api("/api/teams"); } catch (e) { notice(e.message); } }
+const AVC = ["#e8c46a", "#e9946a", "#9fd49a", "#8cc4e8", "#c9a7ef", "#f0a9c4", "#7fd1c0"];
+function avatar(login, name, src, online) {
+  let h = 0; for (const ch of login || "?") h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const a = el("span", "av"); a.style.background = AVC[h % AVC.length]; a.title = name ? `${name} (@${login})` : "@" + login;
+  if (src) { const im = el("img"); im.alt = ""; im.src = src; im.onerror = () => { im.remove(); a.textContent = (name || login || "?").slice(0, 1).toUpperCase(); }; a.appendChild(im); }
+  else a.textContent = (name || login || "?").slice(0, 1).toUpperCase();
+  if (online) a.appendChild(el("i", "dot"));
+  return a;
+}
+const isOnline = m => m.joined && m.t && Date.now() / 1000 - m.t < 600;
+function faces(box, members, max = 5) { box.innerHTML = ""; (members || []).filter(m => m.joined).slice(0, max).forEach(m => box.appendChild(avatar(m.login, m.name, m.avatar, isOnline(m)))); }
+function teamBadge(box, name) { box.textContent = (name || "T").trim().slice(0, 1).toUpperCase(); }
 function showTeamGrid() {
-  tmCur = null; $("tmDetail").hidden = true; $("tmGrid").hidden = false; const g = $("tmGrid"); g.innerHTML = "";
+  document.body.classList.remove("team-detail"); tmCur = null; $("tmDetail").hidden = true; $("tmGrid").hidden = false; const g = $("tmGrid"); g.innerHTML = "";
   const inv = $("tmInvites"); inv.innerHTML = "";
   if (!tmData.connected) { inv.appendChild(el("div", "tminvite", `<span style="flex:1">Teams use your GitHub account to invite people and keep everyone's projects in sync.</span>`));
     const b = el("button", "btn small primary", "Connect GitHub"); b.onclick = () => openSettings("github"); inv.firstChild.appendChild(b); }
@@ -2771,62 +2851,87 @@ function showTeamGrid() {
     const b = el("button", "btn small primary", "Join"); b.onclick = async () => { b.disabled = true; b.textContent = "Joining…";
       try { await api("/api/team/accept", { id: i.id, repo: i.repo }); await loadTeams(); showTeam(i.repo); notice(`You joined ${i.name}.`); } catch (e) { notice(e.message); b.disabled = false; b.textContent = "Join"; } };
     r.appendChild(b); inv.appendChild(r); });
-  (tmData.teams || []).forEach(t => { const n = (t.members || []).length;
-    const c = el("button", "pcard pjcard", `<span class="pjicon">${icon("plus").replace(/<svg/, "<svg style='display:none'")}</span><h3></h3><p></p><div class="pfoot"><span>${n || "?"} member${n === 1 ? "" : "s"}</span><span>${(t.projects || []).length} project${(t.projects || []).length === 1 ? "" : "s"}</span></div>`);
-    c.querySelector("h3").textContent = t.name; c.querySelector("p").textContent = t.repo; c.onclick = () => showTeam(t.repo); g.appendChild(c); });
+  (tmData.teams || []).forEach(t => { const n = (t.members || []).filter(m => m.joined).length, last = (t.messages || []).slice(-1)[0];
+    const c = el("button", "pcard pjcard tmgridcard", `<span class="tmbadge"></span><h3></h3><p class="last"></p><div class="tmfaces"></div><div class="pfoot"><span>${n || "–"} member${n === 1 ? "" : "s"}</span><span>${(t.projects || []).length} project${(t.projects || []).length === 1 ? "" : "s"}</span></div>`);
+    teamBadge(c.querySelector(".tmbadge"), t.name); c.querySelector("h3").textContent = t.name;
+    c.querySelector(".last").textContent = last ? `@${last.who}: ${last.text}` : "No messages yet"; faces(c.querySelector(".tmfaces"), t.members, 6);
+    c.onclick = () => showTeam(t.repo); g.appendChild(c); });
   const add = el("button", "pcard pjcard add", `${icon("plus")}<span>New team</span>`); add.onclick = () => $("tmNew").click(); g.appendChild(add);
 }
+const dayLabel = t => { const d = new Date(t * 1000), now = new Date(), y = new Date(now - 864e5);
+  return d.toDateString() === now.toDateString() ? "Today" : d.toDateString() === y.toDateString() ? "Yesterday" : d.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }); };
+const hm = t => new Date(t * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+let tmLast = null;
 function drawTeam(t) {
-  $("tmName").textContent = t.name || "Team"; $("tmSynced").textContent = t.synced ? "Synced " + ago(t.synced) : "";
-  const me = tmData.me, owner = (t.members || []).some(m => m.login === me && m.role === "owner");
-  $("tmInviteBox").hidden = !owner; $("tmLeave").hidden = (t.repo || "").split("/")[0] === me;
+  tmLast = t;
+  const me = tmData.me, members = t.members || [], owner = members.some(m => m.login === me && m.role === "owner"), joined = members.filter(m => m.joined);
+  teamBadge($("tmBadge"), t.name); $("tmName").textContent = t.name || "Team";
+  const on = joined.filter(isOnline).length;
+  $("tmSub").textContent = `${joined.length} member${joined.length === 1 ? "" : "s"}` + (on ? ` · ${on} active now` : "") + (t.synced ? ` · synced ${ago(t.synced)}` : "");
+  faces($("tmFaces"), members); $("tmInviteBtn").hidden = !owner; if (!owner) $("tmInviteBox").hidden = true;
+  $("tmLeave").hidden = (t.repo || "").split("/")[0] === me; $("tmMemberCount").textContent = joined.length || "";
   const mb = $("tmMembers"); mb.innerHTML = "";
-  (t.members || []).forEach(m => { const r = el("div", "tmrow", `<span class="tmav"></span><span class="tmi"><b></b> <span class="tmrole ${m.role}">${m.role}</span><small></small></span>`);
-    const av = r.querySelector(".tmav"); if (m.avatar) av.innerHTML = `<img alt="" src="${esc(m.avatar)}">`; else av.textContent = (m.name || m.login).slice(0, 1).toUpperCase();
+  members.slice().sort((a, b) => (b.joined - a.joined) || (isOnline(b) - isOnline(a))).forEach(m => {
+    const r = el("div", "tmrow", `<span class="tmi"><b></b><span class="tmrole ${m.role}">${m.role}</span><small></small></span>`);
+    r.prepend(avatar(m.login, m.name, m.avatar, isOnline(m)));
     r.querySelector("b").textContent = (m.name || m.login) + (m.login === me ? " (you)" : "");
-    r.querySelector("small").textContent = !m.joined ? `@${m.login} · invited, hasn't joined yet` : `@${m.login} · ${m.working_on ? "on " + m.working_on + " · " : ""}active ${ago(m.t)}`;
-    if (owner && m.login !== me && m.login !== (t.repo || "").split("/")[0]) { const x = el("button", "iconbtn", icon("x")); x.title = "Remove from team";
+    r.querySelector("small").textContent = !m.joined ? "Invited · hasn't joined yet" : isOnline(m) ? (m.working_on ? "On " + m.working_on : "Active now") : `Active ${ago(m.t)}`;
+    if (owner && m.login !== me && m.login !== (t.repo || "").split("/")[0]) { const x = el("button", "iconbtn", icon("x")); x.title = `Remove @${m.login}`;
       x.onclick = async () => { if (!confirm(`Remove @${m.login} from ${t.name}?`)) return; try { drawTeam(await api("/api/team/remove", { repo: t.repo, who: m.login })); } catch (e) { notice(e.message); } }; r.appendChild(x); }
     mb.appendChild(r); });
   const pj = $("tmProjects"); pj.innerHTML = "";
   if (!(t.projects || []).length) pj.appendChild(el("div", "aempty", "No team projects yet."));
-  (t.projects || []).forEach(p => { const r = el("button", "chathit", "<b></b>"); r.querySelector("b").textContent = p.name || "Project"; r.onclick = () => { closeTeams(); openProjects(p.id); }; pj.appendChild(r); });
+  (t.projects || []).forEach(p => { const r = el("button", "tmpj", `<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span></span>`);
+    r.querySelector("span").textContent = p.name || "Project"; r.onclick = () => { closeTeams(); openProjects(p.id); }; pj.appendChild(r); });
   const ch = $("tmChats"); ch.innerHTML = "";
   if (!(t.chats || []).length) ch.appendChild(el("div", "aempty", "Nobody has shared a chat yet."));
   (t.chats || []).forEach(c => { const r = el("div", "tmrow", `<span class="tmi"><b></b><small></small></span>`); r.querySelector("b").textContent = c.title;
-    r.querySelector("small").textContent = `shared by @${c.by}` + (c.updated ? " · " + ago(c.updated) : "");
-    const b = el("button", "btn small", c.by === me ? "Stop sharing" : "Open a copy");
+    r.querySelector("small").textContent = (c.by === me ? "Shared by you" : `@${c.by}`) + (c.updated ? " · " + ago(c.updated) : "");
+    const b = el("button", "btn small", c.by === me ? "Unshare" : "Open copy");
     b.onclick = async () => { try { if (c.by === me) drawTeam(await api("/api/team/share-chat", { repo: t.repo, chat: c.id, on: false }));
       else { await api("/api/team/open-chat", { repo: t.repo, id: c.id }); closeTeams(); navSet("navPlay"); } } catch (e) { notice(e.message); } };
     r.appendChild(b); ch.appendChild(r); });
-  const ms = $("tmMsgs"), stick = ms.scrollHeight - ms.scrollTop - ms.clientHeight < 40; ms.innerHTML = "";
-  if (!(t.messages || []).length) ms.appendChild(el("div", "aempty", "No messages yet. Say hello to the team."));
-  (t.messages || []).forEach(m => { const d = el("div", "tmmsg" + (m.who === me ? " me" : ""), "<small></small><span></span>");
-    d.querySelector("small").textContent = (m.who === me ? "You" : "@" + m.who) + " · " + ago(m.t); d.querySelector("span").textContent = m.text; ms.appendChild(d); });
+  // conversation: messages grouped by person, with team activity woven in
+  const ms = $("tmMsgs"), stick = ms.scrollHeight - ms.scrollTop - ms.clientHeight < 60; ms.innerHTML = "";
+  const items = [...(t.messages || []).map(m => ({ ...m, k: "m" })), ...(t.activity || []).map(a => ({ ...a, k: "a" }))].sort((a, b) => a.t - b.t);
+  if (!items.length) { const e = el("div", "tmempty", `<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg><b>Start the conversation</b><span>Messages reach everyone in the team. Use them for quick questions, updates and hand-offs.</span>`); ms.appendChild(e); }
+  let day = "", grp = null;
+  items.forEach(it => {
+    const d = dayLabel(it.t); if (d !== day) { day = d; grp = null; ms.appendChild(el("div", "tmday", esc(d))); }
+    if (it.k === "a") { grp = null; const e = el("div", "tmevt", `<b></b> <span></span> · ${hm(it.t)}`); e.querySelector("b").textContent = "@" + it.who; e.querySelector("span").textContent = it.text; ms.appendChild(e); return; }
+    if (!grp || grp.who !== it.who || it.t - grp.t > 600) {
+      const m = members.find(x => x.login === it.who) || { login: it.who, name: it.name };
+      const g = el("div", "tmgrp" + (it.who === me ? " me" : ""), `<div class="gb"><div class="gh"><b></b><small>${hm(it.t)}</small></div></div>`);
+      g.prepend(avatar(it.who, m.name, m.avatar)); g.querySelector("b").textContent = it.who === me ? "You" : (m.name || it.who);
+      ms.appendChild(g); grp = { who: it.who, body: g.querySelector(".gb"), t: it.t };
+    }
+    const l = el("div", "tmline"); l.textContent = it.text; l.title = new Date(it.t * 1000).toLocaleString(); grp.body.appendChild(l); grp.t = it.t;
+  });
   if (stick || !ms.dataset.seen) { ms.scrollTop = ms.scrollHeight; ms.dataset.seen = 1; }
+  // notes
+  $("tmNoteCount").textContent = (t.notes || []).length || "";
   const nt = $("tmNotes"); nt.innerHTML = "";
   if (!(t.notes || []).length) nt.appendChild(el("div", "aempty", "No notes yet."));
-  (t.notes || []).forEach(n => { const r = el("button", "chathit", "<b></b><small></small>"); r.querySelector("b").textContent = n.name.replace(/\.(md|txt)$/, "");
-    r.querySelector("small").textContent = n.first || ""; r.onclick = () => openNote(n.name); nt.appendChild(r); });
-  const ac = $("tmActivity"); ac.innerHTML = "";
-  if (!(t.activity || []).length) ac.appendChild(el("div", "aempty", "Nothing yet."));
-  (t.activity || []).slice(0, 40).forEach(a => { const r = el("div", "tmact", `<b></b> <span></span> · ${ago(a.t)}`); r.querySelector("b").textContent = "@" + a.who; r.querySelector("span").textContent = a.text; ac.appendChild(r); });
+  (t.notes || []).forEach(n => { const r = el("button", "tmnote" + (n.name === noteOrig && !$("tmNoteEd").hidden ? " on" : ""), "<b></b><small></small>");
+    r.querySelector("b").textContent = n.name.replace(/\.(md|txt)$/, ""); r.querySelector("small").textContent = n.first || "Empty";
+    r.onclick = () => openNote(n.name); nt.appendChild(r); });
 }
 async function showTeam(repo) {
+  document.body.classList.add("team-detail");
   tmCur = repo; $("tmGrid").hidden = true; $("tmInvites").innerHTML = ""; $("tmDetail").hidden = false;
   const t = (tmData.teams || []).find(x => x.repo === repo) || { repo, name: "Team" }; drawTeam(t);
   if (!t.synced) $("tmSync").click();
 }
 $("navTeams").onclick = () => openTeams();
 $("tmBack").onclick = () => { closeTeams(); navSet("navPlay"); setTab("chat"); };
-$("tmAll").onclick = async () => { await loadTeams(); showTeamGrid(); };
-$("tmSync").onclick = async () => { const b = $("tmSync"); b.disabled = true; b.textContent = "Syncing…";
+$("tmAll").onclick = async () => { $("tmInviteBox").hidden = true; await loadTeams(); showTeamGrid(); };
+$("tmSync").onclick = async () => { const b = $("tmSync"); b.disabled = true; b.classList.add("spin");
   try { const t = await api("/api/team/sync", { repo: tmCur }); const i = tmData.teams.findIndex(x => x.repo === tmCur); if (i >= 0) tmData.teams[i] = { ...tmData.teams[i], ...t, synced: Date.now() / 1000 }; drawTeam({ ...t, synced: Date.now() / 1000 }); }
-  catch (e) { notice(e.message); } finally { b.disabled = false; b.textContent = "Sync now"; } };
+  catch (e) { notice(e.message); } finally { b.disabled = false; b.classList.remove("spin"); } };
 $("tmNew").onclick = async () => { if (!tmData.connected) return openSettings("github"); const name = prompt("Team name:", ""); if (!name) return;
   try { const t = await api("/api/team/create", { name }); await loadTeams(); showTeam(t.repo); notice(`Created ${name}. Invite people by their GitHub username.`); } catch (e) { notice(e.message); } };
 $("tmInvite").onclick = async () => { const who = $("tmWho").value.trim(); if (!who) return $("tmWho").focus(); $("tmInvite").disabled = true;
-  try { drawTeam(await api("/api/team/invite", { repo: tmCur, who, role: $("tmRole").value })); $("tmWho").value = ""; notice(`Invited @${who.replace(/^@/, "")}. They'll see it under Teams in LightCode⁴ (and in their GitHub email).`); }
+  try { drawTeam(await api("/api/team/invite", { repo: tmCur, who, role: $("tmRole").value })); $("tmWho").value = ""; $("tmInviteBox").hidden = true; notice(`Invited @${who.replace(/^@/, "")}. They'll see it under Teams in LightCode⁴ (and in their GitHub email).`); }
   catch (e) { notice(e.message); } finally { $("tmInvite").disabled = false; } };
 async function sendTeamMsg() { const t = $("tmMsg").value.trim(); if (!t) return; $("tmSend").disabled = true;
   try { const r = await api("/api/team/message", { repo: tmCur, text: t }); $("tmMsg").value = ""; tmGrow(); drawTeam({ ...r, synced: Date.now() / 1000 }); $("tmMsgs").scrollTop = 1e9; }
@@ -2834,17 +2939,24 @@ async function sendTeamMsg() { const t = $("tmMsg").value.trim(); if (!t) return
 const tmGrow = () => { const a = $("tmMsg"); a.style.height = "auto"; a.style.height = Math.min(a.scrollHeight, 120) + "px"; };
 $("tmSend").onclick = sendTeamMsg; $("tmMsg").oninput = tmGrow;
 $("tmMsg").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendTeamMsg(); } };
-let noteOrig = null;
+var noteOrig = null;
+function noteMode(prev) { $("tmNoteText").hidden = prev; $("tmNoteView").hidden = !prev; $("tmNoteWrite").classList.toggle("on", !prev); $("tmNotePrev").classList.toggle("on", prev);
+  if (prev) { $("tmNoteView").innerHTML = markdown($("tmNoteText").value || "*Nothing written yet.*"); } }
 async function openNote(name) { try { const r = name ? await api("/api/team/note", { repo: tmCur, name }) : { name: "", text: "" };
-  noteOrig = name || null; $("tmNoteName").value = (r.name || "").replace(/\.(md|txt)$/, ""); $("tmNoteText").value = r.text; $("tmNoteDel").hidden = !name;
-  $("tmNoteEd").hidden = false; (name ? $("tmNoteText") : $("tmNoteName")).focus(); } catch (e) { notice(e.message); } }
+  tmTab("notes"); noteOrig = name || null; $("tmNoteName").value = (r.name || "").replace(/\.(md|txt)$/, ""); $("tmNoteText").value = r.text; $("tmNoteDel").hidden = !name;
+  $("tmNoteEmpty").hidden = true; $("tmNoteEd").hidden = false; noteMode(!!name && !!r.text); if (tmLast) drawTeam(tmLast); if (!name) $("tmNoteName").focus(); } catch (e) { notice(e.message); } }
 $("tmNewNote").onclick = () => openNote(null);
-$("tmNoteClose").onclick = () => { $("tmNoteEd").hidden = true; };
+$("tmNoteWrite").onclick = () => { noteMode(false); $("tmNoteText").focus(); }; $("tmNotePrev").onclick = () => noteMode(true);
+$("tmNoteClose").onclick = () => { $("tmNoteEd").hidden = true; $("tmNoteEmpty").hidden = false; noteOrig = null; if (tmLast) drawTeam(tmLast); };
+function tmTab(k) { document.querySelectorAll(".tmtabs button").forEach(b => b.classList.toggle("on", b.dataset.tm === k)); document.querySelectorAll(".tmpane").forEach(p => p.hidden = p.dataset.tm !== k); }
+document.querySelectorAll(".tmtabs button").forEach(b => b.onclick = () => tmTab(b.dataset.tm));
+$("tmInviteBtn").onclick = () => { $("tmInviteBox").hidden = !$("tmInviteBox").hidden; if (!$("tmInviteBox").hidden) $("tmWho").focus(); };
 $("tmNoteSave").onclick = async () => { const name = $("tmNoteName").value.trim() || "Untitled"; $("tmNoteSave").disabled = true;
-  try { drawTeam({ ...(await api("/api/team/note", { repo: tmCur, name, text: $("tmNoteText").value, rename: noteOrig || "" })), synced: Date.now() / 1000 }); $("tmNoteEd").hidden = true; notice("Note saved for the team."); }
+  try { const r = await api("/api/team/note", { repo: tmCur, name, text: $("tmNoteText").value, rename: noteOrig || "" }); noteOrig = name.replace(/\.(md|txt)$/, "") + ".md"; $("tmNoteDel").hidden = false;
+    drawTeam({ ...r, synced: Date.now() / 1000 }); noteMode(true); notice("Saved for the team."); }
   catch (e) { notice(e.message); } finally { $("tmNoteSave").disabled = false; } };
 $("tmNoteDel").onclick = async () => { if (!noteOrig || !confirm("Delete this note for everyone in the team?")) return;
-  try { drawTeam({ ...(await api("/api/team/note", { repo: tmCur, name: noteOrig, delete: true })), synced: Date.now() / 1000 }); $("tmNoteEd").hidden = true; } catch (e) { notice(e.message); } };
+  try { const r = await api("/api/team/note", { repo: tmCur, name: noteOrig, delete: true }); noteOrig = null; $("tmNoteEd").hidden = true; $("tmNoteEmpty").hidden = false; drawTeam({ ...r, synced: Date.now() / 1000 }); } catch (e) { notice(e.message); } };
 setInterval(async () => {  // while a team is open, fetch new messages and notes every 20 seconds
   if (!tmCur || $("tmDetail").hidden || !document.body.classList.contains("teams-open") || document.hidden || !$("tmNoteEd").hidden) return;
   try { const t = await api("/api/team/sync", { repo: tmCur }); drawTeam({ ...t, synced: Date.now() / 1000 }); } catch (e) {}
