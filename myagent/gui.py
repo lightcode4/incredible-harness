@@ -162,6 +162,9 @@ def explain_error(e: Exception, cfg: dict) -> str:
     if type(e).__name__ in ("APIConnectionError", "APITimeoutError", "ConnectError"):
         return (f"Could not reach {svc}. Check your internet connection" +
                 (", and that Ollama or LM Studio is running" if cfg.get("provider") == "local" else "") + ".")
+    if "image input" in low or ("image" in low and ("not support" in low or "no endpoints" in low)):
+        return (f"The model {cfg.get('model', '')} can't read images. Remove the image, or switch to a model that can see "
+                "(for example Claude, GPT-5 or Gemini) with the model button under the message box.")
     if code == 401:
         return "The API key was rejected. Paste a valid key in Settings > Models."
     if code == 402 or "insufficient balance" in low or "credit" in low and "add" in low:
