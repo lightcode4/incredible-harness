@@ -1782,6 +1782,79 @@ def main():
     assert {x["repo"] for x in market.overview()} == {"acme/app", "acme/skills"} and len(market.all_items()) == 3
     ms.shutdown()
     print("79 marketplace OK")
+    # 80. sync through private GitHub repositories: chats between two computers, and a shared team project
+    from myagent import sync as sy, github as ghm2
+    gitroot = Path(tempfile.mkdtemp())
+    collab = []
+    class SY(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+        def _out(self, obj, code=200):
+            b = json.dumps(obj).encode(); self.send_response(code); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        def do_GET(self):
+            m = re.match(r"^/repos/([\w.-]+)/([\w.-]+)$", self.path)
+            return self._out({"full_name": "x"}) if m and (gitroot / m.group(1) / (m.group(2) + ".git")).is_dir() else self._out({"message": "Not Found"}, 404)
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            bare = gitroot / "octo" / (body["name"] + ".git")
+            seed = Path(tempfile.mkdtemp())
+            for c in (["init", "-q", "-b", "main"], ["-c", "user.email=a@b", "-c", "user.name=A", "commit", "-q", "--allow-empty", "-m", "init"]):
+                subprocess.run(["git", *c], cwd=seed, check=True)
+            subprocess.run(["git", "clone", "-q", "--bare", str(seed), str(bare)], check=True)
+            assert body["private"] is True
+            self._out({"full_name": f"octo/{body['name']}"}, 201)
+        def do_PUT(self):
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            collab.append(self.path); self._out({}, 201)
+    sys_srv = ThreadingHTTPServer(("127.0.0.1", 0), SY)
+    threading.Thread(target=sys_srv.serve_forever, daemon=True).start()
+    ghm2.API = f"http://127.0.0.1:{sys_srv.server_port}"
+    os.environ["LC4_GITHUB_WEB"] = gitroot.as_uri()
+    user = {"login": "octo", "name": "Octo", "id": 42}
+    homes = {k: Path(tempfile.mkdtemp()) for k in "AB"}
+    def on(k):  # switch to "computer" A or B
+        sy.HOME = homes[k]
+        return homes[k] / "chats"
+    def chat(dirp, cid, updated, text):
+        dirp.mkdir(parents=True, exist_ok=True)
+        (dirp / f"{cid}.json").write_text(json.dumps({"id": cid, "updated": updated, "title": text}))
+    ca = on("A"); chat(ca, "c1", 100, "from A"); (homes["A"] / "memory.md").write_text("likes tea\n")
+    assert sy.sync_chats("tok", user, ca)["pushed"] == 1
+    cb = on("B"); chat(cb, "c2", 50, "from B"); (homes["B"] / "memory.md").write_text("uses vim\n")
+    r = sy.sync_chats("tok", user, cb)
+    assert r["pulled"] == ["c1"] and r["pushed"] == 1 and json.loads((cb / "c1.json").read_text())["title"] == "from A"
+    ca = on("A"); assert sy.sync_chats("tok", user, ca)["pulled"] == ["c2"]
+    assert set((homes["A"] / "memory.md").read_text().split("\n")) >= {"likes tea", "uses vim"}
+    cb = on("B"); chat(cb, "c1", 200, "edited on B"); sy.sync_chats("tok", user, cb)
+    ca = on("A"); sy.sync_chats("tok", user, ca, busy={"c2"})
+    assert json.loads((ca / "c1.json").read_text())["title"] == "edited on B", "the newer edit wins"
+    (ca / "c2.json").unlink(); sy.forget_chat("c2"); sy.sync_chats("tok", user, ca)
+    cb = on("B"); sy.sync_chats("tok", user, cb)
+    assert not (cb / "c2.json").exists(), "a chat deleted on one computer is deleted on the other"
+    # team project: A shares, B joins, both edit
+    on("A")
+    pa = {"id": "p0000000a", "name": "Launch Plan", "instructions": "Be brief.", "color": ""}
+    fa = homes["A"] / "projects" / pa["id"] / "files"; fa.mkdir(parents=True); (fa / "brief.md").write_text("v1")
+    full = sy.share_project("tok", user, pa, fa, ["bob", "@carol", "bad name!"])
+    assert full == "octo/lc4-project-launch-plan" and sorted(collab) == ["/repos/octo/lc4-project-launch-plan/collaborators/bob",
+                                                                         "/repos/octo/lc4-project-launch-plan/collaborators/carol"]
+    on("B")
+    pb = {"id": "p0000000b", "name": "x"}
+    fb = homes["B"] / "projects" / pb["id"] / "files"
+    sy.join_project("tok", user, full, pb, fb)
+    assert pb["name"] == "Launch Plan" and pb["instructions"] == "Be brief." and (fb / "brief.md").read_text() == "v1"
+    (fb / "notes.txt").write_text("from B"); pb["instructions"] = "Be very brief."; sy.sync_project("tok", user, pb, fb)
+    on("A"); sy.sync_project("tok", user, pa, fa)
+    assert (fa / "notes.txt").read_text() == "from B" and pa["instructions"] == "Be very brief."
+    (fa / "brief.md").write_text("A's version"); on("B"); (fb / "brief.md").write_text("B's version"); sy.sync_project("tok", user, pb, fb)
+    on("A"); sy.sync_project("tok", user, pa, fa)
+    assert (fa / "brief.md").read_text() == "B's version" and (fa / "brief (from octo).md").read_text() == "A's version", "both edits are kept"
+    (fa / "notes.txt").unlink(); sy.sync_project("tok", user, pa, fa); on("B"); sy.sync_project("tok", user, pb, fb)
+    assert not (fb / "notes.txt").exists(), "a file removed by one teammate is removed for the others"
+    sy.HOME = ex.HOME
+    os.environ.pop("LC4_GITHUB_WEB", None)
+    sys_srv.shutdown()
+    print("80 chat sync + team projects OK")
     print("ALL TESTS PASSED")
 
 

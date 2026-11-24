@@ -1079,7 +1079,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <section id="projectsView" hidden>
       <div class="pagehead"><div><div class="eyebrow">Your work, together</div><h1 class="serif">Projects</h1>
         <p class="sub">Group chats around one folder, with shared instructions and reference files every chat can use.</p></div>
-        <span class="spacer"></span><button class="btn primary" id="pjNew"><svg><use href="#i-plus"/></svg>New project</button><button class="btn" id="pjBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
+        <span class="spacer"></span><button class="btn" id="pjJoin" title="Open a project a teammate shared with you">Join shared project</button><button class="btn primary" id="pjNew"><svg><use href="#i-plus"/></svg>New project</button><button class="btn" id="pjBack"><svg><use href="#i-undo"/></svg>Back to chat</button></div>
       <div id="pjGrid"></div>
       <div id="pjDetail" hidden>
         <div class="pjform">
@@ -1088,7 +1088,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
           <div class="field"><label for="pjInstr">Instructions for every chat in this project</label><textarea id="pjInstr" rows="5" placeholder="e.g. We use TypeScript and Tailwind. Keep answers short. Our brand colour is #8b6c35."></textarea></div>
           <div class="field"><label>Reference files <small>(given to every chat: notes, specs, PDFs, docs)</small></label><div id="pjFiles"></div>
             <button class="btn small" id="pjAddFile"><svg><use href="#i-clip"/></svg>Add files</button><input type="file" id="pjFileInput" multiple hidden></div>
-          <div class="pjbtns"><button class="btn primary" id="pjSave">Save</button><button class="btn" id="pjChat"><svg><use href="#i-plus"/></svg>New chat in this project</button><span class="spacer"></span><button class="btn" id="pjExport" title="One file with the project's instructions and all its chats">Export</button><button class="btn" id="pjDelete">Delete project</button></div>
+          <div class="pjbtns"><button class="btn primary" id="pjSave">Save</button><button class="btn" id="pjChat"><svg><use href="#i-plus"/></svg>New chat in this project</button><span class="spacer"></span><button class="btn" id="pjShare" title="Share this project with teammates through a private GitHub repository">Share with team</button><button class="btn" id="pjSync" hidden title="Get teammates' changes and send yours">Sync</button><button class="btn" id="pjExport" title="One file with the project's instructions and all its chats">Export</button><button class="btn" id="pjDelete">Delete project</button></div>
           <div class="err" id="pjErr"></div>
         </div>
         <div class="pjchats"><div class="rsec" style="margin-top:0;border-top:0">Chats in this project</div><div id="pjChatList"></div></div>
@@ -1433,6 +1433,10 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         <div class="ghstep"><span>2</span><div><b>Paste it here</b><div style="display:flex;gap:8px;margin-top:8px"><input id="ghNewToken" type="password" autocomplete="off" placeholder="ghp_… or github_pat_…" style="flex:1"><button class="btn primary" id="ghConnectBtn">Connect</button></div>
           </div></div></details>
         <small id="ghErr" style="color:var(--bad)"></small>
+      </div>
+      <div id="ghSyncBox" hidden>
+        <label class="toggle"><span>Sync chats across your computers<small>Keeps chats and memories the same on your Mac and Windows PC, through a private <b>lightcode4-sync</b> repository on your GitHub. Checks every 5 minutes.</small></span><span class="switch"><input type="checkbox" id="ghSyncChats"><span></span></span></label>
+        <div style="display:flex;gap:8px;align-items:center;margin:6px 0 16px"><button class="btn small" id="ghSyncNow">Sync now</button><small id="ghSyncStatus" style="color:var(--muted)"></small></div>
       </div>
       <div id="ghRepos" hidden>
         <div class="field"><label>Your repositories <small>Open clones it into your LightCode4 folder and starts a session there. git push, pull and the gh command work without logging in.</small></label>
@@ -2494,7 +2498,8 @@ let ghRepos = [];
 const openUrl = u => api("/api/open-url", { url: u }).catch(() => window.open(u));
 function renderGitHub() {
   const on = !!config.github_token, u = config.github_user || {}; ghStatus();
-  $("ghMe").hidden = !on; $("ghSetup").hidden = on; $("ghRepos").hidden = !on;
+  $("ghMe").hidden = !on; $("ghSetup").hidden = on; $("ghRepos").hidden = !on; $("ghSyncBox").hidden = !on;
+  $("ghSyncChats").checked = !!config.sync_chats; syncStatus(config.last_sync);
   if (on) { $("ghAvatar").src = u.avatar || ""; $("ghName").textContent = u.name || u.login || "GitHub"; $("ghLogin").textContent = "@" + (u.login || ""); loadRepos(); }
 }
 async function loadRepos() { const list = $("ghRepoList"); list.innerHTML = '<div class="ghempty">Loading your repositories…</div>';
@@ -2512,6 +2517,12 @@ function drawRepos() { const q = $("ghSearch").value.trim().toLowerCase(), list 
     row.append(view, open); list.appendChild(row); });
 }
 $("ghSearch").oninput = drawRepos;
+function syncStatus(r) { const t = $("ghSyncStatus"); if (!r || !r.t) { t.textContent = ""; return; }
+  t.textContent = r.error ? "Last sync failed: " + r.error : `Last synced ${new Date(r.t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` + (r.pulled ? ` · ${r.pulled} chat${r.pulled > 1 ? "s" : ""} updated from your other computer` : ""); }
+async function runSync(body) { $("ghSyncNow").disabled = true; $("ghSyncStatus").textContent = "Syncing…";
+  try { const r = await api("/api/sync", body); config.last_sync = r; syncStatus(r); loadChats(); } catch (e) { $("ghSyncStatus").textContent = e.message; } finally { $("ghSyncNow").disabled = false; } }
+$("ghSyncChats").onchange = () => { config.sync_chats = $("ghSyncChats").checked; runSync({ chats: config.sync_chats, now: config.sync_chats }); };
+$("ghSyncNow").onclick = () => runSync({ now: true });
 $("style").onchange = () => { $("styleCustom").hidden = $("style").value !== "custom"; if (!$("styleCustom").hidden) $("styleCustom").focus(); };
 let ghSigninOk = true;
 async function ghStatus() { try { const st = await api("/api/github"); ghSigninOk = st.signin; $("ghSignBox").hidden = !st.signin; $("ghAlt").open = !st.signin; } catch {} }
@@ -2645,7 +2656,9 @@ function showProject(pid) {
   const p = pjData.projects.find(x => x.id === pid) || { id: null, name: "", folder: config.chat_cwd || "", instructions: "", files: [] };
   pjCur = p.id; $("pjGrid").hidden = true; $("pjDetail").hidden = false; $("pjErr").textContent = "";
   $("pjName").value = p.name; $("pjFolder").value = p.folder || ""; $("pjInstr").value = p.instructions || "";
-  $("pjChat").disabled = $("pjDelete").disabled = $("pjAddFile").disabled = $("pjExport").disabled = !p.id;
+  $("pjChat").disabled = $("pjDelete").disabled = $("pjAddFile").disabled = $("pjExport").disabled = $("pjShare").disabled = !p.id;
+  $("pjSync").hidden = !p.shared; $("pjShare").textContent = p.shared ? "Invite teammates" : "Share with team";
+  $("pjShare").title = p.shared ? `Shared through ${p.shared.repo}. Invite more people by their GitHub username.` : "Share this project with teammates through a private GitHub repository";
   $("pjAddFile").title = p.id ? "" : "Save the project first";
   renderPjFiles(p.files || []);
   const list = $("pjChatList"); list.innerHTML = ""; const mine = pjData.chats.filter(c => c.project === p.id && p.id);
@@ -2669,6 +2682,23 @@ $("pjSave").onclick = async () => {
     await loadProjects(); showProject(r.project.id); $("pjErr").textContent = ""; notice("Project saved."); }
   catch (e) { $("pjErr").textContent = e.message; }
 };
+$("pjShare").onclick = async () => {
+  if (!config.github_token) { notice("Team projects use your GitHub account. Connect it in Settings > GitHub first."); return openSettings("github"); }
+  const who = prompt("Invite teammates by GitHub username (separate with commas). They join with “Join shared project”.\n\nThe project's instructions and files are kept in a private repository on your GitHub; chats stay private to each person.", "");
+  if (who === null) return;
+  const b = $("pjShare"); b.disabled = true;
+  try { const r = await api("/api/project/share", { id: pjCur, invite: who.split(",").map(x => x.trim()).filter(Boolean) });
+    notice(`Shared through ${r.repo}. Teammates: Projects → Join shared project → ${r.repo}`); await loadProjects(); showProject(pjCur); }
+  catch (e) { notice(e.message); } finally { b.disabled = false; } };
+$("pjSync").onclick = async () => { const b = $("pjSync"); b.disabled = true; b.textContent = "Syncing…";
+  try { const r = await api("/api/sync", { now: true }); notice(r.error || "Up to date with your team."); await loadProjects(); showProject(pjCur); }
+  catch (e) { notice(e.message); } finally { b.disabled = false; b.textContent = "Sync"; } };
+$("pjJoin").onclick = async () => {
+  if (!config.github_token) { notice("Joining uses your GitHub account. Connect it in Settings > GitHub first."); return openSettings("github"); }
+  const repo = prompt("The shared project's repository (owner/repo), from the teammate who invited you:", "");
+  if (!repo) return;
+  try { const r = await api("/api/project/join", { repo: repo.trim() }); await loadProjects(); showProject(r.project.id); notice(`Joined ${r.project.name}.`); }
+  catch (e) { notice(e.message); } };
 $("pjDelete").onclick = async () => { if (!pjCur || !confirm("Delete this project and its reference files? Its chats are kept.")) return;
   await api("/api/project/delete", { id: pjCur }).catch(e => notice(e.message)); await loadProjects(); showProjectGrid(); };
 $("pjChat").onclick = async () => { try { await api("/api/project/chat", { id: pjCur }); closeProjects(); navSet("navPlay"); $("input").focus(); } catch (e) { $("pjErr").textContent = e.message; } };

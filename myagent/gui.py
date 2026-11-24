@@ -30,7 +30,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, extras, gallery, github, gitops, lsp, market, projects
+from . import __version__, extras, gallery, github, gitops, lsp, market, projects, sync
 from .catalog import BY_ID as PROVIDER_BY_ID, PROVIDERS, guess_service
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
@@ -1254,7 +1254,7 @@ class Session:
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
                        "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code", "services": {},
-                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "",
+                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {},
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.set_badge = None  # set by the desktop app (Dock badge)
@@ -1266,7 +1266,8 @@ class Session:
         self.new_window = None  # set by the desktop app: opens another window
         self.pending: dict[str, tuple[threading.Event, dict]] = {}
         self.preview_opener = webbrowser.open
-        self.open_url = webbrowser.open  # GitHub sign-in page etc. (tests replace it)
+        self.open_url = webbrowser.open
+        self._sync_lock = threading.Lock()  # GitHub sign-in page etc. (tests replace it)
         self.browser = Browser(HOME / "browser", self._browser_frame, self._browser_state)
         self.browser_url = ""
         self.computer = Computer()
@@ -1558,6 +1559,7 @@ class Session:
             raise RuntimeError("Stop that chat before deleting it.")
         self.chats.pop(chat_id, None)
         (CHATS / f"{Path(chat_id).name}.json").unlink(missing_ok=True)
+        sync.forget_chat(chat_id)
         if chat_id in (self.config.get("pinned") or []) or chat_id in (self.config.get("titles") or {}):
             self.config["pinned"] = [p for p in self.config.get("pinned") or [] if p != chat_id]
             (self.config.get("titles") or {}).pop(chat_id, None)
@@ -2021,8 +2023,74 @@ class Session:
                                md, f"LightCode⁴: {chat.title}")
 
     # ---------------------------------------------------------------- scheduled tasks
+    # ---------------------------------------------------------------- sync (private GitHub repositories)
+    def sync_now(self) -> dict:
+        """Sync chats (if switched on) and every shared project, now."""
+        token, user = self.config.get("github_token", ""), self.config.get("github_user") or {}
+        out = {"t": time.time(), "error": "", "pulled": 0, "projects": 0}
+        with self._sync_lock:
+            try:
+                if self.config.get("sync_chats"):
+                    for c in list(self.chats.values()):
+                        if not c.busy:
+                            c.save()
+                    busy = {c.id for c in self.chats.values() if c.busy}
+                    r = sync.sync_chats(token, user, CHATS, busy)
+                    out["pulled"] = len(r["pulled"])
+                    for cid in r["pulled"]:  # chats updated on the other computer: load the new version
+                        live = self.chats.get(cid)
+                        if live and not live.busy:
+                            self.chats.pop(cid, None)
+                            if self.current is live:
+                                self.current = None
+                                self.open_chat(cid)
+                for proj in self.config.get("projects") or []:
+                    if proj.get("shared"):
+                        sync.sync_project(token, user, proj, projects.folder(proj["id"]))
+                        out["projects"] += 1
+            except (sync.SyncError, github.GitHubError) as e:
+                out["error"] = str(e)
+            self.config["last_sync"] = out
+            self.save()
+        self.events.put({"kind": "chats_changed"})
+        return out
+
+    def _sync_loop(self):
+        while not self._sched_stop.wait(300):
+            if self.config.get("github_token") and (self.config.get("sync_chats") or any(p.get("shared") for p in self.config.get("projects") or [])):
+                try:
+                    self.sync_now()
+                except Exception:
+                    pass
+
+    def share_project(self, pid: str, invite: list[str]) -> str:
+        proj = self.project_by_id(pid)
+        if not proj:
+            raise ValueError("That project no longer exists.")
+        try:
+            with self._sync_lock:
+                full = sync.share_project(self.config.get("github_token", ""), self.config.get("github_user") or {}, proj,
+                                          projects.folder(pid), invite)
+        except (sync.SyncError, github.GitHubError) as e:
+            raise ValueError(str(e))
+        self.save()
+        return full
+
+    def join_project(self, full: str) -> dict:
+        proj = self.save_project({"name": full.rsplit("/", 1)[-1]})
+        try:
+            with self._sync_lock:
+                sync.join_project(self.config.get("github_token", ""), self.config.get("github_user") or {}, full, proj,
+                                  projects.folder(proj["id"]))
+        except (sync.SyncError, github.GitHubError) as e:
+            self.delete_project(proj["id"])
+            raise ValueError(str(e))
+        self.save()
+        return proj
+
     def start_scheduler(self):
         threading.Thread(target=self._scheduler, daemon=True).start()
+        threading.Thread(target=self._sync_loop, daemon=True).start()
         threading.Thread(target=self._market_refresher, daemon=True).start()
 
     def _market_refresher(self):
@@ -2445,6 +2513,15 @@ def make_handler(session: Session, token: str):
                               "chats": session.list_chats()}
                 elif path == "/api/project/save":
                     result = {"project": session.save_project(data.get("project") or {})}
+                elif path == "/api/project/share":
+                    result = {"repo": session.share_project(str(data.get("id", "")), [str(x) for x in data.get("invite") or []])}
+                elif path == "/api/project/join":
+                    result = {"project": session.join_project(str(data.get("repo", "")))}
+                elif path == "/api/sync":
+                    if "chats" in data:
+                        session.config["sync_chats"] = bool(data["chats"])
+                        session.save()
+                    result = session.sync_now() if data.get("now") or data.get("chats") else session.config.get("last_sync") or {}
                 elif path == "/api/project/delete":
                     session.delete_project(str(data.get("id")))
                 elif path == "/api/project/file":
