@@ -325,6 +325,10 @@ async function overlaps(pg, label) {
       await overlaps(pg, 'find bar');
       await pg.keyboard.press('Escape'); await pg.waitForTimeout(150);
       check('Esc closes find and removes highlights', !(await pg.isVisible('#findBar')) && (await pg.locator('#log mark.findhit').count()) === 0);
+      // context breakdown, outputs, environment in the Run overview
+      await pg.click('#railFab'); await pg.waitForTimeout(700);
+      check('Overview shows context used with a breakdown', /\d+% used/.test(await pg.innerText('#cxPct')) && (await pg.innerText('#cxRows')).includes('Messages') && (await pg.innerText('#cxRows')).includes('Free space') && (await pg.innerText('#cxUntil')).includes('auto-compact'));
+      await overlaps(pg, 'context panel'); await pg.keyboard.press('Escape'); await pg.waitForTimeout(200);
       // artifacts, diagrams and math in replies
       { const wl = await pg.evaluate(() => { showWorking(); const w = document.getElementById('workbar'), c = document.getElementById('composer');
         const ok = !w.hidden && !!w.querySelector('.mascot.work') && w.getBoundingClientRect().bottom <= c.getBoundingClientRect().top + 2 && /\d+s/.test(document.getElementById('wbTime').textContent); const d = [w.hidden, !!w.querySelector('.mascot.work'), w.getBoundingClientRect().bottom, c.getBoundingClientRect().top, document.getElementById('wbTime').textContent]; hideWorking(); return ok || JSON.stringify(d); });

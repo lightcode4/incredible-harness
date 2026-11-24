@@ -1279,6 +1279,15 @@ def main():
     out.unlink()
     s.delete_project(pr["id"])
     print("67 project export OK")
+    # 68. context report: breakdown adds up, outputs list the files changed, environment fields
+    s.set_mode("code")
+    s.new_chat()
+    d.run("write it", script=[("tool", "write_file", {"path": "out1.txt", "content": "x"}), ("text", "ok")])
+    r = s.current.context_report()
+    names = [p["name"] for p in r["parts"]]
+    assert names[:2] == ["Messages", "Tools"] and r["used"] == sum(p["tokens"] for p in r["parts"]) and r["free"] == r["window"] - r["used"]
+    assert r["outputs"] == ["out1.txt"] and r["folder"] == s.current.cwd and r["until_compact"] > 0 and r["model"]
+    print("68 context report OK")
     print("ALL TESTS PASSED")
 
 

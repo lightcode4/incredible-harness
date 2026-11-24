@@ -693,6 +693,16 @@ body.models-open #modelsView { display: block !important; }
 .chips { display: none !important; }
 #welcome .empty { font-size: 34px; }
 #dock { border-top: 0 !important; }
+#railPop { width: 330px !important; }
+.cxtop { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-top: 2px; } .cxtop b { font-weight: 600; } .cxtop span { color: var(--muted); font: 11.5px var(--monoF); }
+.cxbar { display: flex; height: 7px; border-radius: 4px; overflow: hidden; background: var(--line-soft); margin: 7px 0 8px; gap: 2px; } .cxbar i { display: block; height: 100%; min-width: 2px; }
+#cxRows .cxr { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--body); padding: 2px 0; } #cxRows .cxr i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+#cxRows .cxr span { flex: 1; } #cxRows .cxr b { font: 500 11.5px var(--monoF); color: var(--muted); min-width: 46px; text-align: right; } #cxRows .cxr em { font: 11.5px var(--monoF); font-style: normal; color: var(--faint); min-width: 42px; text-align: right; }
+.cxfoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+#cxOut button { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 4px 2px; border-radius: 7px; color: var(--text); font: 12px var(--monoF); text-align: left; cursor: pointer; }
+#cxOut button:hover { background: var(--hover); } #cxOut svg { width: 13px; height: 13px; color: var(--muted); flex: none; } #cxOut span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+#cxEnv .cxe { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 3px 0; color: var(--body); min-width: 0; } #cxEnv svg { width: 14px; height: 14px; color: var(--muted); flex: none; }
+#cxEnv span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #dock { position: relative; }
 #workbar { display: flex; align-items: center; gap: 8px; padding: 0 6px 8px; font-size: 12.5px; color: var(--muted); min-width: 0; }
 #workbar[hidden] { display: none; } #workbar .wbm .mascot { width: 22px; height: 20px; }
@@ -749,7 +759,34 @@ mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); colo
 /* ---- folder menu rows: name first, path after ---- */
 #folderMenu { width: 340px; } #folderMenu button span { flex: 1; } #folderMenu button small { max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 /* ---- settings tabs never squeezed ---- */
-#settings .tabs { flex: none; min-height: 44px; align-items: flex-end; overflow-y: hidden; scrollbar-width: none; } #settings .tabs::-webkit-scrollbar { display: none; }
+/* ---- Settings: sections on the left, Daybreak cards on the right ---- */
+#settings { width: min(960px, 94vw); }
+#settings[open] { display: grid; grid-template-columns: 220px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; height: min(740px, 90vh); max-height: 90vh; overflow: hidden; }
+#settings .dlg-head { grid-column: 1 / -1; padding: 16px 20px 12px; border-bottom: 1px solid var(--line-soft); }
+#settings .dlg-head h2 { font-size: 26px; font-weight: 400; margin: 0; }
+#settings .tabs { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; border: 0; border-right: 1px solid var(--line-soft); overflow-y: auto; overflow-x: hidden; min-height: 0; background: var(--side); }
+#settings .tabs button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 9px; font-size: 13.5px; color: var(--body); white-space: nowrap; position: relative; }
+#settings .tabs button svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+#settings .tabs button:hover { background: var(--hover); color: var(--text); }
+#settings .tabs button.on { background: var(--panel); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 0 0 1px var(--line); border-bottom: 0; }
+#settings .tabs button.on::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+#settings .tabs button.on svg { color: var(--accent); }
+#settings .dlg-body { grid-column: 2; grid-row: 2; padding: 18px 24px 24px; overflow-y: auto; min-height: 0; }
+#settings .dlg-foot { grid-column: 1 / -1; grid-row: 3; padding: 12px 20px; }
+#settings .pane.on { display: flex; flex-direction: column; gap: 12px; }
+.panehead { margin: 0 0 4px; } .panehead h3 { font-family: var(--serifF); font-weight: 400; font-size: 24px; margin: 0 0 2px; color: var(--text); } .panehead p { margin: 0; color: var(--muted); font-size: 13px; }
+#settings .pane > .field, #settings .pane > label.toggle, #settings .pane > .note, #settings .pane > .lmcp, #settings .pane > div:not(.panehead):not([hidden]):not(.err):not(:empty) {
+  background: color-mix(in srgb, var(--text) 3%, var(--panel)); border: 1px solid var(--line-soft); border-radius: 14px; padding: 14px 16px; margin: 0; }
+#settings .pane > .field > label { font-size: 13.5px; color: var(--text); font-weight: 600; margin-bottom: 8px; }
+#settings .pane > .field > label small, #settings label.toggle small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 3px; line-height: 1.45; }
+#settings label.toggle > span:first-child { font-weight: 600; font-size: 13.5px; }
+#settings .pane input:not([type=checkbox]):not([type=radio]), #settings .pane select, #settings .pane textarea { border-radius: 10px; }
+#settings .lsprow { background: var(--panel); }
+#settings .pane > .row { display: flex !important; flex-direction: column; gap: 12px; } #settings .pane > .row > .field { margin: 0; }
+#settings .pane > .row > .field > label { font-size: 13px; color: var(--text); font-weight: 600; }
+@media (max-width: 760px) { #settings[open] { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+  #settings .tabs { grid-row: 2; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line-soft); }
+  #settings .tabs button.on::before { display: none; } #settings .dlg-body { grid-column: 1; grid-row: 3; } }
 /* ---- slim top bar ---- */
 .topbar { min-height: 44px !important; padding: 5px 16px !important; gap: 4px !important; }
 .topbar .iconbtn { padding: 6px; border-radius: 8px; } .topbar .iconbtn svg { width: 16px; height: 16px; }
@@ -1142,6 +1179,11 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
           <button class="rrow" id="railModelBtn"><span class="mlogo serif">✳</span><span><b id="railModel">—</b><small id="railProv">—</small></span><svg><use href="#i-chev"/></svg></button>
           <div class="rsec">Workspace</div>
           <button class="rrow" id="railWsBtn"><span class="rico"><svg><use href="#i-folder"/></svg></span><span><b id="railWs">—</b><small id="railWsSub">—</small></span><svg><use href="#i-up"/></svg></button>
+          <div class="rsec">Context</div>
+          <div id="ctxBox"><div class="cxtop"><b id="cxPct">0% used</b><span id="cxNums"></span></div><div class="cxbar" id="cxBar"></div><div id="cxRows"></div>
+            <div class="cxfoot"><span id="cxUntil"></span><button class="btn small" id="cxCompact">Compact session</button></div></div>
+          <div class="rsec" id="cxOutHead" hidden>Outputs</div><div id="cxOut"></div>
+          <div class="rsec" id="cxEnvHead" hidden>Branch</div><div id="cxEnv"></div>
           <div class="nums"><span><small>Tokens used</small><b id="railTok">0</b></span><span><small>Cost</small><b id="railCost">$0.00</b></span></div>
           <div class="rrow ctx"><span class="rico"><svg><use href="#i-file"/></svg></span><span><b id="railCtx">No project instructions</b><small id="railCtxSub">Memory enabled</small></span></div>
           <div class="savednote"><svg><use href="#i-undo"/></svg>Your next edit, safely saved.<span class="spacer"></span><button class="linkbtn" id="railUndo">View</button></div>
@@ -1705,7 +1747,7 @@ function handle(ev) {
     case "approve": toolCard(ev, true); break;
     case "tool_result": toolResult(ev); break;
     case "todos": endBlock(); setTodos(ev.todos); break;
-    case "turn_end": endBlock(); turnEnd(ev); onFsChanged(); jobsRefresh(); if (!replaying) setTimeout(autoOpenArtifact, 50); break;
+    case "turn_end": endBlock(); turnEnd(ev); onFsChanged(); jobsRefresh(); if (!replaying && $("railDock").classList.contains("open")) loadContext(); if (!replaying) setTimeout(autoOpenArtifact, 50); break;
     case "fs_changed": if (!replaying) onFsChanged(); break;
     case "jobs_changed": if (!replaying) jobsRefresh(); break;
     case "queued": if (!replaying) showQueue(ev.items || []); break;
@@ -2251,6 +2293,45 @@ const syncJump = () => { const sc = $("scroll"); $("jumpLatest").hidden = !docum
 $("scroll").addEventListener("scroll", syncJump, { passive: true });
 $("jumpLatest").onclick = () => { $("scroll").scrollTo({ top: $("scroll").scrollHeight, behavior: "smooth" }); };
 new MutationObserver(syncJump).observe(log, { childList: true });
+// ---------- Settings: icons and a title for each section ----------
+(function () {
+  const S = {
+    model: ["Model", "Which AI does the work, and how hard it thinks.", '<path d="M12 3a6 6 0 0 0-6 6v1a4 4 0 0 0 0 8h12a4 4 0 0 0 0-8V9a6 6 0 0 0-6-6zM9 14h6"/>'],
+    tools: ["Tools & limits", "How LightCode⁴ looks, sounds and works for you.", '<path d="M14 7l3 3M5 19l7.5-7.5M15 4a4 4 0 0 1 5 5l-3 1-3-3z"/>'],
+    perms: ["Permissions", "What the agent may do without asking you first.", '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/>'],
+    instr: ["Project instructions", "Notes the agent follows in this folder.", '<path d="M6 3h9l3 3v15H6zM9 9h6M9 13h6M9 17h4"/>'],
+    memory: ["Memory", "Things LightCode⁴ remembers about you across chats.", '<path d="M8 4a4 4 0 0 0-4 4v2a3 3 0 0 0 0 6 4 4 0 0 0 8 0V4zM16 4a4 4 0 0 1 4 4v2a3 3 0 0 1 0 6 4 4 0 0 1-8 0"/>'],
+    sched: ["Schedules", "Tasks that run by themselves, on a timer.", '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'],
+    mcp: ["Connectors", "Give the agent access to your other apps and data.", '<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0zM12 16v5"/>'],
+    phone: ["Phone & remote", "Use LightCode⁴ from your phone or anywhere.", '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>'],
+    about: ["Updates", "Version, updates, diagnostics and your settings file.", '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'],
+  };
+  document.querySelectorAll("#tabs button[data-p]").forEach(b => { const v = S[b.dataset.p]; if (!v) return;
+    b.innerHTML = `<svg viewBox="0 0 24 24">${v[2]}</svg><span></span>`; b.querySelector("span").textContent = v[0]; b.title = v[1]; });
+  document.querySelectorAll("#settings .pane[data-p]").forEach(pn => { const v = S[pn.dataset.p]; if (!v || pn.querySelector(".panehead")) return;
+    const h = el("div", "panehead", "<h3></h3><p></p>"); h.querySelector("h3").textContent = v[0]; h.querySelector("p").textContent = v[1]; pn.prepend(h); });
+})();
+// ---------- Context, outputs, environment (in the Run overview) ----------
+const CX_COLORS = { "Messages": "var(--accent)", "Tools": "#5f9e7d", "Connectors": "#d98a4e", "System prompt": "var(--muted)", "Skills": "var(--faint)" };
+async function loadContext() {
+  let r; try { r = await api("/api/context"); } catch (e) { return; } if (!r || !r.window) return;
+  const pct = Math.min(100, Math.round(r.used / r.window * 100));
+  $("cxPct").textContent = `${pct}% used`; $("cxNums").textContent = `${fmtTok(r.used)} / ${fmtTok(r.window)}`;
+  $("cxBar").innerHTML = r.parts.filter(p => p.tokens > 0).map(p => `<i style="width:${Math.max(.4, p.tokens / r.window * 100)}%;background:${CX_COLORS[p.name] || "var(--muted)"}" title="${esc(p.name)}"></i>`).join("");
+  const row = (name, tok, color) => `<div class="cxr"><i style="background:${color}"></i><span>${esc(name)}</span><b>${fmtTok(tok)}</b><em>${(tok / r.window * 100).toFixed(1)}%</em></div>`;
+  $("cxRows").innerHTML = r.parts.map(p => row(p.name, p.tokens, CX_COLORS[p.name] || "var(--muted)")).join("") + row("Free space", r.free, "var(--line)");
+  $("cxUntil").textContent = r.until_compact > 0 ? `${fmtTok(r.until_compact)} until auto-compact` : "Auto-compact on the next message";
+  $("cxCompact").disabled = busy || !document.body.classList.contains("chatting");
+  const out = $("cxOut"); out.innerHTML = ""; $("cxOutHead").hidden = !r.outputs.length;
+  r.outputs.forEach(f => { const b = el("button", "", `<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4"/></svg><span></span>`); b.querySelector("span").textContent = f; b.title = f;
+    b.onclick = () => { openRail(false); openPanel("files"); fSel = f; fDir = f.includes("/") ? f.split("/").slice(0, -1).join("/") : ""; filesRefresh(); fileShow(f); }; out.appendChild(b); });
+  const env = [];
+  if (r.branch) env.push(['<svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-4 3.5-10 5.5"/></svg>', r.branch]);
+  $("cxEnvHead").hidden = !env.length;
+  $("cxEnv").innerHTML = env.map(([ic, t]) => `<div class="cxe">${ic}<span>${esc(t)}</span></div>`).join("");
+}
+$("cxCompact").onclick = () => { openRail(false); uiCommand("compact", ""); };
+new MutationObserver(() => { if ($("railDock").classList.contains("open")) loadContext(); }).observe($("railDock"), { attributes: true, attributeFilter: ["class"] });
 // ---------- Artifact panel ----------
 $("artClose").onclick = closeArtifact;
 $("artPrev").onclick = () => artView("preview"); $("artShowCode").onclick = () => artView("code");

@@ -21,6 +21,7 @@ import re
 import secrets
 import shlex
 import socket
+import subprocess
 import threading
 import time
 import urllib.request
@@ -37,7 +38,7 @@ from .mcp_remote import McpRemoteError, sign_in as mcp_sign_in
 from ._build import BUILD, REPO
 from .browser import Browser, NeedsBrowser, install_chromium
 from .computer import Computer, ComputerError
-from .providers import ClaudeProvider, OpenAIProvider, cost_of
+from .providers import COMPACT_AT, ClaudeProvider, OpenAIProvider, cost_of
 from .terminal import Terminal
 from .tools import (FILE_CHANGING, MUTATING, READONLY_TOOLS, TOOLS, ToolError, Workspace, apply_hunks, describe, hunks,
                     project_instructions, validate)
@@ -429,6 +430,49 @@ class Chat:
             self.context = u.get("input", 0) + u.get("cache_read", 0) + u.get("cache_write", 0)
         extras.log_usage(model, u, c, self.id)
         self.emit("usage", cost=round(self.cost, 4), tokens=self.tokens, priced=c is not None, **self.context_info())
+
+    def context_report(self) -> dict:
+        """What fills the model's memory (estimated from text size; the total uses the real count when known)."""
+        est = lambda obj: len(json.dumps(obj, default=str)) // 4
+        prov = self.provider
+        system = getattr(prov, "system", "") or ""
+        tools = getattr(prov, "tools", []) or []
+        names = set(self.app.mcp.names)
+        def tname(t):
+            return t.get("name") or (t.get("function") or {}).get("name", "")
+        mcp_tools = [t for t in tools if tname(t) in names]
+        sys_tools = [t for t in tools if tname(t) not in names]
+        skills = extras.skills(self.cwd) if self.kind == "code" else {}
+        skills_tok = est({n: d for n, (d, _) in skills.items()}) if skills else 0
+        msgs = prov.serialize() if prov else []
+        msgs_tok = est(msgs)
+        parts = [("Messages", msgs_tok), ("Tools", est(sys_tools)), ("Connectors", est(mcp_tools)),
+                 ("System prompt", max(0, len(system) // 4 - skills_tok)), ("Skills", skills_tok)]
+        window = context_window(self.app.config.get("model", ""), self.app.config.get("context_window") or 0)
+        used = sum(n for _, n in parts)
+        if self.context > used:  # the provider's real count includes overhead we can't see; add it to messages
+            parts[0] = ("Messages", msgs_tok + self.context - used)
+            used = self.context
+        at = int(window * 0.85) if isinstance(prov, ClaudeProvider) else min(COMPACT_AT, int(window * 0.85))
+        outputs = []
+        for t in sorted(self.checkpoints, key=lambda k: -int(k[1:])):
+            for path in self.checkpoints[t]:
+                try:
+                    rel = Path(path).relative_to(self.ws.cwd).as_posix()
+                except ValueError:
+                    rel = path
+                if rel not in outputs and Path(path).exists():
+                    outputs.append(rel)
+        branch = ""
+        try:
+            branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=self.cwd, capture_output=True, text=True,
+                                    timeout=3).stdout.strip() if self.kind == "code" else ""
+        except Exception:
+            pass
+        return {"window": window, "used": used, "parts": [{"name": n, "tokens": t} for n, t in parts],
+                "free": max(0, window - used), "autocompact_at": at, "until_compact": max(0, at - used),
+                "outputs": outputs[:30], "branch": branch, "folder": self.cwd if self.kind == "code" else "",
+                "model": self.app.config.get("model", ""), "mode": self.kind}
 
     def context_info(self) -> dict:
         window = context_window(self.app.config.get("model", ""), self.app.config.get("context_window") or 0)
@@ -2034,6 +2078,8 @@ def make_handler(session: Session, token: str):
                         target.cancel.set()
                 elif path in ("/api/clear", "/api/chat/new"):
                     session.new_chat(worktree=bool(data.get("worktree")), client=client, kind=data.get("kind"))
+                elif path == "/api/context":
+                    result = chat.context_report() if chat else {}
                 elif path == "/api/files/find":
                     result = {"files": chat.ws.find_files(str(data.get("q", "")))}
                 elif path == "/api/queue/clear":
