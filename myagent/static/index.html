@@ -3300,7 +3300,10 @@ $("modeCode").onclick = () => switchMode("code");
 document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") { e.preventDefault(); $("modeCode").classList.contains("on") ? $("modeChat").click() : $("modeCode").click(); } });
 
 loadChats(); $("input").focus();
-setTimeout(() => { if (config.build > 0) api("/api/update").then(r => { if (r.update) showUpdate(r); }).catch(() => {}); }, 4000);
+// look for a new build at start and then every hour while the app is open; a dismissed build is not shown again
+let updSeen = 0;
+function autoUpdateCheck() { if (config.build > 0) api("/api/update").then(r => { if (r.update && r.latest !== updSeen) { updSeen = r.latest; showUpdate(r); } }).catch(() => {}); }
+setTimeout(autoUpdateCheck, 4000); setInterval(autoUpdateCheck, 60 * 60 * 1000);
 </script>
 </body>
 </html>
