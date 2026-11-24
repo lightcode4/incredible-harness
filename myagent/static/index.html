@@ -1356,6 +1356,10 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><code id="chCode" class="ghbig" style="font-size:13px;letter-spacing:0">…</code>
           <button class="btn small" id="chCopy">Copy code</button><button class="btn small" id="chFolder">Show extension folder</button><button class="btn small ghost" id="chNew" title="Make a new code; the old one stops working">New code</button></div>
         <small id="chStatus" style="display:block;margin-top:6px;color:var(--muted)"></small></div>
+      <div class="field chromecard"><label>Your code editor <small>Use LightCode⁴ inside VS Code (and VS Code-based editors) or JetBrains IDEs (IntelliJ, PyCharm, WebStorm, Android Studio…): it opens beside your code, and right-click → <b>Ask LightCode⁴ about selection</b> sends the code you selected.</small></label>
+        <ol class="chsteps"><li>Download <b>LightCode4-vscode.vsix</b> or <b>LightCode4-jetbrains.zip</b> from the newest release.</li>
+          <li><b>VS Code:</b> Extensions view → <b>⋯</b> → <b>Install from VSIX…</b>. <b>JetBrains:</b> Settings → Plugins → ⚙︎ → <b>Install Plugin from Disk…</b></li></ol>
+        <button class="btn small" id="edDownload">Open downloads</button></div>
       <div class="field"><label for="myName">What should LightCode⁴ call you? <small>(used in the greeting)</small></label><input id="myName" maxlength="40" placeholder="Your first name"></div>
       <div class="field"><label for="themeSel">Appearance</label><div class="artseg" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content"><button data-t="system">System</button><button data-t="light">Light</button><button data-t="dark">Dark</button></div></div>
       <label class="toggle"><span>Sound when a task finishes<small>A soft chime when a longer task is done, or when LightCode⁴ is in the background.</small></span><span class="switch"><input type="checkbox" id="soundOn"><span></span></span></label>
@@ -1901,6 +1905,7 @@ function handle(ev) {
     case "compacted": setCtx(0, 0); compactions = ev.compactions || compactions + 1; document.querySelectorAll(".uacts").forEach(a => [...a.children].slice(1).forEach(x => x.remove())); document.querySelectorAll(".umsg").forEach(m => delete m.dataset.idx); break;
     case "status": setBusy(ev.busy); if (!ev.busy) { loadChats(); document.body.classList.remove("agent-browsing"); } break;
     case "gh_device": if (!replaying) ghDevice(ev); break;
+    case "compose": if (!replaying) { const t = $("input"); t.value = ev.text + t.value; t.dispatchEvent(new Event("input")); t.focus(); t.setSelectionRange(t.value.length, t.value.length); } break;
     case "config": showConfig(ev.config); if ($("settings").open) showPhone(); break;
     case "setup": if (needsWelcome(config)) { const go = () => PROVS.length ? showWelcome() : setTimeout(go, 200); go(); } else { openSettings(); $("dlgError").textContent = ev.text; } break;
     case "title": if (ev.chat === currentChat) { $("chatHead").textContent = ev.title; if (!panelTab) $("crumbHere").textContent = ev.title; } loadChats(); break;
@@ -2526,6 +2531,7 @@ function drawRepos() { const q = $("ghSearch").value.trim().toLowerCase(), list 
 $("ghSearch").oninput = drawRepos;
 async function chromeCard(body = {}) { try { const r = await api("/api/chrome", body); $("chCode").textContent = r.code;
   $("chStatus").textContent = !r.listening ? "Another LightCode⁴ window owns the Chrome connection." : r.connected ? `✓ Connected (${r.browser || "Chrome"})` : "Not connected yet. Keep Chrome open after pairing."; } catch (e) {} }
+$("edDownload").onclick = () => openUrl("https://github.com/lightcode4/incredible-herness/releases");
 $("chCopy").onclick = () => navigator.clipboard?.writeText($("chCode").textContent).then(() => notice("Pairing code copied."));
 $("chNew").onclick = () => { if (confirm("Make a new pairing code? Chrome will need the new one.")) chromeCard({ new_code: true }); };
 $("chFolder").onclick = () => api("/api/chrome/folder").then(r => notice("Extension folder: " + r.path)).catch(e => notice(e.message));

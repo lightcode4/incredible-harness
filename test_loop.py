@@ -1892,6 +1892,33 @@ def main():
     s.config["auto"] = False
     stop.set(); ext.shutdown()
     print("81 your Chrome via the extension OK")
+    # 82. editor extensions: "open this folder" and "ask about selection" (what VS Code / JetBrains send)
+    srv82, _u, s82 = _start(str(Path(tempfile.mkdtemp())))
+    info = read_running()
+    proj82 = Path(tempfile.mkdtemp())
+    seen82 = []
+    s82.focus_main = lambda: seen82.append("focus")
+    def ed(route, body):
+        req = ur.Request(info["url"] + route, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "X-Token": info["token"]}, method="POST")
+        return json.loads(ur.urlopen(req, timeout=10).read())
+    ed("/api/editor/open", {"cwd": str(proj82)})
+    assert s82.current.cwd == str(proj82.resolve()) and s82.current.kind == "code" and seen82
+    first = s82.current.id
+    q82 = s82.events.subscribe()
+    ed("/api/editor/ask", {"cwd": str(proj82), "file": "src/app.py", "text": "def f():\n    pass", "lang": "python", "start": 3, "end": 4})
+    assert s82.current.id == first, "asking from the same project reuses its session"
+    comp = []
+    while not q82.empty():
+        e = q82.get()
+        if e["kind"] == "compose":
+            comp.append(e["text"])
+    assert comp and comp[0].startswith("In `src/app.py` (lines 3–4):\n```python\ndef f():")
+    try:
+        ed("/api/editor/open", {"cwd": "/no/such/folder"}); raise AssertionError("a missing folder is refused")
+    except ur.HTTPError:
+        pass
+    srv82.shutdown()
+    print("82 editor extensions OK")
     print("ALL TESTS PASSED")
 
 

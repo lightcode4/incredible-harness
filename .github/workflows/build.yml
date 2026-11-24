@@ -122,3 +122,33 @@ jobs:
             --target "$GITHUB_SHA" --title "LightCode⁴ (build ${{ github.run_number }})" \
             --notes "LightCode⁴ ${{ github.sha }} desktop installers for macOS (Apple silicon) and Windows." || sleep 10
           gh release upload "$TAG" "$FILE" --clobber
+
+  # Editor and browser extensions, attached to the same release as the apps.
+  extensions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.14.3" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: VS Code extension (.vsix)
+        run: cd extensions/vscode && npx --yes @vscode/vsce@3.2.1 package --no-dependencies -o ../../LightCode4-vscode.vsix
+      - name: JetBrains plugin (.zip)
+        run: cd extensions/jetbrains && gradle buildPlugin --no-daemon -q && cp build/distributions/*.zip ../../LightCode4-jetbrains.zip
+      - name: Chrome extension (.zip)
+        run: cd myagent/static/extensions/chrome && zip -qr ../../../../LightCode4-chrome.zip .
+      - name: Publish to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: build-${{ github.run_number }}
+        run: |
+          for i in 1 2 3 4 5 6; do
+            gh release view "$TAG" >/dev/null 2>&1 && break
+            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" --title "LightCode⁴ (build ${{ github.run_number }})" \
+              --notes "LightCode⁴ ${{ github.sha }} desktop installers for macOS (Apple silicon) and Windows." >/dev/null 2>&1 && break
+            sleep 20
+          done
+          gh release upload "$TAG" LightCode4-vscode.vsix LightCode4-jetbrains.zip LightCode4-chrome.zip --clobber

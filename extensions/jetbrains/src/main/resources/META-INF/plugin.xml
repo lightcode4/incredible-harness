@@ -1,0 +1,27 @@
+<idea-plugin>
+  <id>com.lightcode4.plugin</id>
+  <name>LightCode⁴</name>
+  <vendor url="https://github.com/lightcode4/incredible-herness">LightCode⁴</vendor>
+  <description><![CDATA[
+    Use your LightCode⁴ agent inside JetBrains IDEs (IntelliJ IDEA, PyCharm, WebStorm, Android Studio and others):
+    a LightCode⁴ tool window beside your code, and <b>Ask LightCode⁴ about selection</b> in the editor's right-click menu.
+    Needs the LightCode⁴ desktop app on the same computer.
+  ]]></description>
+  <depends>com.intellij.modules.platform</depends>
+  <extensions defaultExtensionNs="com.intellij">
+    <toolWindow id="LightCode⁴" anchor="right" icon="/icons/lightcode4.svg" factoryClass="com.lightcode4.plugin.LightCodeToolWindow"/>
+    <notificationGroup id="LightCode4" displayType="BALLOON"/>
+  </extensions>
+  <actions>
+    <action id="LightCode4.Ask" class="com.lightcode4.plugin.AskAction" text="Ask LightCode⁴ About Selection"
+            description="Put the selected code into LightCode⁴'s message box" icon="/icons/lightcode4.svg">
+      <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+      <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt L"/>
+      <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta alt L"/>
+    </action>
+    <action id="LightCode4.Open" class="com.lightcode4.plugin.OpenAction" text="Open LightCode⁴ in This Project"
+            description="Start a LightCode⁴ session in this project's folder" icon="/icons/lightcode4.svg">
+      <add-to-group group-id="ToolsMenu" anchor="last"/>
+    </action>
+  </actions>
+</idea-plugin>

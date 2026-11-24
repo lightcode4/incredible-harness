@@ -2486,6 +2486,23 @@ def make_handler(session: Session, token: str):
                         session.open_chat(str(data["chat"]), client)
                     if session.focus_main:
                         session.focus_main()
+                elif path in ("/api/editor/open", "/api/editor/ask"):  # from the VS Code / JetBrains extensions
+                    folder = os.path.expanduser(str(data.get("cwd") or ""))
+                    if not Path(folder).is_dir():
+                        raise ValueError(f"Folder not found: {folder}")
+                    cur = session.current
+                    if not (cur and cur.kind == "code" and cur.cwd == str(Path(folder).resolve()) and not cur.busy):
+                        session.config["mode"] = "code"
+                        session.config["cwd"] = str(Path(folder).resolve())
+                        session.select(session._new_chat_obj(str(Path(folder).resolve()), kind="code"), client)
+                    if path == "/api/editor/ask" and data.get("text"):
+                        f, lang = str(data.get("file") or ""), str(data.get("lang") or "")
+                        lines = f" (lines {data['start']}–{data['end']})" if data.get("start") else ""
+                        draft = f"In `{f}`{lines}:\n```{lang}\n{str(data['text'])[:60000]}\n```\n\n"
+                        session.events.put({"kind": "compose", "text": draft})
+                    if session.focus_main:
+                        session.focus_main()
+                    result = {"chat": session.current.id if session.current else None}
                 elif path == "/api/chat/open":
                     session.open_chat(str(data.get("id")), client)
                 elif path == "/api/chats/order":

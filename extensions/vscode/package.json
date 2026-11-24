@@ -1,0 +1,26 @@
+{
+  "name": "lightcode4",
+  "displayName": "LightCode⁴",
+  "description": "Use your LightCode⁴ agent inside VS Code: open it beside your code, and ask about the code you select.",
+  "version": "1.0.0",
+  "publisher": "lightcode4",
+  "license": "MIT",
+  "icon": "icon.png",
+  "repository": { "type": "git", "url": "https://github.com/lightcode4/incredible-herness" },
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["AI", "Chat"],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      { "command": "lightcode4.open", "title": "Open", "category": "LightCode⁴" },
+      { "command": "lightcode4.ask", "title": "Ask about selection", "category": "LightCode⁴" },
+      { "command": "lightcode4.folder", "title": "Start a session in this folder", "category": "LightCode⁴" }
+    ],
+    "menus": {
+      "editor/context": [{ "command": "lightcode4.ask", "when": "editorHasSelection", "group": "navigation@9" }],
+      "explorer/context": [{ "command": "lightcode4.folder", "when": "explorerResourceIsFolder", "group": "navigation@9" }]
+    },
+    "keybindings": [{ "command": "lightcode4.ask", "key": "ctrl+alt+l", "mac": "cmd+alt+l", "when": "editorTextFocus" }]
+  }
+}
