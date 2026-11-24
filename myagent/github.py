@@ -9,12 +9,18 @@ import json
 import os
 import stat
 import subprocess
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
 API = os.environ.get("LC4_GITHUB_API", "https://api.github.com")
 HOME = Path.home() / ".incredible-herness"
+# "Sign in with GitHub" uses GitHub's device flow (like the gh command line): no token to copy.
+# It needs the Client ID of a GitHub OAuth App with Device Flow enabled (public, not a secret).
+CLIENT_ID = os.environ.get("LC4_GITHUB_CLIENT_ID", "")
+SCOPES = "repo workflow read:org gist"
 TOKEN_URL = ("https://github.com/settings/tokens/new?description=LightCode4"
              "&scopes=repo,workflow,read:org,gist")
 
@@ -109,3 +115,52 @@ def clone(token: str, full_name: str, parent: Path) -> Path:
     if r.returncode != 0:
         raise GitHubError("Clone failed: " + (r.stderr or r.stdout).strip()[-400:].replace(token, "***"))
     return dest
+
+
+def _web() -> str:
+    return os.environ.get("LC4_GITHUB_WEB", "https://github.com")
+
+
+def _form(url: str, fields: dict) -> dict:
+    data = urllib.parse.urlencode(fields).encode()
+    req = urllib.request.Request(url, data=data, method="POST", headers={"Accept": "application/json", "User-Agent": "LightCode4"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        raise GitHubError(f"GitHub sign-in failed ({e.code}). Check the OAuth app has Device Flow enabled.")
+    except urllib.error.URLError as e:
+        raise GitHubError(f"Could not reach GitHub ({e.reason}).")
+
+
+def device_start(client_id: str) -> dict:
+    """Step 1: GitHub gives a short code; the user approves it at github.com/login/device."""
+    if not client_id:
+        raise GitHubError("Sign in with GitHub isn't set up in this build yet. Use a token instead (below).")
+    r = _form(_web() + "/login/device/code", {"client_id": client_id, "scope": SCOPES})
+    if "device_code" not in r:
+        raise GitHubError(r.get("error_description") or "GitHub didn't start the sign-in.")
+    return r
+
+
+def device_poll(client_id: str, device_code: str, interval: int, expires_in: int, stop=None, sleep=time.sleep) -> str:
+    """Step 2: wait until the user approves; returns the access token."""
+    deadline = time.time() + expires_in
+    while time.time() < deadline:
+        if stop is not None and stop.is_set():
+            raise GitHubError("Sign-in cancelled.")
+        sleep(interval)
+        r = _form(_web() + "/login/oauth/access_token", {"client_id": client_id, "device_code": device_code,
+                                                         "grant_type": "urn:ietf:params:oauth:grant-type:device_code"})
+        if r.get("access_token"):
+            return r["access_token"]
+        err = r.get("error")
+        if err == "slow_down":
+            interval = int(r.get("interval") or interval + 5)
+        elif err == "access_denied":
+            raise GitHubError("You declined the sign-in on GitHub.")
+        elif err == "expired_token":
+            break
+        elif err != "authorization_pending":
+            raise GitHubError(r.get("error_description") or f"GitHub sign-in failed ({err}).")
+    raise GitHubError("The sign-in code expired. Start again.")

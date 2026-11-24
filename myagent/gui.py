@@ -47,7 +47,7 @@ PAGE = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf
 HOME = Path.home() / ".incredible-herness"
 CONFIG_FILE = HOME / "settings.json"
 CHATS = HOME / "chats"
-CHAT_TOOL_NAMES = {"web_search", "fetch_url", "remember", "use_skill", "geocode", "places_nearby", "generate_image", "github_get", "github_api"}
+CHAT_TOOL_NAMES = {"web_search", "fetch_url", "remember", "use_skill", "geocode", "places_nearby", "generate_image", "github_get", "github_api", "connect_github"}
 CHAT_HOME = Path.home() / ".incredible-herness" / "chat-space"  # a private folder for Chat conversations (no project files)
 HOOK_KINDS = ("session_start", "on_prompt", "before_tool", "after_edit", "before_finish")
 DEFAULT_MODELS = {"claude": "claude-opus-5-5", "openai": "gpt-5", "local": "llama3.1"}
@@ -700,6 +700,20 @@ class Chat:
             if code != 0:
                 self.emit("tool", id=secrets.token_hex(4), name=name, summary=describe(name, args), blocked="Blocked by a hook")
                 return f"Blocked by the user's before-tool check `{hook}`:\n{out[-3000:]}", True
+        if name == "connect_github":
+            tid = secrets.token_hex(4)
+            self.emit("tool", id=tid, name=name, summary="connect GitHub")
+            if self.app.config.get("github_token"):
+                out, err = f"GitHub is already connected as @{(self.app.config.get('github_user') or {}).get('login', '?')}.", False
+            else:
+                try:
+                    info = self.app.github_signin()
+                    out, err = (f"A GitHub sign-in card is showing with the code {info['code']}, and {info['url']} was opened in the "
+                                "browser. Tell the user to enter that code there and click Authorize; it connects by itself after that."), False
+                except Exception as e:
+                    out, err = f"{e} The user can also connect in Settings > GitHub.", True
+            self.emit("tool_result", id=tid, output=out, error=err)
+            return out, err
         if name == "todo_write":
             self.todos = args["todos"]
             self.emit("todos", todos=self.todos)
@@ -1231,6 +1245,7 @@ class Session:
         self.new_window = None  # set by the desktop app: opens another window
         self.pending: dict[str, tuple[threading.Event, dict]] = {}
         self.preview_opener = webbrowser.open
+        self.open_url = webbrowser.open  # GitHub sign-in page etc. (tests replace it)
         self.browser = Browser(HOME / "browser", self._browser_frame, self._browser_state)
         self.browser_url = ""
         self.computer = Computer()
@@ -2046,7 +2061,8 @@ class Session:
     # ---------------------------------------------------------------- GitHub (Settings > GitHub)
     def github_status(self) -> dict:
         u = self.config.get("github_user") or {}
-        return {"connected": bool(self.config.get("github_token")), "user": u, "token_url": github.TOKEN_URL}
+        return {"connected": bool(self.config.get("github_token")), "user": u, "token_url": github.TOKEN_URL,
+                "signin": bool(self.config.get("github_client_id") or github.CLIENT_ID)}
 
     def github_connect(self, token: str) -> dict:
         token = (token or "").strip()
@@ -2060,6 +2076,32 @@ class Session:
         self.save()
         self._rebuild_tools()
         return self.github_status()
+
+    def github_signin(self) -> dict:
+        """Sign in with GitHub: show a short code, open github.com/login/device, finish by itself once approved."""
+        cid = self.config.get("github_client_id") or github.CLIENT_ID
+        r = github.device_start(cid)
+        if getattr(self, "_gh_stop", None):
+            self._gh_stop.set()
+        self._gh_stop = stop = threading.Event()
+        info = {"code": r["user_code"], "url": r.get("verification_uri", "https://github.com/login/device")}
+        self.events.put({"kind": "gh_device", **info})
+
+        def wait():
+            try:
+                token = github.device_poll(cid, r["device_code"], int(r.get("interval", 5)), int(r.get("expires_in", 900)), stop)
+                st = self.github_connect(token)
+                self.events.put({"kind": "gh_device", "done": True, "user": st["user"]})
+                self.events.put({"kind": "config", "config": self.public_config()})
+            except Exception as e:
+                self.events.put({"kind": "gh_device", "error": str(e)})
+        threading.Thread(target=wait, daemon=True).start()
+        if self.open_url:
+            try:
+                self.open_url(info["url"])
+            except Exception:
+                pass
+        return info
 
     def github_disconnect(self) -> dict:
         self.config.update(github_token="", github_user={})
@@ -2260,6 +2302,8 @@ def make_handler(session: Session, token: str):
                 elif path == "/api/github/connect":
                     result = session.github_connect(str(data.get("token", "")))
                     session.events.put({"kind": "config", "config": session.public_config()})
+                elif path == "/api/github/signin":
+                    result = session.github_signin()
                 elif path == "/api/github/disconnect":
                     result = session.github_disconnect()
                     session.events.put({"kind": "config", "config": session.public_config()})

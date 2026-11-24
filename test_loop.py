@@ -1520,7 +1520,7 @@ def main():
     print("73 update download resumes through drops OK")
     # 74. GitHub: connect with a token, list repositories, clone + open, git/gh signed in for commands, API tools
     from myagent import github as ghm
-    gh_hits = []
+    gh_hits, polls = [], []
     class GH(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -1537,7 +1537,13 @@ def main():
                                    "html_url": "https://github.com/octo/demo", "default_branch": "main"}])
             return self._out([{"number": 7, "title": "Bug"}])
         def do_POST(self):
-            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            raw = self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}"
+            if self.path == "/login/device/code":
+                return self._out({"device_code": "dc9", "user_code": "WDJB-MJHT", "verification_uri": "https://github.com/login/device", "interval": 0, "expires_in": 30})
+            if self.path == "/login/oauth/access_token":
+                polls.append(raw)
+                return self._out({"error": "authorization_pending"} if len(polls) < 3 else {"access_token": "tok123", "token_type": "bearer"})
+            body = json.loads(raw)
             gh_hits.append(("POST", self.path, body))
             self._out({"number": 8, "title": body.get("title")}, 201)
     gs = ThreadingHTTPServer(("127.0.0.1", 0), GH)
@@ -1548,8 +1554,20 @@ def main():
         raise AssertionError("a bad token must be refused")
     except ValueError as e:
         assert "rejected" in str(e)
-    st = s.github_connect("tok123")
-    assert st["connected"] and st["user"]["login"] == "octo"
+    # "connect my GitHub": the agent shows a code card and opens GitHub; approving there finishes it, no token to copy
+    os.environ["LC4_GITHUB_WEB"] = ghm.API
+    s.config["github_client_id"] = "Iv1.test"
+    opened = []
+    s.open_url = opened.append
+    evs = d.run("connect my github", script=[("tool", "connect_github", {}), ("text", "Approve it on GitHub.")])
+    assert "WDJB-MJHT" in d.kinds(evs, "tool_result")[0]["output"] and opened == ["https://github.com/login/device"]
+    assert any(e.get("code") == "WDJB-MJHT" for e in d.kinds(evs, "gh_device"))
+    deadline = time.time() + 10
+    while time.time() < deadline and not s.github_status()["connected"]:
+        time.sleep(0.05)
+    st = s.github_status()
+    assert st["connected"] and st["user"]["login"] == "octo" and b"client_id=Iv1.test" in polls[-1]
+    assert any(e.get("done") for e in d.events if e["kind"] == "gh_device")
     assert s.public_config()["github_token"] is True and "tok123" not in json.dumps(s.public_config())
     assert s.github_repos()[0]["full_name"] == "octo/demo"
     # a local "GitHub" to clone from

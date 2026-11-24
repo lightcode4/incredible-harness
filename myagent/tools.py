@@ -149,6 +149,10 @@ TOOLS = [
      "description": "Fetch a web page (or a local dev server URL) and return its text content.",
      "schema": _schema({"url": _S}, ["url"])},
     # Session tools (handled in gui.py)
+    {"name": "connect_github", "kind": "session",
+     "description": "Connect the user's GitHub account when they ask (or when a GitHub task needs it and it isn't connected): "
+                    "shows a sign-in card with a short code and opens GitHub's approval page.",
+     "schema": _schema({}, [])},
     {"name": "todo_write", "kind": "session",
      "description": "Create or update your task list for multi-step work. Send the FULL list every time. "
                     "Use it for any task with 3+ steps; keep exactly one item in_progress while working.",

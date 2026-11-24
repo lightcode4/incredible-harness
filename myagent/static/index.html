@@ -730,6 +730,9 @@ body.models-open #modelsView { display: block !important; }
 #findBar .iconbtn { padding: 4px; } #findBar .iconbtn svg { width: 14px; height: 14px; }
 mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); color: inherit; border-radius: 3px; } mark.findhit.cur { background: var(--sun); color: #2b2418; }
 #composer { position: relative; }
+.ghsign { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 6px 0 14px; } .ghsign small { color: var(--muted); font-size: 12.5px; }
+.ghcode { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; } .ghcode code, .ghbig { font: 600 20px var(--monoF); letter-spacing: .12em; padding: 6px 12px; border-radius: 10px; background: var(--soft); border: 1px solid var(--line); color: var(--text); }
+.ghalt > summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; } .ghcard { flex-wrap: wrap; }
 .ghme { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); margin-bottom: 14px; }
 .ghme img { width: 40px; height: 40px; border-radius: 50%; } .ghme b { display: block; font-size: 14.5px; } .ghme small { color: var(--muted); font-size: 12.5px; }
 .ghstep { display: flex; gap: 12px; padding: 12px 0; } .ghstep > span { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); border: 1px solid var(--line); font: 600 12px var(--monoF); color: var(--accent); }
@@ -1402,10 +1405,14 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <div class="pane" data-p="github">
       <div class="ghme" id="ghMe" hidden><img id="ghAvatar" alt=""><div><b id="ghName"></b><small id="ghLogin"></small></div><span class="spacer"></span><button class="btn small" id="ghDisconnect">Disconnect</button></div>
       <div id="ghSetup">
+        <div class="ghsign" id="ghSignBox"><button class="btn primary" id="ghSignIn">Sign in with GitHub</button><small>Opens GitHub: enter the code shown here and click Authorize. That's it.</small>
+          <div class="ghcode" id="ghCodeBox" hidden><code id="ghCode"></code><button class="btn small" id="ghCopyCode">Copy code</button><small id="ghWait">Waiting for you to approve on GitHub…</small></div></div>
+        <details class="ghalt" id="ghAlt"><summary>Use a token instead</summary>
         <div class="ghstep"><span>1</span><div><b>Create a token on GitHub</b><small>Opens GitHub with the right permissions already ticked. Choose an expiry, then click <b>Generate token</b> and copy it.</small>
           <button class="btn small" id="ghMakeToken" style="margin-top:8px">Create token on GitHub</button></div></div>
         <div class="ghstep"><span>2</span><div><b>Paste it here</b><div style="display:flex;gap:8px;margin-top:8px"><input id="ghNewToken" type="password" autocomplete="off" placeholder="ghp_… or github_pat_…" style="flex:1"><button class="btn primary" id="ghConnectBtn">Connect</button></div>
-          <small id="ghErr" style="color:var(--bad)"></small></div></div>
+          </div></div></details>
+        <small id="ghErr" style="color:var(--bad)"></small>
       </div>
       <div id="ghRepos" hidden>
         <div class="field"><label>Your repositories <small>Open clones it into your LightCode4 folder and starts a session there. git push, pull and the gh command work without logging in.</small></label>
@@ -1844,6 +1851,7 @@ function handle(ev) {
     case "usage": setCost(ev.cost, ev.tokens, ev.priced); setCtx(ev.context, ev.window); break;
     case "compacted": setCtx(0, 0); compactions = ev.compactions || compactions + 1; document.querySelectorAll(".uacts").forEach(a => a.remove()); break;
     case "status": setBusy(ev.busy); if (!ev.busy) { loadChats(); document.body.classList.remove("agent-browsing"); } break;
+    case "gh_device": if (!replaying) ghDevice(ev); break;
     case "config": showConfig(ev.config); if ($("settings").open) showPhone(); break;
     case "setup": if (needsWelcome(config)) { const go = () => PROVS.length ? showWelcome() : setTimeout(go, 200); go(); } else { openSettings(); $("dlgError").textContent = ev.text; } break;
     case "title": if (ev.chat === currentChat) { $("chatHead").textContent = ev.title; if (!panelTab) $("crumbHere").textContent = ev.title; } loadChats(); break;
@@ -2446,7 +2454,7 @@ function svHints() {
 let ghRepos = [];
 const openUrl = u => api("/api/open-url", { url: u }).catch(() => window.open(u));
 function renderGitHub() {
-  const on = !!config.github_token, u = config.github_user || {};
+  const on = !!config.github_token, u = config.github_user || {}; ghStatus();
   $("ghMe").hidden = !on; $("ghSetup").hidden = on; $("ghRepos").hidden = !on;
   if (on) { $("ghAvatar").src = u.avatar || ""; $("ghName").textContent = u.name || u.login || "GitHub"; $("ghLogin").textContent = "@" + (u.login || ""); loadRepos(); }
 }
@@ -2465,6 +2473,28 @@ function drawRepos() { const q = $("ghSearch").value.trim().toLowerCase(), list 
     row.append(view, open); list.appendChild(row); });
 }
 $("ghSearch").oninput = drawRepos;
+let ghSigninOk = true;
+async function ghStatus() { try { const st = await api("/api/github"); ghSigninOk = st.signin; $("ghSignBox").hidden = !st.signin; $("ghAlt").open = !st.signin; } catch {} }
+$("ghSignIn").onclick = async () => { $("ghErr").textContent = ""; $("ghSignIn").disabled = true;
+  try { await api("/api/github/signin"); } catch (e) { $("ghErr").textContent = e.message; } finally { $("ghSignIn").disabled = false; } };
+$("ghCopyCode").onclick = () => { navigator.clipboard?.writeText($("ghCode").textContent).then(() => { $("ghCopyCode").textContent = "Copied"; setTimeout(() => $("ghCopyCode").textContent = "Copy code", 1500); }).catch(() => {}); };
+function ghDevice(ev) {
+  if (ev.error) { $("ghCodeBox").hidden = true; $("ghErr").textContent = ev.error; ghCard(null, ev.error); return; }
+  if (ev.done) { config.github_token = true; config.github_user = ev.user; $("ghCodeBox").hidden = true; renderGitHub(); ghCard(null, null, ev.user); notice(`GitHub connected as @${ev.user?.login}.`); return; }
+  $("ghCode").textContent = ev.code; $("ghCodeBox").hidden = false; ghCard(ev);
+}
+function ghCard(ev, err, user) {  // the same sign-in card in the chat, for "connect my GitHub"
+  let c = document.querySelector("#log .ghcard");
+  if (!ev && !c) return;
+  if (!c) { c = el("div", "planbox ghcard"); add(c); }
+  if (user) { c.innerHTML = ""; c.append(el("span", "", `GitHub connected as <b>@${esc(user.login || "")}</b>. You can now push, open pull requests and manage issues.`)); return; }
+  if (err) { c.innerHTML = ""; c.append(el("span", "", esc(err))); return; }
+  c.innerHTML = `<span>Enter this code on GitHub, then click <b>Authorize</b>:</span>`;
+  const code = el("code", "ghbig"); code.textContent = ev.code;
+  const copy = el("button", "btn small", "Copy code"); copy.onclick = () => navigator.clipboard?.writeText(ev.code).then(() => copy.textContent = "Copied").catch(() => {});
+  const open = el("button", "btn small primary", "Open GitHub"); open.onclick = () => openUrl(ev.url);
+  c.append(code, copy, open); scroll(true);
+}
 $("ghMakeToken").onclick = async () => openUrl((await api("/api/github")).token_url);
 $("ghConnectBtn").onclick = async () => { const b = $("ghConnectBtn"); b.disabled = true; $("ghErr").textContent = "";
   try { const r = await api("/api/github/connect", { token: $("ghNewToken").value }); $("ghNewToken").value = ""; config.github_token = true; config.github_user = r.user; renderGitHub(); }
