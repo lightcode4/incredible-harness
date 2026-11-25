@@ -759,6 +759,26 @@ body.quick { background: transparent; overflow: hidden; }
 .arow i { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--faint); } .arow i.ok { background: var(--ok); } .arow i.bad { background: var(--bad); } .arow i.wait { background: var(--sun); } .arow i.run { background: var(--accent); animation: fpulse 1.2s infinite; }
 .arow span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--monoF); font-size: 12px; } .arow small { color: var(--faint); font-size: 11px; flex: none; }
 .aempty { padding: 18px 8px; color: var(--muted); font-size: 12.5px; text-align: center; }
+/* Security review (bug hunting) */
+#secView { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.secsum { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); }
+.secsum small { color: var(--muted); font-size: 12px; }
+#secList { overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
+.sevpill { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.sevpill.high { background: color-mix(in srgb, var(--bad) 20%, transparent); color: var(--bad); }
+.sevpill.medium { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+.sevpill.low { background: color-mix(in srgb, var(--muted) 20%, transparent); color: var(--body); }
+.sevpill.ok { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
+.secfind { display: flex; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--panel); }
+.secfind .secbody { min-width: 0; flex: 1; }
+.sechead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sechead b { font-size: 13.5px; }
+.seclink { background: none; border: 0; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; padding: 0; }
+.seclink:hover { text-decoration: underline; }
+.secsnip { margin: 6px 0; padding: 7px 9px; background: var(--codeblock); color: var(--codetext); border-radius: 8px; font: 12px var(--monoF); overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+.secadv { color: var(--muted); font-size: 12px; }
+.secacts { display: flex; gap: 6px; margin-top: 8px; }
+#secCount { background: var(--bad); color: #fff; }
 .flash { animation: flash 1.2s ease; } @keyframes flash { 0%, 40% { box-shadow: 0 0 0 2px var(--sun); } 100% { box-shadow: none; } }
 @keyframes fpulse { 50% { transform: scale(1.5); opacity: .6; } }
 #railPop { position: absolute; width: 300px; max-height: min(620px, calc(100vh - 40px)); overflow-y: auto; opacity: 0; visibility: hidden;
@@ -1560,6 +1580,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
               <button class="tab" data-v="browser" role="tab" title="Browser (⇧⌘B)"><svg><use href="#i-globe"/></svg><span>Browser</span></button>
               <button class="tab" data-v="files" role="tab" title="Files (⇧⌘F)"><svg><use href="#i-folder"/></svg><span>Files</span></button>
               <button class="tab" data-v="tasks" role="tab" title="Background tasks (⇧⌘T)"><svg viewBox="0 0 24 24"><path d="M8.5 12 13 7.5 17.5 12 13 16.5zM4 12l4.5-4.5M4 12l4.5 4.5"/></svg><span>Tasks</span><em id="jobCount" hidden></em></button>
+              <button class="tab" data-v="sec" role="tab" title="Security review"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.4-3 7.7-7 9-4-1.3-7-4.6-7-9V6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg><span>Security</span><em id="secCount" hidden></em></button>
               <span class="spacer"></span>
               <button class="iconbtn" id="maxPanel" title="Maximize panel (⇧⌘M)" aria-label="Maximize panel"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg></button>
               <button class="iconbtn" id="closePanel" title="Close panel (⌘.)" aria-label="Close panel"><svg><use href="#i-x"/></svg></button>
@@ -1585,6 +1606,13 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
   </div></div>
   <div class="pview" data-v="tasks"><div id="tasksView">
     <div id="jobList"></div>
+  </div></div>
+  <div class="pview" data-v="sec"><div id="secView">
+    <div class="fbar"><b>Security review</b><span class="spacer"></span>
+      <input class="pgsearch" id="secSearch" placeholder="Filter findings…" aria-label="Filter findings">
+      <button class="btn small primary" id="secScan">Scan project</button></div>
+    <div id="secSummary" class="secsum"></div>
+    <div id="secList"></div>
   </div></div>
   <div class="pview" data-v="browser">
     <div class="bbar">
@@ -3680,7 +3708,7 @@ function openPanel(tab) {
   document.querySelectorAll(".ptabs .tab").forEach(b => b.classList.toggle("on", b.dataset.v === tab));
   document.querySelectorAll(".pview").forEach(v => v.classList.toggle("on", v.dataset.v === tab));
   if (tab === "term") startTerm(); setViewing(tab === "browser"); if (tab === "git") gitRefresh();
-  if (tab === "files") filesRefresh(); if (tab === "tasks") jobsRefresh();
+  if (tab === "files") filesRefresh(); if (tab === "tasks") jobsRefresh(); if (tab === "sec") secInit();
   if (tab === "term") setTimeout(() => { fit?.fit(); term?.focus(); }, 30);
 }
 function closePanel() { document.body.classList.remove("panel-open", "panel-max"); panelTab = null; setViewing(false); }
@@ -3689,6 +3717,53 @@ document.querySelectorAll(".ptabs .tab").forEach(b => b.onclick = () => openPane
 $("closePanel").onclick = closePanel;
 $("termToggle").onclick = () => panelTab === "term" ? closePanel() : openPanel("term");
 $("browserToggle").onclick = () => panelTab === "browser" ? closePanel() : openPanel("browser");
+// ---------- Security review (bug hunting) ----------
+let secScanned = false, secFindings = [];
+function secInit() { if (!secScanned) secScan(); }
+async function secScan() {
+  const btn = $("secScan"); btn.disabled = true; btn.textContent = "Scanning…";
+  $("secSummary").textContent = ""; $("secList").innerHTML = "";
+  try {
+    const r = await api("/api/security/scan", {});
+    secScanned = true; secFindings = r.findings || [];
+    const c = r.counts || {}, n = secFindings.length;
+    const pill = (sev, label) => (c[sev] ? `<span class="sevpill ${sev}">${c[sev]} ${label}</span>` : "");
+    $("secSummary").innerHTML = n
+      ? `${pill("high", "high")}${pill("medium", "medium")}${pill("low", "low")}<small>${n} finding${n === 1 ? "" : "s"} across ${r.scanned} file${r.scanned === 1 ? "" : "s"} · leads to verify, not proof</small>`
+      : `<span class="sevpill ok">No obvious issues</span><small>Scanned ${r.scanned} file${r.scanned === 1 ? "" : "s"}. A clean static scan isn't a guarantee — still worth a manual review.</small>`;
+    const badge = $("secCount"); badge.hidden = !c.high; badge.textContent = c.high || "";
+    secRender();
+  } catch (e) { $("secSummary").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  btn.disabled = false; btn.textContent = "Rescan";
+}
+function secRender() {
+  const q = ($("secSearch").value || "").toLowerCase();
+  const list = $("secList"); list.innerHTML = "";
+  const shown = secFindings.filter(f => !q || (f.title + " " + f.file + " " + f.snippet + " " + f.id).toLowerCase().includes(q));
+  if (!shown.length) { list.appendChild(el("div", "aempty", secFindings.length ? "No findings match your filter." : "Nothing flagged. Try a manual review of auth, input handling and secrets.")); return; }
+  shown.forEach(f => {
+    const row = el("div", "secfind");
+    row.innerHTML = `<span class="sevpill ${f.severity}">${f.severity}</span>`
+      + `<div class="secbody"><div class="sechead"><b></b><button class="seclink"></button></div>`
+      + `<pre class="secsnip"></pre><small class="secadv"></small>`
+      + `<div class="secacts"><button class="btn small" data-a="open">Open file</button><button class="btn small" data-a="ask">Ask the agent to review</button></div></div>`;
+    row.querySelector("b").textContent = f.title;
+    const link = row.querySelector(".seclink"); link.textContent = `${f.file}:${f.line}`;
+    row.querySelector(".secsnip").textContent = f.snippet;
+    row.querySelector(".secadv").textContent = f.advice;
+    const open = () => { openPanel("files"); fSel = f.file; fileShow(f.file); };
+    link.onclick = open;
+    row.querySelector('[data-a="open"]').onclick = open;
+    row.querySelector('[data-a="ask"]').onclick = () => {
+      closePanel();
+      $("input").value = `Review this potential "${f.title}" at ${f.file}:${f.line} — tell me whether it's actually exploitable, how to reproduce it, and the fix. Context:\n\n    ${f.snippet}`;
+      autosize(); $("input").focus();
+    };
+    list.appendChild(row);
+  });
+}
+$("secScan").onclick = secScan;
+$("secSearch").oninput = secRender;
 // ---------- Files tab (live) ----------
 let fDir = "", fSel = null, fKnown = new Set();
 const fileIcon = '<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4"/></svg>';
@@ -4063,6 +4138,7 @@ function palRender() {
   const nav = [["New session", () => $("newchat").click(), "chat new start"], ["Parallel session (worktree)", () => $("parallelChat").click(), "branch agent"],
     ["Checkpoints", () => openCheckpoints(), "undo restore rewind files history"], ["Source control", () => openPanel("git"), "git commit branch push diff files"], ["Terminal", () => openPanel("term"), "shell console command run logs"], ["Changes", () => openPanel("git"), "diff changed files"],
     ["Files", () => openPanel("files"), "browse project folder tree open file"], ["Background tasks", () => openPanel("tasks"), "jobs servers running processes"],
+    ["Security review", () => openPanel("sec"), "bug hunting vulnerability scan secrets audit security"],
     ["Preview (browser)", () => openPanel("browser"), "web page localhost"], ["Project folder", () => openFolderPicker(), "workspace directory open"],
     ["Choose model", () => openModelPicker(), "model gpt claude switch"], ["Settings", () => openSettings(), "preferences options"],
     ["Models & API keys", () => openModelsView(), "provider key base url claude openai openrouter deepseek grok gemini opencode"], ["Connectors", () => openSettings("mcp"), "mcp tools integrations"],

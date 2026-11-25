@@ -6,6 +6,7 @@ import test_loop
 from test_loop import SCRIPT, start_fake
 start_fake()
 work = Path(tempfile.mkdtemp()); (work / "app.py").write_text("def total(xs):\n    return sum(xs)\n\n\n\n\ndef avg(xs):\n    return total(xs) / len(xs)\n")
+(work / "insecure.py").write_text('import os\nAWS = "AKIAIOSFODNN7EXAMPLE"\ndef run(cmd):\n    os.system(cmd)\n')  # for the Security review check
 for c in (["init", "-q", "-b", "main"], ["config", "user.email", "t@e.com"], ["config", "user.name", "T"], ["add", "-A"], ["commit", "-qm", "init"]):
     subprocess.run(["git", *c], cwd=work, check=True)
 from myagent.gui import start_server

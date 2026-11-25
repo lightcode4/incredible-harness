@@ -230,6 +230,11 @@ async function overlaps(pg, label) {
       await overlaps(pg, 'tasks tab');
       await tab(pg, 'git'); await pg.waitForTimeout(500);
       check('Changes tab shows changed files', (await pg.innerText('#gitFiles')).includes('app.py'));
+      await tab(pg, 'sec'); await pg.waitForSelector('#secList .secfind', { timeout: 8000 });
+      check('Security review scans the project and flags issues', (await pg.locator('#secList .secfind').count()) >= 1 && (await pg.innerText('#secSummary')).toLowerCase().includes('high'));
+      check('A finding links to its file and location', /insecure\.py:\d+/.test(await pg.innerText('#secList .secfind .seclink')));
+      check('Findings can be filtered', await pg.evaluate(() => { const n = document.querySelectorAll('#secList .secfind').length; const s = document.getElementById('secSearch'); s.value = 'zz-no-such-finding-zz'; s.dispatchEvent(new Event('input')); const after = document.querySelectorAll('#secList .secfind').length; s.value = ''; s.dispatchEvent(new Event('input')); return n >= 1 && after === 0; }));
+      await overlaps(pg, 'security tab');
       await tab(pg, 'chat'); await pg.waitForTimeout(200);
       // Activity panel and side panel button
       await pg.click('#activityBtn'); await pg.waitForTimeout(250);

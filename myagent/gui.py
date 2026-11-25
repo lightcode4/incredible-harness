@@ -31,7 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, bridge, extras, gallery, github, gitops, lsp, market, projects, sync, teams
+from . import __version__, bridge, extras, gallery, github, gitops, lsp, market, projects, security, sync, teams
 from .catalog import BY_ID as PROVIDER_BY_ID, PROVIDERS, guess_service
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
@@ -2672,6 +2672,8 @@ def make_handler(session: Session, token: str):
                 elif path == "/api/services":
                     session.save_services(data)
                     session.events.put({"kind": "config", "config": session.public_config()})
+                elif path == "/api/security/scan":  # bug hunting: static security scan of the working folder
+                    result = security.scan(chat.ws.cwd) if chat else {"findings": [], "counts": {}, "scanned": 0, "root": ""}
                 elif path == "/api/context":
                     result = chat.context_report() if chat else {}
                 elif path == "/api/files/find":
