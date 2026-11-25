@@ -2145,6 +2145,36 @@ def main():
     px5.RELEASES_API = "https://api.github.com"
     us.shutdown()
     print("85 updates OK")
+
+    # 86. security review (bug hunting): a fast static scan flags risky patterns and secrets,
+    #     ignores env lookups and placeholders, and skips vendored folders
+    from myagent import security as sec86
+    proj = Path(tempfile.mkdtemp())
+    (proj / "app.py").write_text(
+        "import os, subprocess, pickle\n"
+        'AWS = "AKIAIOSFODNN7EXAMPLE"\n'           # AWS-shaped key -> high
+        "def run(cmd):\n"
+        "    subprocess.run(cmd, shell=True)\n"     # shell=True -> high
+        "    return pickle.loads(cmd)\n"            # insecure deserialization -> high
+        'TOKEN = os.environ["API_TOKEN"]\n'         # env lookup -> must NOT flag
+        'PLACEHOLDER_SECRET = "changeme"\n')        # placeholder -> must NOT flag
+    (proj / "vendor").mkdir()
+    (proj / "vendor" / "lib.py").write_text('password = "h7Qk29zLmA1vCx"\n')  # skipped dir
+    rep = sec86.scan(str(proj))
+    fids = [f["id"] for f in rep["findings"]]
+    files = {f["file"] for f in rep["findings"]}
+    assert "vendor/lib.py" not in files, "vendored folders are skipped"
+    assert any(f.startswith("secret") for f in fids), "finds the AWS key"
+    assert any("shell" in f for f in fids), "flags shell=True"
+    assert any("pickle" in f for f in fids), "flags pickle.loads"
+    assert rep["counts"]["high"] >= 1, "has high-severity findings"
+    assert not any("os.environ" in f["snippet"] for f in rep["findings"]), "env lookups are not secrets"
+    assert not any(f["snippet"].endswith('"changeme"') for f in rep["findings"]), "placeholders are not secrets"
+    clean = Path(tempfile.mkdtemp())
+    (clean / "ok.py").write_text("def add(a, b):\n    return a + b\n")
+    assert sec86.scan(str(clean))["findings"] == [], "clean project has no findings"
+    print("86 security review OK")
+
     print("ALL TESTS PASSED")
 
 
