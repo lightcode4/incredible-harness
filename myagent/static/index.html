@@ -904,7 +904,19 @@ mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); colo
 ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 /* ---- animated mascot backgrounds on the new-chat screen (Settings > Display > Background) ---- */
 .chatcard { position: relative; isolation: isolate; }
-#bgm { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; border-radius: inherit; }
+#bgm { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+/* app-wide: the sidebar, header and windows become frosted glass over the scene */
+body.has-bgm aside#side { background: color-mix(in srgb, var(--side) 80%, transparent); }
+body.has-bgm dialog { background: color-mix(in srgb, var(--panel) 93%, transparent); }
+body.has-bgm dialog::backdrop { background: rgba(8,6,10,.35); }
+/* liquid glass: a soft sheen and a bright top edge on every panel */
+body.has-bgm aside#side, body.has-bgm dialog, body.has-bgm #composer { box-shadow: inset 0 1px 0 rgba(255,255,255,.10), inset 0 0 0 1px rgba(255,236,200,.06), 0 12px 40px -14px rgba(0,0,0,.55); }
+/* frosted glass on pictures: each panel shows a pre-blurred copy of the scene lined up behind it (no live blur, so it stays smooth) */
+body.has-photo { --pw: max(104vw, 143.55vh); }
+body.has-photo aside#side, body.has-photo dialog, body.has-photo #composer {
+  background: linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,0) 38%), linear-gradient(rgba(22,16,24,.50), rgba(22,16,24,.50)),
+    var(--blurimg) center calc(102vh - var(--pw) / 1.6313) / var(--pw) auto no-repeat fixed, #150f1c;
+  border-color: rgba(255,236,200,.16); }
 #bgm .mascot { position: absolute; image-rendering: pixelated; shape-rendering: crispEdges; }
 body.has-bgm:not(.chatting) .mascot-slot { display: none; }
 #bgm .burst, #bgm .sun, #bgm .buddy, #bgm .core, #bgm .sunwrap, #bgm .ph, #bgm .ring, #bgm .band, #bgm .glow, #bgm .orb { will-change: transform; }
@@ -971,7 +983,7 @@ body.chatting .sc-photo .scrim { background: rgba(12,9,15,.66); transition: back
 /* picture backgrounds (your own artwork), with motion layered on top */
 .sc-photo { background: #150f1c; }
 .sc-photo .ph { position: absolute; left: -2%; right: -2%; top: 14%; bottom: -2%; background: var(--img) 50% 100% / cover no-repeat; -webkit-mask: linear-gradient(transparent, #000 22%); mask: linear-gradient(transparent, #000 22%); animation: bgKen 60s ease-in-out infinite alternate; }
-@keyframes bgKen { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-1.2%, -1.5%); } }
+@keyframes bgKen { from { transform: scale(1); } to { transform: scale(1.035); } }
 .sc-photo .scrim { position: absolute; inset: 0; background: linear-gradient(rgba(10,7,14,.62), rgba(10,7,14,.30) 45%, rgba(10,7,14,.05) 70%, rgba(10,7,14,.35)); }
 .sc-photo .tw { position: absolute; width: 4px; height: 4px; background: #fff6dc; box-shadow: 0 0 8px #ffe3a0; animation: bgTwinkle 3.5s ease-in-out infinite; }
 .sc-photo .spark { position: absolute; width: 4px; height: 4px; background: #f6d38a; box-shadow: 0 0 8px #f6d38a; animation: bgRise 8s linear infinite; }
@@ -996,9 +1008,9 @@ body.chatting .sc-photo .scrim { background: rgba(12,9,15,.66); transition: back
 @keyframes bgShoot { 0% { opacity: 0; transform: rotate(-30deg) translateX(-200px); } 4% { opacity: 1; } 14% { opacity: 0; transform: rotate(-30deg) translateX(260px); } 100% { opacity: 0; transform: rotate(-30deg) translateX(260px); } }
 .sc-meteor .ember { position: absolute; bottom: 12%; width: 4px; height: 4px; background: #ff9a4a; box-shadow: 0 0 8px #ff6a2a; animation: bgRise 6s linear infinite; }
 /* on a picture, the welcome screen reads light-on-glass whatever the theme */
-body.has-darkbg .chatcard { --bg: #17130c; --panel: #241d13; --text: #f1e7cf; --muted: #a8977a; --faint: #786a51; --body: #c4b593; --line: #3a3020; --line-soft: #2f271a; --hover: #2b2317; --soft: #3a2f1b; --accent: #dfbd69; color-scheme: dark; }
+body.has-darkbg { --side: #1d1810; --bg: #17130c; --panel: #241d13; --text: #f1e7cf; --muted: #a8977a; --faint: #786a51; --body: #c4b593; --line: #3a3020; --line-soft: #2f271a; --hover: #2b2317; --soft: #3a2f1b; --accent: #dfbd69; color-scheme: dark; }
 body.has-darkbg #hello { color: #fbf1da; text-shadow: 0 2px 18px rgba(0,0,0,.6); }
-body.has-darkbg #composer { background: rgba(24,18,22,.58); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); border-color: rgba(255,230,180,.22); }
+body.has-darkbg #composer { background: rgba(24,18,22,.82); border-color: rgba(255,230,180,.22); }
 .sw.photo { background: var(--img) center / cover; }
 @media (prefers-reduced-motion: reduce) { #bgm, #bgm * { animation: none !important; } }
 /* picker in Settings */
@@ -1702,7 +1714,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
           <li><b>VS Code:</b> Extensions view → <b>⋯</b> → <b>Install from VSIX…</b>. <b>JetBrains:</b> Settings → Plugins → ⚙︎ → <b>Install Plugin from Disk…</b></li></ol>
         <button class="btn small" id="edDownload">Open downloads</button></div>
       <div class="field"><label for="myName">What should LightCode⁴ call you? <small>(used in the greeting)</small></label><input id="myName" maxlength="40" placeholder="Your first name"></div>
-      <div class="field"><label>Background <small>Your mascot, big and animated behind the new-chat screen.</small></label><div class="scenepick" id="scenePick" role="radiogroup" aria-label="Background"></div></div>
+      <div class="field"><label>Background <small>Your mascot, big and animated behind the whole app.</small></label><div class="scenepick" id="scenePick" role="radiogroup" aria-label="Background"></div></div>
       <div class="field"><label for="themeSel">Appearance</label><div class="artseg" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content"><button data-t="system">System</button><button data-t="light">Light</button><button data-t="dark">Dark</button></div></div>
       <label class="toggle"><span>Sound when a task finishes<small>A soft chime when a longer task is done, or when LightCode⁴ is in the background.</small></span><span class="switch"><input type="checkbox" id="soundOn"><span></span></span></label>
       <div class="field"><label for="quickKey">Quick chat shortcut <small>(opens a small LightCode⁴ box over any app; leave empty to turn off)</small></label>
@@ -2675,9 +2687,10 @@ function sceneHTML(id) {
 function applyScene(id) {
   id = SCENES.some(s => s[0] === id) ? id : "daybreak";
   document.getElementById("bgm")?.remove();
-  const host = document.querySelector(".chatcard");
-  if (host && id !== "none") { const d = el("div", (PHOTO_SCENES.includes(id) ? "sc-photo " : "") + "sc-" + id); d.id = "bgm"; d.dataset.scene = id; d.setAttribute("aria-hidden", "true"); d.innerHTML = sceneHTML(id); host.prepend(d); }
-  document.body.dataset.scene = id; document.body.classList.toggle("has-bgm", id !== "none"); document.body.classList.toggle("has-darkbg", PHOTO_SCENES.includes(id) || id === "landscape");
+  const host = document.body;
+  if (id !== "none") { const d = el("div", (PHOTO_SCENES.includes(id) ? "sc-photo " : "") + "sc-" + id); d.id = "bgm"; d.dataset.scene = id; d.setAttribute("aria-hidden", "true"); d.innerHTML = sceneHTML(id); host.prepend(d); }
+  document.body.dataset.scene = id; document.body.classList.toggle("has-bgm", id !== "none"); document.body.classList.toggle("has-darkbg", PHOTO_SCENES.includes(id) || id === "landscape"); document.body.classList.toggle("has-photo", PHOTO_SCENES.includes(id));
+  if (PHOTO_SCENES.includes(id)) document.body.style.setProperty("--blurimg", `url("/scenes/${id}-blur.webp")`);
   document.querySelectorAll("#scenePick button").forEach(b => { b.classList.toggle("on", b.dataset.s === id); b.setAttribute("aria-checked", b.dataset.s === id); });
 }
 let sceneSave = Promise.resolve();  // saves go one at a time, so quick clicks land in order
