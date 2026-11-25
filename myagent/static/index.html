@@ -2744,7 +2744,8 @@ function applyScene(pick) {
   document.body.dataset.scene = pick; document.body.dataset.shown = id; document.body.classList.toggle("has-bgm", id !== "none");
   document.body.classList.toggle("has-lightbg", DAY_SCENES.includes(id)); document.body.style.setProperty("--sky", SKY[id] || "#150f1c");
   document.body.style.setProperty("--ptop", ({ forest: "26vh", tower: "18vh" })[id] || "14vh");
-  document.body.style.setProperty("--pbot", ({ datafall: "34vh" })[id] || "2vh");  // keeps the face below the message box document.body.classList.toggle("has-darkbg", NIGHT_SCENES.includes(id) || id === "landscape"); document.body.classList.toggle("has-photo", PHOTO_SCENES.includes(id));
+  document.body.style.setProperty("--pbot", ({ datafall: "34vh" })[id] || "2vh");  // keeps the face below the message box
+  document.body.classList.toggle("has-darkbg", NIGHT_SCENES.includes(id) || id === "landscape"); document.body.classList.toggle("has-photo", PHOTO_SCENES.includes(id));
   if (PHOTO_SCENES.includes(id)) document.body.style.setProperty("--blurimg", `url("/scenes/${id}-blur.webp")`);
   document.querySelectorAll("#scenePick button").forEach(b => { b.classList.toggle("on", b.dataset.s === pick); b.setAttribute("aria-checked", b.dataset.s === pick); });
 }
