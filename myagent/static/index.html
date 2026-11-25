@@ -906,7 +906,11 @@ mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); colo
 .chatcard { position: relative; isolation: isolate; }
 #bgm { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; border-radius: inherit; }
 #bgm .mascot { position: absolute; image-rendering: pixelated; shape-rendering: crispEdges; }
-body.chatting #bgm { display: none; } body.has-bgm:not(.chatting) .mascot-slot { display: none; }
+body.has-bgm:not(.chatting) .mascot-slot { display: none; }
+#bgm .burst, #bgm .sun, #bgm .buddy, #bgm .core, #bgm .sunwrap, #bgm .ph, #bgm .ring, #bgm .band, #bgm .glow, #bgm .orb { will-change: transform; }
+/* the background stays while you chat; it just steps back so messages read easily */
+body.chatting #bgm { opacity: .5; transition: opacity .6s; } body.chatting #bgm.sc-photo { opacity: 1; }
+body.chatting .sc-photo .scrim { background: rgba(12,9,15,.66); transition: background .6s; }
 @keyframes bgSpin { to { transform: translate(-50%, 50%) rotate(360deg); } }
 @keyframes bgFloat { 0%,100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -14px); } }
 @keyframes bgRise { 0% { transform: translateY(10px); opacity: 0; } 15% { opacity: 1; } 85% { opacity: .9; } 100% { transform: translateY(-260px); opacity: 0; } }
@@ -964,6 +968,38 @@ body.chatting #bgm { display: none; } body.has-bgm:not(.chatting) .mascot-slot {
 .sc-landscape .bird { position: absolute; color: #2a1b16; font: 700 18px monospace; animation: bgBird 26s linear infinite; }
 @keyframes bgBird { from { transform: translate(-20vw, 0); } to { transform: translate(110vw, -60px); } }
 .sc-landscape .star { position: absolute; width: 3px; height: 3px; background: #fff; animation: bgTwinkle 4s infinite; }
+/* picture backgrounds (your own artwork), with motion layered on top */
+.sc-photo { background: #150f1c; }
+.sc-photo .ph { position: absolute; left: -2%; right: -2%; top: 14%; bottom: -2%; background: var(--img) 50% 100% / cover no-repeat; -webkit-mask: linear-gradient(transparent, #000 22%); mask: linear-gradient(transparent, #000 22%); animation: bgKen 60s ease-in-out infinite alternate; }
+@keyframes bgKen { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.08) translate(-1.2%, -1.5%); } }
+.sc-photo .scrim { position: absolute; inset: 0; background: linear-gradient(rgba(10,7,14,.62), rgba(10,7,14,.30) 45%, rgba(10,7,14,.05) 70%, rgba(10,7,14,.35)); }
+.sc-photo .tw { position: absolute; width: 4px; height: 4px; background: #fff6dc; box-shadow: 0 0 8px #ffe3a0; animation: bgTwinkle 3.5s ease-in-out infinite; }
+.sc-photo .spark { position: absolute; width: 4px; height: 4px; background: #f6d38a; box-shadow: 0 0 8px #f6d38a; animation: bgRise 8s linear infinite; }
+.sc-photo .glow { position: absolute; left: 50%; top: 60%; width: 46%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(255,214,140,.28), transparent 65%); animation: bgPulse 6s ease-in-out infinite; mix-blend-mode: screen; }
+@keyframes bgPulse { 0%,100% { opacity: .55; transform: translate(-50%, -50%) scale(.95); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } }
+.sc-dream .zz { position: absolute; color: #ffe7b0; font: 700 22px ui-monospace, Menlo, monospace; text-shadow: 0 0 10px rgba(255,200,120,.8); opacity: 0; animation: bgZ 6s ease-in infinite; }
+@keyframes bgZ { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(40px, -90px) scale(1.2); } }
+.sc-dream .drift { position: absolute; width: 5px; height: 5px; background: #ffd58a; box-shadow: 0 0 10px #ffb44a; animation: bgDrift 9s linear infinite; }
+@keyframes bgDrift { 0% { opacity: 0; transform: translate(0, 0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(260px, -170px); } }
+.sc-aurora .band { position: absolute; left: -10%; right: -10%; top: 30%; height: 34%; mix-blend-mode: screen; filter: blur(18px); opacity: .55;
+  background: linear-gradient(90deg, transparent, rgba(120,255,190,.35), rgba(255,140,90,.30), rgba(160,120,255,.30), transparent); background-size: 200% 100%; animation: bgAur 14s ease-in-out infinite alternate; }
+@keyframes bgAur { from { background-position: 0 0; opacity: .3; } to { background-position: 100% 0; opacity: .7; } }
+.sc-aurora .glint { position: absolute; left: 34.5%; top: 59%; width: 70px; height: 70px; margin: -35px; border-radius: 50%; background: radial-gradient(circle, rgba(255,240,180,.9), transparent 60%); animation: bgPulse2 2.6s ease-in-out infinite; mix-blend-mode: screen; }
+@keyframes bgPulse2 { 0%,100% { opacity: .4; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+.sc-aurora .wave { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; mix-blend-mode: screen; background: linear-gradient(100deg, transparent 30%, rgba(150,240,255,.22) 50%, transparent 70%) 0 0 / 50% 100% no-repeat; animation: bgWave 9s ease-in-out infinite; }
+@keyframes bgWave { from { background-position: -60% 0; } to { background-position: 160% 0; } }
+.sc-moon .orb { position: absolute; left: 50%; top: 60%; width: 2px; height: 2px; animation: bgOrbit 16s linear infinite; }
+.sc-moon .orb i { position: absolute; left: 280px; width: 6px; height: 6px; background: #ffd98a; box-shadow: 0 0 12px #ffb44a; }
+@keyframes bgOrbit { from { transform: scaleY(.28) rotate(0deg); } to { transform: scaleY(.28) rotate(360deg); } }
+.sc-meteor .shoot { position: absolute; width: 140px; height: 2px; background: linear-gradient(90deg, rgba(255,220,160,0), #ffe2a8); border-radius: 2px; transform: rotate(-30deg); opacity: 0; animation: bgShoot 7s ease-in infinite; }
+@keyframes bgShoot { 0% { opacity: 0; transform: rotate(-30deg) translateX(-200px); } 4% { opacity: 1; } 14% { opacity: 0; transform: rotate(-30deg) translateX(260px); } 100% { opacity: 0; transform: rotate(-30deg) translateX(260px); } }
+.sc-meteor .ember { position: absolute; bottom: 12%; width: 4px; height: 4px; background: #ff9a4a; box-shadow: 0 0 8px #ff6a2a; animation: bgRise 6s linear infinite; }
+/* on a picture, the welcome screen reads light-on-glass whatever the theme */
+body.has-darkbg .chatcard { --bg: #17130c; --panel: #241d13; --text: #f1e7cf; --muted: #a8977a; --faint: #786a51; --body: #c4b593; --line: #3a3020; --line-soft: #2f271a; --hover: #2b2317; --soft: #3a2f1b; --accent: #dfbd69; color-scheme: dark; }
+body.has-darkbg #hello { color: #fbf1da; text-shadow: 0 2px 18px rgba(0,0,0,.6); }
+body.has-darkbg #composer { background: rgba(24,18,22,.58); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); border-color: rgba(255,230,180,.22); }
+.sw.photo { background: var(--img) center / cover; }
 @media (prefers-reduced-motion: reduce) { #bgm, #bgm * { animation: none !important; } }
 /* picker in Settings */
 .scenepick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
@@ -2320,7 +2356,7 @@ function showConfig(c) {
   if ($("autoUpdate")) $("autoUpdate").checked = c.auto_update !== false;
   config = c; if (c.chat_kind) setModeUI(c.chat_kind); setTimeout(() => { if (typeof folderLabel === "function") { folderLabel(); if (!document.body.classList.contains("chatting")) $("hello").textContent = greeting(); } }, 0); if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
   if (c.theme && !$("settings").open) applyTheme(c.theme);
-  if (typeof applyScene === "function" && (c.scene || "daybreak") !== document.getElementById("bgm")?.className.replace("sc-", "")) applyScene(c.scene || "daybreak");
+  if (typeof applyScene === "function" && (c.scene || "daybreak") !== document.body.dataset.scene) applyScene(c.scene || "daybreak");
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
   $("modelName").textContent = c.model + (c.provider === "claude" ? ` · ${c.effort}` : "");
   $("who").textContent = { claude: "Claude", openai: "OpenAI", local: "Local" }[c.provider] + " · " + c.model;
@@ -2610,9 +2646,22 @@ document.querySelectorAll("#themeSeg button").forEach(b => b.onclick = async () 
   await api("/api/config", { theme: b.dataset.t }).catch(e => notice(e.message)); });
 try { applyTheme(localStorage.getItem("lc4.theme") || "system"); } catch (e) {}
 // ---------- animated mascot backgrounds ----------
-const SCENES = [["none", "None"], ["daybreak", "Daybreak"], ["companion", "Companion"], ["orbit", "Orbit"], ["landscape", "Pixel landscape"]];
+const SCENES = [["none", "None"], ["daybreak", "Daybreak"], ["companion", "Companion"], ["orbit", "Orbit"], ["landscape", "Pixel landscape"],
+  ["dusk", "Dusk hills"], ["dream", "Dreaming"], ["aurora", "Aurora sea"], ["moon", "Moonrise"], ["meteor", "Meteor ride"]];
+const PHOTO_SCENES = ["dusk", "dream", "aurora", "moon", "meteor"];
 function sceneHTML(id) {
   const M = mascot(false), rnd = (a) => a.map(x => x).join("");
+  const dots = (cls, list, extra = "") => list.map(([x, y, d]) => `<i class="${cls}" style="left:${x}%;top:${y}%;animation-delay:-${d}s${extra}"></i>`).join("");
+  const stars = dots("tw", [[8, 10, 0], [22, 6, 1.1], [37, 14, 2.3], [63, 8, .6], [78, 12, 1.7], [91, 6, 2.9], [14, 24, 1.4], [86, 26, .3]]);
+  if (PHOTO_SCENES.includes(id)) {
+    const base = `<div class="ph" style="--img:url('/scenes/${id}.webp')"></div><div class="scrim"></div>` + stars;
+    if (id === "dusk") return base + `<div class="glow"></div>` + dots("spark", [[44, 88, 0], [52, 90, 1.6], [58, 86, 3.2], [47, 92, 4.5], [55, 89, 5.9], [40, 87, 2.4], [61, 91, 6.8]]);
+    if (id === "dream") return base + `<i class="zz" style="left:44%;top:56%">z</i><i class="zz" style="left:47%;top:52%;animation-delay:-2s">z</i><i class="zz" style="left:50%;top:48%;animation-delay:-4s">Z</i>` +
+      dots("drift", [[48, 66, 0], [54, 62, 1.8], [60, 58, 3.6], [66, 54, 5.4], [72, 50, 7.2]]);
+    if (id === "aurora") return base + `<div class="band"></div><div class="glint"></div><div class="wave"></div>`;
+    if (id === "moon") return base + `<div class="glow" style="width:62%"></div><div class="orb"><i></i></div><div class="orb" style="animation-delay:-8s"><i></i></div><div class="orb" style="animation-delay:-4s;animation-duration:22s"><i style="left:330px"></i></div>`;
+    if (id === "meteor") return base + dots("shoot", [[10, 8, 0], [30, 4, 2.4], [62, 10, 4.8], [80, 2, 1.2]]) + dots("ember", [[38, 86, 0], [46, 90, 1.4], [55, 88, 2.8], [63, 91, 4.1], [70, 87, 5.2]]);
+  }
   if (id === "daybreak") return `<div class="burst"></div><div class="water"></div><div class="horizon"></div><div class="sun">${M}</div><div class="reflect">${M}</div>` +
     rnd([[44, 0], [52, 1.4], [58, 3], [47, 4.2], [55, .8], [50, 2.3], [61, 5], [40, 3.6]].map(([l, d]) => `<i class="spark" style="left:${l}%;animation-delay:-${d}s"></i>`));
   if (id === "companion") return `<div class="ledge"></div><div class="shadow"></div><div class="buddy">${M}</div><div class="bubble"><span class="sizer">Drag files here to share them</span><span>Ask me to fix a bug ✨</span><span>Drag files here to share them</span><span>Try “explain this project”</span></div>`;
@@ -2627,13 +2676,14 @@ function applyScene(id) {
   id = SCENES.some(s => s[0] === id) ? id : "daybreak";
   document.getElementById("bgm")?.remove();
   const host = document.querySelector(".chatcard");
-  if (host && id !== "none") { const d = el("div", "sc-" + id); d.id = "bgm"; d.setAttribute("aria-hidden", "true"); d.innerHTML = sceneHTML(id); host.prepend(d); }
-  document.body.classList.toggle("has-bgm", id !== "none");
+  if (host && id !== "none") { const d = el("div", (PHOTO_SCENES.includes(id) ? "sc-photo " : "") + "sc-" + id); d.id = "bgm"; d.dataset.scene = id; d.setAttribute("aria-hidden", "true"); d.innerHTML = sceneHTML(id); host.prepend(d); }
+  document.body.dataset.scene = id; document.body.classList.toggle("has-bgm", id !== "none"); document.body.classList.toggle("has-darkbg", PHOTO_SCENES.includes(id) || id === "landscape");
   document.querySelectorAll("#scenePick button").forEach(b => { b.classList.toggle("on", b.dataset.s === id); b.setAttribute("aria-checked", b.dataset.s === id); });
 }
+let sceneSave = Promise.resolve();  // saves go one at a time, so quick clicks land in order
 (function buildScenePick() { const box = $("scenePick"); if (!box) return;
-  SCENES.forEach(([id, label]) => { const b = el("button", "", `<span class="sw ${id}">${id === "none" ? "" : mascot(false)}</span>${label}`); b.type = "button"; b.dataset.s = id; b.setAttribute("role", "radio");
-    b.onclick = async () => { config.scene = id; applyScene(id); await api("/api/config", { scene: id }).catch(e => notice(e.message)); };
+  SCENES.forEach(([id, label]) => { const b = el("button", "", PHOTO_SCENES.includes(id) ? `<span class="sw photo" style="--img:url('/scenes/${id}-sm.webp')"></span>${label}` : `<span class="sw ${id}">${id === "none" ? "" : mascot(false)}</span>${label}`); b.type = "button"; b.dataset.s = id; b.setAttribute("role", "radio");
+    b.onclick = () => { config.scene = id; applyScene(id); sceneSave = sceneSave.then(() => api("/api/config", { scene: id })).catch(e => notice(e.message)); };
     box.appendChild(b); }); })();
 
 // ---------- First-run welcome ----------

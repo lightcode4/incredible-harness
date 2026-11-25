@@ -92,11 +92,13 @@ async function overlaps(pg, label) {
       check('The background mascot is animated', await pg.evaluate(() => getComputedStyle(document.querySelector('#bgm .sun')).animationName === 'bgFloat'));
       check('Background picker switches scenes and None brings back the small mascot', await pg.evaluate(async () => {
         const ok = [];
-        for (const id of ['companion', 'orbit', 'landscape']) { document.querySelector(`#scenePick [data-s="${id}"]`).click(); ok.push(document.getElementById('bgm')?.className === 'sc-' + id); }
+        for (const id of ['companion', 'orbit', 'landscape']) { document.querySelector(`#scenePick [data-s="${id}"]`).click(); ok.push(document.getElementById('bgm')?.dataset.scene === id); }
+        for (const id of ['dusk', 'dream', 'aurora', 'moon', 'meteor']) { document.querySelector(`#scenePick [data-s="${id}"]`).click(); const ph = document.querySelector('#bgm.sc-photo .ph'); ok.push(!!ph && document.body.classList.contains('has-darkbg') && (await fetch(`/scenes/${id}.webp`)).ok); }
         document.querySelector('#scenePick [data-s="none"]').click(); ok.push(!document.getElementById('bgm'));
         const small = getComputedStyle(document.getElementById('helloMascot')).display !== 'none';
         return ok.every(Boolean) && small;
       }));
+      check('The background stays while chatting', await pg.evaluate(() => { document.querySelector('#scenePick [data-s="daybreak"]').click(); document.body.classList.add('chatting'); const v = getComputedStyle(document.getElementById('bgm')).display !== 'none'; document.body.classList.remove('chatting'); document.querySelector('#scenePick [data-s="none"]').click(); return v; }));
       await pg.waitForTimeout(400); await pg.reload(); await pg.waitForSelector('#hello');
       check('The chosen background is remembered after a restart', await pg.evaluate(() => new Promise(r => setTimeout(() => r(!document.getElementById('bgm') && document.querySelector('#scenePick [data-s="none"]').classList.contains('on')), 800))));
       await pg.evaluate(() => document.querySelector('#scenePick [data-s="daybreak"]').click()); await pg.waitForTimeout(300);

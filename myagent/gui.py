@@ -2573,6 +2573,9 @@ def make_handler(session: Session, token: str):
                     ctype = {".css": "text/css", ".woff2": "font/woff2", ".json": "application/json"}.get(f.suffix, "application/javascript")
                     return self._send(f.read_bytes(), ctype)
                 return self.send_error(404)
+            if path.startswith("/scenes/"):  # the pictures behind the new-chat screen
+                f = Path(__file__).parent / "static" / "scenes" / Path(path).name
+                return self._send(f.read_bytes(), "image/webp") if f.is_file() and f.suffix == ".webp" else self.send_error(404)
             if not self._authed():
                 return
             if path == "/api/team/file":  # an image or file shared in team messages (shown inline / opened)
@@ -2915,7 +2918,7 @@ def make_handler(session: Session, token: str):
                 elif path == "/api/config":
                     if set(data) <= {"auto", "plan", "theme", "sound", "onboarded", "name", "auto_update", "scene"}:  # display choices: no restart needed
                         for k, v in data.items():
-                            session.config[k] = ((str(v) if str(v) in ("none", "daybreak", "companion", "orbit", "landscape") else "daybreak") if k == "scene"
+                            session.config[k] = ((str(v) if str(v) in ("none", "daybreak", "companion", "orbit", "landscape", "dusk", "dream", "aurora", "moon", "meteor") else "daybreak") if k == "scene"
                                                  else (str(v) if str(v) in ("system", "light", "dark") else "system") if k == "theme"
                                                  else " ".join(str(v).split())[:40] if k == "name" else bool(v))
                         if set(data) & {"theme", "sound", "onboarded", "name", "auto_update", "scene"}:
