@@ -88,8 +88,18 @@ async function overlaps(pg, label) {
       await pg.fill('#palIn', 'git'); check('Palette search finds Source control', (await pg.innerText('#palList')).includes('Source control')); await pg.keyboard.press('Escape');
       await pg.click('#keysBtn'); check('Help button opens shortcuts', await pg.isVisible('#keys[open]')); await pg.click('#closeKeys');
       // --- header & model bar
-      check('New chat shows the mascot and a greeting', await pg.isVisible('#helloMascot .mascot') && (await pg.innerText('#hello')).length > 3);
-      check('The mascot is animated', await pg.evaluate(() => getComputedStyle(document.querySelector('#helloMascot .mascot .bob')).animationName === 'mbob'));
+      check('New chat shows the big background mascot and a greeting', await pg.isVisible('#bgm.sc-daybreak .sun .mascot') && !(await pg.isVisible('#helloMascot')) && (await pg.innerText('#hello')).length > 3);
+      check('The background mascot is animated', await pg.evaluate(() => getComputedStyle(document.querySelector('#bgm .sun')).animationName === 'bgFloat'));
+      check('Background picker switches scenes and None brings back the small mascot', await pg.evaluate(async () => {
+        const ok = [];
+        for (const id of ['companion', 'orbit', 'landscape']) { document.querySelector(`#scenePick [data-s="${id}"]`).click(); ok.push(document.getElementById('bgm')?.className === 'sc-' + id); }
+        document.querySelector('#scenePick [data-s="none"]').click(); ok.push(!document.getElementById('bgm'));
+        const small = getComputedStyle(document.getElementById('helloMascot')).display !== 'none';
+        return ok.every(Boolean) && small;
+      }));
+      await pg.waitForTimeout(400); await pg.reload(); await pg.waitForSelector('#hello');
+      check('The chosen background is remembered after a restart', await pg.evaluate(() => new Promise(r => setTimeout(() => r(!document.getElementById('bgm') && document.querySelector('#scenePick [data-s="none"]').classList.contains('on')), 800))));
+      await pg.evaluate(() => document.querySelector('#scenePick [data-s="daybreak"]').click()); await pg.waitForTimeout(300);
       check('The message box sits in the middle on a new chat', await pg.evaluate(() => document.getElementById('wslot').contains(document.getElementById('composer'))) && /What should we build|How can I help/.test(await pg.getAttribute('#input', 'placeholder')));
       await pg.click('#folderBtn'); await pg.waitForTimeout(300);
       check('Project or folder menu lists folders and a way to choose another', await pg.isVisible('#folderMenu') && (await pg.innerText('#folderMenu')).includes('Choose another folder'));

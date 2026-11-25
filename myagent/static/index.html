@@ -902,6 +902,79 @@ mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); colo
 ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--muted) 35%, transparent); border-radius: 10px; border: 3px solid transparent; background-clip: content-box; min-height: 40px; }
 ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--muted) 60%, transparent); }
 ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+/* ---- animated mascot backgrounds on the new-chat screen (Settings > Display > Background) ---- */
+.chatcard { position: relative; isolation: isolate; }
+#bgm { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; border-radius: inherit; }
+#bgm .mascot { position: absolute; image-rendering: pixelated; shape-rendering: crispEdges; }
+body.chatting #bgm { display: none; } body.has-bgm:not(.chatting) .mascot-slot { display: none; }
+@keyframes bgSpin { to { transform: translate(-50%, 50%) rotate(360deg); } }
+@keyframes bgFloat { 0%,100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -14px); } }
+@keyframes bgRise { 0% { transform: translateY(10px); opacity: 0; } 15% { opacity: 1; } 85% { opacity: .9; } 100% { transform: translateY(-260px); opacity: 0; } }
+@keyframes bgTwinkle { 0%,100% { opacity: .15; transform: scale(.6); } 50% { opacity: 1; transform: scale(1); } }
+/* Daybreak */
+.sc-daybreak { background: radial-gradient(ellipse 75% 60% at 50% 100%, rgba(240,170,80,.28), rgba(200,100,50,.11) 40%, transparent 70%); }
+.sc-daybreak .burst { position: absolute; left: 50%; bottom: 92px; width: 900px; height: 900px; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(243,210,140,.10) 0 6deg, transparent 6deg 30deg);
+  -webkit-mask: radial-gradient(circle, #000 18%, transparent 62%); mask: radial-gradient(circle, #000 18%, transparent 62%); transform: translate(-50%, 50%); animation: bgSpin 120s linear infinite; }
+.sc-daybreak .sun { position: absolute; left: 50%; bottom: 94px; width: 240px; height: 213px; animation: bgFloat 7s ease-in-out infinite; }
+.sc-daybreak .sun .mascot, .sc-daybreak .reflect .mascot { position: static; width: 100%; height: 100%; }
+.sc-daybreak .sun .mascot { filter: drop-shadow(0 0 28px rgba(243,197,106,.55)) drop-shadow(0 0 70px rgba(217,130,63,.35)); }
+.sc-daybreak .horizon { position: absolute; left: 6%; right: 6%; bottom: 92px; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,214,140,.85), transparent); box-shadow: 0 0 24px 4px rgba(240,170,80,.35); }
+.sc-daybreak .reflect { position: absolute; left: 50%; bottom: -24px; width: 240px; height: 213px; transform: translateX(-50%) scaleY(-.45); transform-origin: 50% 0; opacity: .18; filter: blur(1.5px);
+  -webkit-mask: linear-gradient(#000, transparent 70%); mask: linear-gradient(#000, transparent 70%); }
+.sc-daybreak .water { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; background: linear-gradient(rgba(30,20,12,0), rgba(15,10,6,.5)); }
+.sc-daybreak .spark { position: absolute; bottom: 110px; width: 5px; height: 5px; background: #f6d38a; box-shadow: 0 0 8px #f6d38a; animation: bgRise 7s linear infinite; }
+/* Companion */
+.sc-companion .buddy { position: absolute; right: 70px; bottom: 84px; width: 210px; height: 187px; animation: bgHop 9s cubic-bezier(.3,.7,.4,1) infinite; transform-origin: 50% 100%; }
+.sc-companion .buddy .mascot { position: static; width: 100%; height: 100%; filter: drop-shadow(0 10px 18px rgba(0,0,0,.45)); }
+@keyframes bgHop { 0%,70%,100% { transform: translateY(0) scale(1,1); } 10%,30%,50% { transform: translateY(-4px); } 20%,40%,60% { transform: translateY(0); }
+  73% { transform: translateY(4px) scale(1.06,.92); } 79% { transform: translateY(-46px) scale(.96,1.05); } 85% { transform: translateY(0) scale(1.05,.94); } 88% { transform: translateY(0) scale(1,1); } }
+.sc-companion .ledge { position: absolute; right: 40px; bottom: 48px; width: 270px; height: 40px; background: linear-gradient(#3a2c1c 0 8px, #2a2016 8px); border-radius: 6px; box-shadow: inset 0 3px 0 #5a4428, 0 14px 30px -10px rgba(0,0,0,.7); }
+.sc-companion .ledge::before { content: ""; position: absolute; left: 10px; right: 10px; top: -6px; height: 6px; background: repeating-linear-gradient(90deg, #e8c46a 0 8px, transparent 8px 14px); opacity: .55; }
+.sc-companion .shadow { position: absolute; right: 100px; bottom: 82px; width: 150px; height: 14px; border-radius: 50%; background: rgba(0,0,0,.45); filter: blur(4px); animation: bgShad 9s infinite; }
+@keyframes bgShad { 0%,73%,88%,100% { transform: scale(1); opacity: 1; } 79% { transform: scale(.6); opacity: .5; } }
+.sc-companion .bubble { position: absolute; right: 250px; bottom: 250px; width: 290px; padding: 12px 14px; border-radius: 14px; background: #2b2420; border: 2px solid #e8c46a;
+  color: #f3e9d6; font: 600 13.5px/1.4 ui-monospace, Menlo, monospace; box-shadow: 0 10px 30px -10px rgba(0,0,0,.6); }
+.sc-companion .bubble::after { content: ""; position: absolute; right: -12px; bottom: 14px; width: 14px; height: 14px; background: #2b2420; border-right: 2px solid #e8c46a; border-bottom: 2px solid #e8c46a; transform: rotate(-45deg); }
+.sc-companion .bubble span { display: block; position: absolute; left: 14px; right: 14px; top: 12px; opacity: 0; animation: bgTip 15s infinite; }
+.sc-companion .bubble .sizer { position: static; visibility: hidden; opacity: 1; animation: none; }
+.sc-companion .bubble span:nth-child(3) { animation-delay: -10s; } .sc-companion .bubble span:nth-child(4) { animation-delay: -5s; }
+@keyframes bgTip { 0%,31% { opacity: 1; transform: none; } 34%,97% { opacity: 0; transform: translateY(4px); } 100% { opacity: 1; } }
+/* Orbit */
+.sc-orbit { background: radial-gradient(circle at 50% 77%, rgba(232,196,106,.14), transparent 45%); }
+.sc-orbit .ring { position: absolute; left: 50%; top: 77%; border-radius: 50%; transform: translate(-50%, -50%); }
+.sc-orbit .r1 { width: 330px; height: 330px; border: 3px dotted rgba(243,210,140,.45); animation: bgOrb1 40s linear infinite; }
+.sc-orbit .r2 { width: 450px; height: 450px; border: 2px dashed rgba(243,210,140,.22); animation: bgOrb2 60s linear infinite; }
+.sc-orbit .r1::after, .sc-orbit .r2::after { content: ""; position: absolute; top: -6px; left: 50%; width: 10px; height: 10px; background: #f6d38a; box-shadow: 0 0 12px #f6d38a; }
+@keyframes bgOrb1 { to { transform: translate(-50%, -50%) rotate(360deg); } } @keyframes bgOrb2 { to { transform: translate(-50%, -50%) rotate(-360deg); } }
+.sc-orbit .core { position: absolute; left: 50%; top: 77%; width: 190px; height: 169px; margin-top: -84px; animation: bgFloat 7s ease-in-out infinite; }
+.sc-orbit .core .mascot { position: static; width: 100%; height: 100%; filter: drop-shadow(0 0 30px rgba(243,197,106,.5)); }
+.sc-orbit .tw { position: absolute; width: 6px; height: 6px; background: #fff3d0; box-shadow: 0 0 10px #f6d38a; animation: bgTwinkle 3s ease-in-out infinite; }
+/* Pixel landscape */
+.sc-landscape { background: linear-gradient(#171127 0%, #2d1b33 30%, #6b3a33 60%, #c7743f 78%, #2a1b12 78.2%); }
+.sc-landscape .sunwrap { position: absolute; left: 70%; top: 52%; width: 180px; height: 160px; animation: bgBob 8s ease-in-out infinite; }
+@keyframes bgBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
+.sc-landscape .sunwrap .mascot { position: static; width: 100%; height: 100%; filter: drop-shadow(0 0 34px rgba(255,190,100,.7)); }
+.sc-landscape .hill { position: absolute; left: 0; right: 0; bottom: 0; }
+.sc-landscape .h1 { height: 46%; background: #4a2a2a; clip-path: polygon(0 40%, 8% 40%, 8% 30%, 18% 30%, 18% 20%, 30% 20%, 30% 34%, 44% 34%, 44% 26%, 56% 26%, 56% 40%, 70% 40%, 70% 22%, 84% 22%, 84% 32%, 100% 32%, 100% 100%, 0 100%); }
+.sc-landscape .h2 { height: 36%; background: #33201c; clip-path: polygon(0 30%, 12% 30%, 12% 18%, 26% 18%, 26% 40%, 40% 40%, 40% 28%, 52% 28%, 52% 16%, 64% 16%, 64% 36%, 78% 36%, 78% 24%, 92% 24%, 92% 40%, 100% 40%, 100% 100%, 0 100%); }
+.sc-landscape .h3 { height: 22%; background: #1d140f; clip-path: polygon(0 26%, 16% 26%, 16% 40%, 34% 40%, 34% 20%, 50% 20%, 50% 34%, 68% 34%, 68% 14%, 86% 14%, 86% 30%, 100% 30%, 100% 100%, 0 100%); }
+.sc-landscape .cl { position: absolute; height: 14px; width: 70px; background: rgba(255,220,190,.35); box-shadow: 14px -10px 0 rgba(255,220,190,.35), 34px -10px 0 rgba(255,220,190,.35), 50px 0 0 rgba(255,220,190,.35); animation: bgCloud linear infinite; }
+@keyframes bgCloud { from { transform: translateX(110vw); } to { transform: translateX(-30vw); } }
+.sc-landscape .bird { position: absolute; color: #2a1b16; font: 700 18px monospace; animation: bgBird 26s linear infinite; }
+@keyframes bgBird { from { transform: translate(-20vw, 0); } to { transform: translate(110vw, -60px); } }
+.sc-landscape .star { position: absolute; width: 3px; height: 3px; background: #fff; animation: bgTwinkle 4s infinite; }
+@media (prefers-reduced-motion: reduce) { #bgm, #bgm * { animation: none !important; } }
+/* picker in Settings */
+.scenepick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.scenepick button { border: 2px solid var(--line); border-radius: 12px; background: var(--bg); padding: 0 0 6px; cursor: pointer; color: var(--muted); font-size: 12px; overflow: hidden; }
+.scenepick button.on { border-color: var(--accent); color: var(--text); }
+.scenepick .sw { display: block; height: 52px; margin-bottom: 6px; position: relative; } .scenepick .sw .mascot { position: absolute; width: 30px; height: 27px; }
+.sw.none { background: repeating-linear-gradient(45deg, var(--soft) 0 6px, transparent 6px 12px); }
+.sw.daybreak { background: radial-gradient(ellipse 80% 70% at 50% 100%, #e9a24b, #5b2d22 55%, #1d1410); } .sw.daybreak .mascot { left: calc(50% - 15px); bottom: 10px; }
+.sw.companion { background: #1c1610; } .sw.companion .mascot { right: 8px; bottom: 6px; }
+.sw.orbit { background: radial-gradient(circle at 50% 60%, rgba(232,196,106,.35), #17120d 60%); } .sw.orbit .mascot { left: calc(50% - 15px); top: 14px; }
+.sw.landscape { background: linear-gradient(#2d1b33, #c7743f 70%, #33201c 70%); } .sw.landscape .mascot { right: 14px; top: 16px; }
 .ghme { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); margin-bottom: 14px; }
 .ghme img { width: 40px; height: 40px; border-radius: 50%; } .ghme b { display: block; font-size: 14.5px; } .ghme small { color: var(--muted); font-size: 12.5px; }
 .ghstep { display: flex; gap: 12px; padding: 12px 0; } .ghstep > span { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); border: 1px solid var(--line); font: 600 12px var(--monoF); color: var(--accent); }
@@ -1593,6 +1666,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
           <li><b>VS Code:</b> Extensions view → <b>⋯</b> → <b>Install from VSIX…</b>. <b>JetBrains:</b> Settings → Plugins → ⚙︎ → <b>Install Plugin from Disk…</b></li></ol>
         <button class="btn small" id="edDownload">Open downloads</button></div>
       <div class="field"><label for="myName">What should LightCode⁴ call you? <small>(used in the greeting)</small></label><input id="myName" maxlength="40" placeholder="Your first name"></div>
+      <div class="field"><label>Background <small>Your mascot, big and animated behind the new-chat screen.</small></label><div class="scenepick" id="scenePick" role="radiogroup" aria-label="Background"></div></div>
       <div class="field"><label for="themeSel">Appearance</label><div class="artseg" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content"><button data-t="system">System</button><button data-t="light">Light</button><button data-t="dark">Dark</button></div></div>
       <label class="toggle"><span>Sound when a task finishes<small>A soft chime when a longer task is done, or when LightCode⁴ is in the background.</small></span><span class="switch"><input type="checkbox" id="soundOn"><span></span></span></label>
       <div class="field"><label for="quickKey">Quick chat shortcut <small>(opens a small LightCode⁴ box over any app; leave empty to turn off)</small></label>
@@ -2246,6 +2320,7 @@ function showConfig(c) {
   if ($("autoUpdate")) $("autoUpdate").checked = c.auto_update !== false;
   config = c; if (c.chat_kind) setModeUI(c.chat_kind); setTimeout(() => { if (typeof folderLabel === "function") { folderLabel(); if (!document.body.classList.contains("chatting")) $("hello").textContent = greeting(); } }, 0); if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
   if (c.theme && !$("settings").open) applyTheme(c.theme);
+  if (typeof applyScene === "function" && (c.scene || "daybreak") !== document.getElementById("bgm")?.className.replace("sc-", "")) applyScene(c.scene || "daybreak");
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
   $("modelName").textContent = c.model + (c.provider === "claude" ? ` · ${c.effort}` : "");
   $("who").textContent = { claude: "Claude", openai: "OpenAI", local: "Local" }[c.provider] + " · " + c.model;
@@ -2534,6 +2609,33 @@ function markTheme(t) { document.querySelectorAll("#themeSeg button").forEach(b 
 document.querySelectorAll("#themeSeg button").forEach(b => b.onclick = async () => { markTheme(b.dataset.t); applyTheme(b.dataset.t); config.theme = b.dataset.t;
   await api("/api/config", { theme: b.dataset.t }).catch(e => notice(e.message)); });
 try { applyTheme(localStorage.getItem("lc4.theme") || "system"); } catch (e) {}
+// ---------- animated mascot backgrounds ----------
+const SCENES = [["none", "None"], ["daybreak", "Daybreak"], ["companion", "Companion"], ["orbit", "Orbit"], ["landscape", "Pixel landscape"]];
+function sceneHTML(id) {
+  const M = mascot(false), rnd = (a) => a.map(x => x).join("");
+  if (id === "daybreak") return `<div class="burst"></div><div class="water"></div><div class="horizon"></div><div class="sun">${M}</div><div class="reflect">${M}</div>` +
+    rnd([[44, 0], [52, 1.4], [58, 3], [47, 4.2], [55, .8], [50, 2.3], [61, 5], [40, 3.6]].map(([l, d]) => `<i class="spark" style="left:${l}%;animation-delay:-${d}s"></i>`));
+  if (id === "companion") return `<div class="ledge"></div><div class="shadow"></div><div class="buddy">${M}</div><div class="bubble"><span class="sizer">Drag files here to share them</span><span>Ask me to fix a bug ✨</span><span>Drag files here to share them</span><span>Try “explain this project”</span></div>`;
+  if (id === "orbit") return `<div class="ring r2"></div><div class="ring r1"></div><div class="core">${M}</div>` +
+    rnd([[30, 55, 0], [68, 60, .5], [40, 88, 1.2], [63, 86, 1.8], [25, 76, .9], [75, 74, .3]].map(([x, y, d]) => `<i class="tw" style="left:${x}%;top:${y}%;animation-delay:-${d}s"></i>`));
+  if (id === "landscape") return rnd([[12, 8, 0], [30, 14, .7], [72, 6, 1.4], [86, 18, 2.1], [55, 12, 1.1], [20, 24, 2.8]].map(([x, y, d]) => `<i class="star" style="left:${x}%;top:${y}%;animation-delay:-${d}s"></i>`)) +
+    `<div class="sunwrap">${M}</div><div class="hill h1"></div><div class="hill h2"></div><div class="cl" style="top:28%;animation-duration:70s"></div><div class="cl" style="top:20%;animation-duration:95s;animation-delay:-40s"></div>` +
+    `<div class="cl" style="top:58%;animation-duration:80s;animation-delay:-20s"></div><div class="bird" style="top:34%">v</div><div class="bird" style="top:31%;animation-delay:-.4s;margin-left:26px">v</div><div class="hill h3"></div>`;
+  return "";
+}
+function applyScene(id) {
+  id = SCENES.some(s => s[0] === id) ? id : "daybreak";
+  document.getElementById("bgm")?.remove();
+  const host = document.querySelector(".chatcard");
+  if (host && id !== "none") { const d = el("div", "sc-" + id); d.id = "bgm"; d.setAttribute("aria-hidden", "true"); d.innerHTML = sceneHTML(id); host.prepend(d); }
+  document.body.classList.toggle("has-bgm", id !== "none");
+  document.querySelectorAll("#scenePick button").forEach(b => { b.classList.toggle("on", b.dataset.s === id); b.setAttribute("aria-checked", b.dataset.s === id); });
+}
+(function buildScenePick() { const box = $("scenePick"); if (!box) return;
+  SCENES.forEach(([id, label]) => { const b = el("button", "", `<span class="sw ${id}">${id === "none" ? "" : mascot(false)}</span>${label}`); b.type = "button"; b.dataset.s = id; b.setAttribute("role", "radio");
+    b.onclick = async () => { config.scene = id; applyScene(id); await api("/api/config", { scene: id }).catch(e => notice(e.message)); };
+    box.appendChild(b); }); })();
+
 // ---------- First-run welcome ----------
 const WL_PICKS = ["claude", "openai", "openrouter", "haimaker", "deepseek", "gemini", "xai", "ollama"];
 let wlStep = 1, wlProv = null, wlShown = false;
