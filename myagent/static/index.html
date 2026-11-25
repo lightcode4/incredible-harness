@@ -914,8 +914,8 @@ body.has-bgm aside#side, body.has-bgm dialog, body.has-bgm #composer { box-shado
 /* frosted glass on pictures: each panel shows a pre-blurred copy of the scene lined up behind it (no live blur, so it stays smooth) */
 body.has-photo { --pw: max(104vw, 143.55vh); }
 body.has-photo aside#side, body.has-photo dialog, body.has-photo #composer {
-  background: linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,0) 38%), linear-gradient(rgba(22,16,24,.50), rgba(22,16,24,.50)),
-    var(--blurimg) center calc(102vh - var(--pw) / 1.6313) / var(--pw) auto no-repeat fixed, #150f1c;
+  background: linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,0) 38%), linear-gradient(var(--glass, rgba(22,16,24,.5)), var(--glass, rgba(22,16,24,.5))),
+    var(--blurimg) center calc(102vh - var(--pw) / 1.6313) / var(--pw) auto no-repeat fixed, var(--sky, #150f1c);
   border-color: rgba(255,236,200,.16); }
 #bgm .mascot { position: absolute; image-rendering: pixelated; shape-rendering: crispEdges; }
 body.has-bgm:not(.chatting) .mascot-slot { display: none; }
@@ -934,7 +934,7 @@ body.chatting .sc-photo .scrim { background: rgba(12,9,15,.66); transition: back
   -webkit-mask: radial-gradient(circle, #000 18%, transparent 62%); mask: radial-gradient(circle, #000 18%, transparent 62%); transform: translate(-50%, 50%); animation: bgSpin 120s linear infinite; }
 .sc-daybreak .sun { position: absolute; left: 50%; bottom: 94px; width: 240px; height: 213px; animation: bgFloat 7s ease-in-out infinite; }
 .sc-daybreak .sun .mascot, .sc-daybreak .reflect .mascot { position: static; width: 100%; height: 100%; }
-.sc-daybreak .sun .mascot { filter: drop-shadow(0 0 28px rgba(243,197,106,.55)) drop-shadow(0 0 70px rgba(217,130,63,.35)); }
+
 .sc-daybreak .horizon { position: absolute; left: 6%; right: 6%; bottom: 92px; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,214,140,.85), transparent); box-shadow: 0 0 24px 4px rgba(240,170,80,.35); }
 .sc-daybreak .reflect { position: absolute; left: 50%; bottom: -24px; width: 240px; height: 213px; transform: translateX(-50%) scaleY(-.45); transform-origin: 50% 0; opacity: .18; filter: blur(1.5px);
   -webkit-mask: linear-gradient(#000, transparent 70%); mask: linear-gradient(#000, transparent 70%); }
@@ -942,7 +942,7 @@ body.chatting .sc-photo .scrim { background: rgba(12,9,15,.66); transition: back
 .sc-daybreak .spark { position: absolute; bottom: 110px; width: 5px; height: 5px; background: #f6d38a; box-shadow: 0 0 8px #f6d38a; animation: bgRise 7s linear infinite; }
 /* Companion */
 .sc-companion .buddy { position: absolute; right: 70px; bottom: 84px; width: 210px; height: 187px; animation: bgHop 9s cubic-bezier(.3,.7,.4,1) infinite; transform-origin: 50% 100%; }
-.sc-companion .buddy .mascot { position: static; width: 100%; height: 100%; filter: drop-shadow(0 10px 18px rgba(0,0,0,.45)); }
+.sc-companion .buddy .mascot { position: static; width: 100%; height: 100%; }
 @keyframes bgHop { 0%,70%,100% { transform: translateY(0) scale(1,1); } 10%,30%,50% { transform: translateY(-4px); } 20%,40%,60% { transform: translateY(0); }
   73% { transform: translateY(4px) scale(1.06,.92); } 79% { transform: translateY(-46px) scale(.96,1.05); } 85% { transform: translateY(0) scale(1.05,.94); } 88% { transform: translateY(0) scale(1,1); } }
 .sc-companion .ledge { position: absolute; right: 40px; bottom: 48px; width: 270px; height: 40px; background: linear-gradient(#3a2c1c 0 8px, #2a2016 8px); border-radius: 6px; box-shadow: inset 0 3px 0 #5a4428, 0 14px 30px -10px rgba(0,0,0,.7); }
@@ -964,13 +964,13 @@ body.chatting .sc-photo .scrim { background: rgba(12,9,15,.66); transition: back
 .sc-orbit .r1::after, .sc-orbit .r2::after { content: ""; position: absolute; top: -6px; left: 50%; width: 10px; height: 10px; background: #f6d38a; box-shadow: 0 0 12px #f6d38a; }
 @keyframes bgOrb1 { to { transform: translate(-50%, -50%) rotate(360deg); } } @keyframes bgOrb2 { to { transform: translate(-50%, -50%) rotate(-360deg); } }
 .sc-orbit .core { position: absolute; left: 50%; top: 77%; width: 190px; height: 169px; margin-top: -84px; animation: bgFloat 7s ease-in-out infinite; }
-.sc-orbit .core .mascot { position: static; width: 100%; height: 100%; filter: drop-shadow(0 0 30px rgba(243,197,106,.5)); }
+.sc-orbit .core .mascot { position: static; width: 100%; height: 100%; }
 .sc-orbit .tw { position: absolute; width: 6px; height: 6px; background: #fff3d0; box-shadow: 0 0 10px #f6d38a; animation: bgTwinkle 3s ease-in-out infinite; }
 /* Pixel landscape */
 .sc-landscape { background: linear-gradient(#171127 0%, #2d1b33 30%, #6b3a33 60%, #c7743f 78%, #2a1b12 78.2%); }
 .sc-landscape .sunwrap { position: absolute; left: 70%; top: 52%; width: 180px; height: 160px; animation: bgBob 8s ease-in-out infinite; }
 @keyframes bgBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
-.sc-landscape .sunwrap .mascot { position: static; width: 100%; height: 100%; filter: drop-shadow(0 0 34px rgba(255,190,100,.7)); }
+.sc-landscape .sunwrap .mascot { position: static; width: 100%; height: 100%; }
 .sc-landscape .hill { position: absolute; left: 0; right: 0; bottom: 0; }
 .sc-landscape .h1 { height: 46%; background: #4a2a2a; clip-path: polygon(0 40%, 8% 40%, 8% 30%, 18% 30%, 18% 20%, 30% 20%, 30% 34%, 44% 34%, 44% 26%, 56% 26%, 56% 40%, 70% 40%, 70% 22%, 84% 22%, 84% 32%, 100% 32%, 100% 100%, 0 100%); }
 .sc-landscape .h2 { height: 36%; background: #33201c; clip-path: polygon(0 30%, 12% 30%, 12% 18%, 26% 18%, 26% 40%, 40% 40%, 40% 28%, 52% 28%, 52% 16%, 64% 16%, 64% 36%, 78% 36%, 78% 24%, 92% 24%, 92% 40%, 100% 40%, 100% 100%, 0 100%); }
@@ -981,26 +981,29 @@ body.chatting .sc-photo .scrim { background: rgba(12,9,15,.66); transition: back
 @keyframes bgBird { from { transform: translate(-20vw, 0); } to { transform: translate(110vw, -60px); } }
 .sc-landscape .star { position: absolute; width: 3px; height: 3px; background: #fff; animation: bgTwinkle 4s infinite; }
 /* picture backgrounds (your own artwork), with motion layered on top */
-.sc-photo { background: #150f1c; }
+.sc-photo { background: var(--sky, #150f1c); }
 .sc-photo .ph { position: absolute; left: -2%; right: -2%; top: 14%; bottom: -2%; background: var(--img) 50% 100% / cover no-repeat; -webkit-mask: linear-gradient(transparent, #000 22%); mask: linear-gradient(transparent, #000 22%); animation: bgKen 60s ease-in-out infinite alternate; }
 @keyframes bgKen { from { transform: scale(1); } to { transform: scale(1.035); } }
 .sc-photo .scrim { position: absolute; inset: 0; background: linear-gradient(rgba(10,7,14,.62), rgba(10,7,14,.30) 45%, rgba(10,7,14,.05) 70%, rgba(10,7,14,.35)); }
 .sc-photo .tw { position: absolute; width: 4px; height: 4px; background: #fff6dc; box-shadow: 0 0 8px #ffe3a0; animation: bgTwinkle 3.5s ease-in-out infinite; }
 .sc-photo .spark { position: absolute; width: 4px; height: 4px; background: #f6d38a; box-shadow: 0 0 8px #f6d38a; animation: bgRise 8s linear infinite; }
 .sc-photo .glow { position: absolute; left: 50%; top: 60%; width: 46%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(255,214,140,.28), transparent 65%); animation: bgPulse 6s ease-in-out infinite; mix-blend-mode: screen; }
+  background: radial-gradient(circle, rgba(255,214,140,.28), transparent 65%); animation: bgPulse 6s ease-in-out infinite; }
 @keyframes bgPulse { 0%,100% { opacity: .55; transform: translate(-50%, -50%) scale(.95); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); } }
 .sc-dream .zz { position: absolute; color: #ffe7b0; font: 700 22px ui-monospace, Menlo, monospace; text-shadow: 0 0 10px rgba(255,200,120,.8); opacity: 0; animation: bgZ 6s ease-in infinite; }
 @keyframes bgZ { 0% { opacity: 0; transform: translate(0, 0) scale(.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(40px, -90px) scale(1.2); } }
 .sc-dream .drift { position: absolute; width: 5px; height: 5px; background: #ffd58a; box-shadow: 0 0 10px #ffb44a; animation: bgDrift 9s linear infinite; }
 @keyframes bgDrift { 0% { opacity: 0; transform: translate(0, 0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(260px, -170px); } }
-.sc-aurora .band { position: absolute; left: -10%; right: -10%; top: 30%; height: 34%; mix-blend-mode: screen; filter: blur(18px); opacity: .55;
-  background: linear-gradient(90deg, transparent, rgba(120,255,190,.35), rgba(255,140,90,.30), rgba(160,120,255,.30), transparent); background-size: 200% 100%; animation: bgAur 14s ease-in-out infinite alternate; }
-@keyframes bgAur { from { background-position: 0 0; opacity: .3; } to { background-position: 100% 0; opacity: .7; } }
-.sc-aurora .glint { position: absolute; left: 34.5%; top: 59%; width: 70px; height: 70px; margin: -35px; border-radius: 50%; background: radial-gradient(circle, rgba(255,240,180,.9), transparent 60%); animation: bgPulse2 2.6s ease-in-out infinite; mix-blend-mode: screen; }
+.sc-aurora .band { position: absolute; left: -60%; width: 220%; top: 30%; height: 34%; opacity: .5; -webkit-mask: linear-gradient(transparent, #000 40%, #000 60%, transparent); mask: linear-gradient(transparent, #000 40%, #000 60%, transparent); will-change: transform, opacity;
+  background: linear-gradient(90deg, transparent, rgba(120,255,190,.35), rgba(255,140,90,.30), rgba(160,120,255,.30), transparent); animation: bgAur 14s ease-in-out infinite alternate; }
+@keyframes bgAur { from { transform: translateX(-12%); opacity: .3; } to { transform: translateX(12%); opacity: .7; } }
+.sc-aurora .glint { position: absolute; left: 34.5%; top: 59%; width: 70px; height: 70px; margin: -35px; border-radius: 50%; background: radial-gradient(circle, rgba(255,240,180,.9), transparent 60%); animation: bgPulse2 2.6s ease-in-out infinite; }
 @keyframes bgPulse2 { 0%,100% { opacity: .4; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
-.sc-aurora .wave { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; mix-blend-mode: screen; background: linear-gradient(100deg, transparent 30%, rgba(150,240,255,.22) 50%, transparent 70%) 0 0 / 50% 100% no-repeat; animation: bgWave 9s ease-in-out infinite; }
-@keyframes bgWave { from { background-position: -60% 0; } to { background-position: 160% 0; } }
+.sc-aurora .wave, .sc-wave .stream { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; overflow: hidden; }
+.sc-wave .stream { top: 40%; bottom: auto; height: 35%; }
+.sc-aurora .wave::before, .sc-wave .stream::before { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; background: linear-gradient(100deg, transparent, rgba(160,240,255,.22), transparent); will-change: transform; animation: bgSheen 9s ease-in-out infinite; }
+.sc-wave .stream::before { background: linear-gradient(100deg, transparent, rgba(255,250,220,.45), transparent); animation-duration: 6s; }
+@keyframes bgSheen { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 .sc-moon .orb { position: absolute; left: 50%; top: 60%; width: 2px; height: 2px; animation: bgOrbit 16s linear infinite; }
 .sc-moon .orb i { position: absolute; left: 280px; width: 6px; height: 6px; background: #ffd98a; box-shadow: 0 0 12px #ffb44a; }
 @keyframes bgOrbit { from { transform: scaleY(.28) rotate(0deg); } to { transform: scaleY(.28) rotate(360deg); } }
@@ -1012,6 +1015,28 @@ body.has-darkbg { --side: #1d1810; --bg: #17130c; --panel: #241d13; --text: #f1e
 body.has-darkbg #hello { color: #fbf1da; text-shadow: 0 2px 18px rgba(0,0,0,.6); }
 body.has-darkbg #composer { background: rgba(24,18,22,.82); border-color: rgba(255,230,180,.22); }
 .sw.photo { background: var(--img) center / cover; }
+.sw.autosw { display: flex; } .sw.autosw i { flex: 1; background: var(--img) center / cover; }
+/* ---- day pictures: light glass and dark text ---- */
+body.has-lightbg { --side: #f5efdf; --bg: #fbf8ef; --panel: #fffdf8; --text: #3a2e18; --muted: #7c6c4d; --faint: #9d8f70; --body: #5c4d31; --line: #e3d8bd; --line-soft: #efe6d1; --hover: #f8f1e1; --soft: #f6ebcd; --accent: #8b6c35; color-scheme: light; --glass: rgba(255,251,244,.52); }
+body.has-lightbg #hello { color: #3a2a14; text-shadow: 0 1px 14px rgba(255,255,255,.9); }
+body.has-lightbg #composer { background: rgba(255,251,244,.84); border-color: rgba(255,255,255,.7); }
+body.has-lightbg aside#side, body.has-lightbg dialog, body.has-lightbg #composer { box-shadow: inset 0 1px 0 rgba(255,255,255,.85), inset 0 0 0 1px rgba(255,255,255,.35), 0 12px 40px -16px rgba(60,80,120,.35); border-color: rgba(255,255,255,.6); }
+body.has-lightbg dialog::backdrop { background: rgba(200,215,235,.25); }
+.sc-day .scrim { background: linear-gradient(rgba(255,252,245,.55), rgba(255,252,245,.12) 45%, transparent 70%, rgba(255,252,245,.22)); }
+body.chatting .sc-day .scrim { background: rgba(255,252,245,.62); }
+.sc-day .puff { position: absolute; width: 220px; height: 60px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,.75), transparent); filter: blur(6px); animation: bgCloud linear infinite; }
+.sc-day .pollen { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #fff3c4; box-shadow: 0 0 10px #ffd66b; animation: bgPollen 10s ease-in-out infinite; }
+@keyframes bgPollen { 0% { opacity: 0; transform: translate(0, 0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(60px, -160px); } }
+.sc-day .sunpulse { position: absolute; width: 30%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(255,240,190,.55), transparent 65%); animation: bgPulse 7s ease-in-out infinite; }
+.sc-lighthouse .beam { position: absolute; left: 33%; top: 52%; width: 120vmax; height: 120vmax; margin: -60vmax; border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(255,240,180,.35) 0 8deg, transparent 14deg 180deg, rgba(255,240,180,.25) 180deg 186deg, transparent 192deg);
+  -webkit-mask: radial-gradient(circle, #000 2%, transparent 45%); mask: radial-gradient(circle, #000 2%, transparent 45%); animation: bgBeam 12s linear infinite; }
+@keyframes bgBeam { to { transform: rotate(360deg); } }
+.sc-day .gull { position: absolute; color: #fff; font: 700 14px monospace; text-shadow: 0 1px 2px rgba(80,100,140,.4); animation: bgBird 30s linear infinite; }
+.sc-wave .cube { position: absolute; width: 14px; height: 14px; border-radius: 2px; box-shadow: inset -3px -3px 0 rgba(0,0,0,.15), 0 4px 10px rgba(80,100,140,.25); animation: bgCube 6s ease-in-out infinite; }
+@keyframes bgCube { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-18px) rotate(18deg); } }
+.sc-daybreak .sun::before, .sc-orbit .core::before, .sc-landscape .sunwrap::before { content: ""; position: absolute; inset: -45%; border-radius: 50%; z-index: -1; background: radial-gradient(circle, rgba(243,197,106,.42), rgba(217,130,63,.16) 40%, transparent 68%); }
+.sc-daybreak .sun, .sc-orbit .core, .sc-landscape .sunwrap { isolation: isolate; }
 @media (prefers-reduced-motion: reduce) { #bgm, #bgm * { animation: none !important; } }
 /* picker in Settings */
 .scenepick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
@@ -2368,7 +2393,7 @@ function showConfig(c) {
   if ($("autoUpdate")) $("autoUpdate").checked = c.auto_update !== false;
   config = c; if (c.chat_kind) setModeUI(c.chat_kind); setTimeout(() => { if (typeof folderLabel === "function") { folderLabel(); if (!document.body.classList.contains("chatting")) $("hello").textContent = greeting(); } }, 0); if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
   if (c.theme && !$("settings").open) applyTheme(c.theme);
-  if (typeof applyScene === "function" && (c.scene || "daybreak") !== document.body.dataset.scene) applyScene(c.scene || "daybreak");
+  if (typeof applyScene === "function" && (c.scene || "auto") !== document.body.dataset.scene) applyScene(c.scene || "auto");
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
   $("modelName").textContent = c.model + (c.provider === "claude" ? ` · ${c.effort}` : "");
   $("who").textContent = { claude: "Claude", openai: "OpenAI", local: "Local" }[c.provider] + " · " + c.model;
@@ -2652,19 +2677,35 @@ $("quickTry").onclick = () => api("/api/quick/toggle").catch(e => notice(e.messa
 // ---------- Appearance ----------
 function applyTheme(t) { if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
   try { localStorage.setItem("lc4.theme", t || "system"); } catch (e) {}
-  if (typeof renderProviders === "function") renderProviders(); }
+  if (typeof renderProviders === "function") renderProviders();
+  if (typeof applyScene === "function" && document.body.dataset.scene === "auto") applyScene("auto"); }
 function markTheme(t) { document.querySelectorAll("#themeSeg button").forEach(b => { b.classList.toggle("on", b.dataset.t === t); b.setAttribute("aria-checked", b.dataset.t === t); }); }
 document.querySelectorAll("#themeSeg button").forEach(b => b.onclick = async () => { markTheme(b.dataset.t); applyTheme(b.dataset.t); config.theme = b.dataset.t;
   await api("/api/config", { theme: b.dataset.t }).catch(e => notice(e.message)); });
 try { applyTheme(localStorage.getItem("lc4.theme") || "system"); } catch (e) {}
 // ---------- animated mascot backgrounds ----------
-const SCENES = [["none", "None"], ["daybreak", "Daybreak"], ["companion", "Companion"], ["orbit", "Orbit"], ["landscape", "Pixel landscape"],
-  ["dusk", "Dusk hills"], ["dream", "Dreaming"], ["aurora", "Aurora sea"], ["moon", "Moonrise"], ["meteor", "Meteor ride"]];
-const PHOTO_SCENES = ["dusk", "dream", "aurora", "moon", "meteor"];
+const SCENES = [["auto", "Auto · day & night"], ["none", "None"], ["daybreak", "Daybreak"], ["companion", "Companion"], ["orbit", "Orbit"], ["landscape", "Pixel landscape"],
+  ["dusk", "Dusk hills"], ["dream", "Dreaming"], ["aurora", "Aurora sea"], ["moon", "Moonrise"], ["meteor", "Meteor ride"],
+  ["clouds", "Above the clouds"], ["lighthouse", "Lighthouse"], ["meadow", "Meadow"], ["wave", "Hello wave"]];
+const NIGHT_SCENES = ["dusk", "dream", "aurora", "moon", "meteor"], DAY_SCENES = ["clouds", "lighthouse", "meadow", "wave"];
+const PHOTO_SCENES = [...NIGHT_SCENES, ...DAY_SCENES];
+const SKY = { clouds: "#b8d8f7", lighthouse: "#88bbea", meadow: "#b9cfe6", wave: "#9dbee2" };
+// Auto: day pictures in light mode, night pictures in dark mode; on System it follows the clock (6am-6pm is day). A different picture each day.
+function isDaytime() { const t = document.documentElement.dataset.theme; if (t === "light") return true; if (t === "dark") return false; const h = new Date().getHours(); return h >= 6 && h < 18; }
+function resolveScene(id) { if (id !== "auto") return id; const set = isDaytime() ? DAY_SCENES : NIGHT_SCENES, day = Math.floor(Date.now() / 864e5); return set[day % set.length]; }
 function sceneHTML(id) {
   const M = mascot(false), rnd = (a) => a.map(x => x).join("");
   const dots = (cls, list, extra = "") => list.map(([x, y, d]) => `<i class="${cls}" style="left:${x}%;top:${y}%;animation-delay:-${d}s${extra}"></i>`).join("");
   const stars = dots("tw", [[8, 10, 0], [22, 6, 1.1], [37, 14, 2.3], [63, 8, .6], [78, 12, 1.7], [91, 6, 2.9], [14, 24, 1.4], [86, 26, .3]]);
+  if (DAY_SCENES.includes(id)) {
+    const base = `<div class="ph" style="--img:url('/scenes/${id}.webp')"></div><div class="scrim"></div>` +
+      `<div class="puff" style="top:12%;animation-duration:90s"></div><div class="puff" style="top:24%;animation-duration:120s;animation-delay:-60s"></div>`;
+    const pollen = (list) => dots("pollen", list);
+    if (id === "clouds") return base + `<div class="sunpulse" style="left:52%;top:52%"></div>` + pollen([[20, 80, 0], [32, 86, 2], [70, 82, 4], [80, 88, 6], [44, 90, 8], [60, 92, 3]]);
+    if (id === "lighthouse") return base + `<div class="beam"></div><div class="sunpulse" style="left:80%;top:64%"></div><i class="gull" style="top:40%">v</i><i class="gull" style="top:46%;animation-delay:-12s">v</i><i class="gull" style="top:36%;animation-delay:-21s;margin-left:30px">v</i>`;
+    if (id === "meadow") return base + `<div class="sunpulse" style="left:72%;top:66%"></div>` + pollen([[10, 90, 0], [24, 84, 1.5], [38, 92, 3], [56, 88, 4.5], [70, 94, 6], [84, 86, 7.5], [92, 92, 9]]);
+    if (id === "wave") return base + `<div class="stream"></div>` + [[14, 30, "#c9d6f0", 0], [86, 26, "#f3d9a4", 1.5], [22, 72, "#e8b9a6", 3], [78, 70, "#a9c9ef", 4.5], [64, 40, "#d9c2f0", 2]].map(([x, y, c, d]) => `<i class="cube" style="left:${x}%;top:${y}%;background:${c};animation-delay:-${d}s"></i>`).join("");
+  }
   if (PHOTO_SCENES.includes(id)) {
     const base = `<div class="ph" style="--img:url('/scenes/${id}.webp')"></div><div class="scrim"></div>` + stars;
     if (id === "dusk") return base + `<div class="glow"></div>` + dots("spark", [[44, 88, 0], [52, 90, 1.6], [58, 86, 3.2], [47, 92, 4.5], [55, 89, 5.9], [40, 87, 2.4], [61, 91, 6.8]]);
@@ -2684,18 +2725,21 @@ function sceneHTML(id) {
     `<div class="cl" style="top:58%;animation-duration:80s;animation-delay:-20s"></div><div class="bird" style="top:34%">v</div><div class="bird" style="top:31%;animation-delay:-.4s;margin-left:26px">v</div><div class="hill h3"></div>`;
   return "";
 }
-function applyScene(id) {
-  id = SCENES.some(s => s[0] === id) ? id : "daybreak";
+function applyScene(pick) {
+  pick = SCENES.some(s => s[0] === pick) ? pick : "auto";
+  const id = resolveScene(pick);
   document.getElementById("bgm")?.remove();
   const host = document.body;
-  if (id !== "none") { const d = el("div", (PHOTO_SCENES.includes(id) ? "sc-photo " : "") + "sc-" + id); d.id = "bgm"; d.dataset.scene = id; d.setAttribute("aria-hidden", "true"); d.innerHTML = sceneHTML(id); host.prepend(d); }
-  document.body.dataset.scene = id; document.body.classList.toggle("has-bgm", id !== "none"); document.body.classList.toggle("has-darkbg", PHOTO_SCENES.includes(id) || id === "landscape"); document.body.classList.toggle("has-photo", PHOTO_SCENES.includes(id));
+  if (id !== "none") { const d = el("div", (PHOTO_SCENES.includes(id) ? "sc-photo " : "") + (DAY_SCENES.includes(id) ? "sc-day " : "") + "sc-" + id); d.id = "bgm"; d.dataset.scene = id; d.setAttribute("aria-hidden", "true"); d.innerHTML = sceneHTML(id); host.prepend(d); }
+  document.body.dataset.scene = pick; document.body.dataset.shown = id; document.body.classList.toggle("has-bgm", id !== "none");
+  document.body.classList.toggle("has-lightbg", DAY_SCENES.includes(id)); document.body.style.setProperty("--sky", SKY[id] || "#150f1c"); document.body.classList.toggle("has-darkbg", NIGHT_SCENES.includes(id) || id === "landscape"); document.body.classList.toggle("has-photo", PHOTO_SCENES.includes(id));
   if (PHOTO_SCENES.includes(id)) document.body.style.setProperty("--blurimg", `url("/scenes/${id}-blur.webp")`);
-  document.querySelectorAll("#scenePick button").forEach(b => { b.classList.toggle("on", b.dataset.s === id); b.setAttribute("aria-checked", b.dataset.s === id); });
+  document.querySelectorAll("#scenePick button").forEach(b => { b.classList.toggle("on", b.dataset.s === pick); b.setAttribute("aria-checked", b.dataset.s === pick); });
 }
-let sceneSave = Promise.resolve();  // saves go one at a time, so quick clicks land in order
+let sceneSave = Promise.resolve();
+setInterval(() => { if (document.body.dataset.scene === "auto" && resolveScene("auto") !== document.body.dataset.shown) applyScene("auto"); }, 5 * 60e3);  // sunrise / sunset  // saves go one at a time, so quick clicks land in order
 (function buildScenePick() { const box = $("scenePick"); if (!box) return;
-  SCENES.forEach(([id, label]) => { const b = el("button", "", PHOTO_SCENES.includes(id) ? `<span class="sw photo" style="--img:url('/scenes/${id}-sm.webp')"></span>${label}` : `<span class="sw ${id}">${id === "none" ? "" : mascot(false)}</span>${label}`); b.type = "button"; b.dataset.s = id; b.setAttribute("role", "radio");
+  SCENES.forEach(([id, label]) => { const b = el("button", "", id === "auto" ? `<span class="sw autosw"><i style="--img:url('/scenes/clouds-sm.webp')"></i><i style="--img:url('/scenes/moon-sm.webp')"></i></span>${label}` : PHOTO_SCENES.includes(id) ? `<span class="sw photo" style="--img:url('/scenes/${id}-sm.webp')"></span>${label}` : `<span class="sw ${id}">${id === "none" ? "" : mascot(false)}</span>${label}`); b.type = "button"; b.dataset.s = id; b.setAttribute("role", "radio");
     b.onclick = () => { config.scene = id; applyScene(id); sceneSave = sceneSave.then(() => api("/api/config", { scene: id })).catch(e => notice(e.message)); };
     box.appendChild(b); }); })();
 

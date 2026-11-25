@@ -1260,7 +1260,7 @@ class Session:
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
                        "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code", "services": {},
-                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "", "teams": [], "team_shares": {}, "auto_update": True, "scene": "daybreak",
+                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "", "teams": [], "team_shares": {}, "auto_update": True, "scene": "auto",
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.set_badge = None  # set by the desktop app (Dock badge)
@@ -2918,7 +2918,7 @@ def make_handler(session: Session, token: str):
                 elif path == "/api/config":
                     if set(data) <= {"auto", "plan", "theme", "sound", "onboarded", "name", "auto_update", "scene"}:  # display choices: no restart needed
                         for k, v in data.items():
-                            session.config[k] = ((str(v) if str(v) in ("none", "daybreak", "companion", "orbit", "landscape", "dusk", "dream", "aurora", "moon", "meteor") else "daybreak") if k == "scene"
+                            session.config[k] = ((str(v) if str(v) in ("auto", "none", "daybreak", "companion", "orbit", "landscape", "dusk", "dream", "aurora", "moon", "meteor", "clouds", "lighthouse", "meadow", "wave") else "auto") if k == "scene"
                                                  else (str(v) if str(v) in ("system", "light", "dark") else "system") if k == "theme"
                                                  else " ".join(str(v).split())[:40] if k == "name" else bool(v))
                         if set(data) & {"theme", "sound", "onboarded", "name", "auto_update", "scene"}:
