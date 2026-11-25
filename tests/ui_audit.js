@@ -93,7 +93,7 @@ async function overlaps(pg, label) {
       check('Background picker switches scenes and None brings back the small mascot', await pg.evaluate(async () => {
         const ok = [];
         for (const id of ['companion', 'orbit', 'landscape']) { document.querySelector(`#scenePick [data-s="${id}"]`).click(); ok.push(document.getElementById('bgm')?.dataset.scene === id); }
-        for (const id of ['dusk', 'dream', 'aurora', 'moon', 'meteor', 'clouds', 'lighthouse', 'meadow', 'wave']) { document.querySelector(`#scenePick [data-s="${id}"]`).click(); const ph = document.querySelector('#bgm.sc-photo .ph'); ok.push(!!ph && document.body.classList.contains(['clouds', 'lighthouse', 'meadow', 'wave'].includes(id) ? 'has-lightbg' : 'has-darkbg') && (await fetch(`/scenes/${id}.webp`)).ok); }
+        for (const id of ['dusk', 'dream', 'aurora', 'moon', 'meteor', 'clouds', 'lighthouse', 'meadow', 'wave', 'halo', 'tower', 'datafall', 'forest']) { document.querySelector(`#scenePick [data-s="${id}"]`).click(); const ph = document.querySelector('#bgm.sc-photo .ph'); ok.push(!!ph && document.body.classList.contains(['clouds', 'lighthouse', 'meadow', 'wave'].includes(id) ? 'has-lightbg' : 'has-darkbg') && (await fetch(`/scenes/${id}.webp`)).ok); }
         document.querySelector('#scenePick [data-s="auto"]').click(); const isDay = (h => h >= 6 && h < 18)(new Date().getHours());
         applyTheme('light'); ok.push(document.body.classList.contains('has-lightbg')); applyTheme('dark'); ok.push(document.body.classList.contains('has-darkbg')); applyTheme('system'); ok.push(document.body.classList.contains(isDay ? 'has-lightbg' : 'has-darkbg'));
         document.querySelector('#scenePick [data-s="none"]').click(); ok.push(!document.getElementById('bgm'));

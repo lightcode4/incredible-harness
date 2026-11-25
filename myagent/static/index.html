@@ -912,14 +912,14 @@ body.has-bgm dialog::backdrop { background: rgba(8,6,10,.35); }
 /* liquid glass: a soft sheen and a bright top edge on every panel */
 body.has-bgm aside#side, body.has-bgm dialog, body.has-bgm #composer { box-shadow: inset 0 1px 0 rgba(255,255,255,.10), inset 0 0 0 1px rgba(255,236,200,.06), 0 12px 40px -14px rgba(0,0,0,.55); }
 /* frosted glass on pictures: each panel shows a pre-blurred copy of the scene lined up behind it (no live blur, so it stays smooth) */
-body.has-photo { --pw: max(104vw, 143.55vh); }
+body.has-photo { --pw: max(104vw, calc((100vh + var(--pbot, 2vh) - var(--ptop, 14vh)) * 1.6313)); }
 body.has-photo aside#side, body.has-photo dialog, body.has-photo #composer {
   background: linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,0) 38%), linear-gradient(var(--glass, rgba(22,16,24,.5)), var(--glass, rgba(22,16,24,.5))),
-    var(--blurimg) center calc(102vh - var(--pw) / 1.6313) / var(--pw) auto no-repeat fixed, var(--sky, #150f1c);
+    var(--blurimg) center calc(100vh + var(--pbot, 2vh) - var(--pw) / 1.6313) / var(--pw) auto no-repeat fixed, var(--sky, #150f1c);
   border-color: rgba(255,236,200,.16); }
 #bgm .mascot { position: absolute; image-rendering: pixelated; shape-rendering: crispEdges; }
 body.has-bgm:not(.chatting) .mascot-slot { display: none; }
-#bgm .burst, #bgm .sun, #bgm .buddy, #bgm .core, #bgm .sunwrap, #bgm .ph, #bgm .ring, #bgm .band, #bgm .glow, #bgm .orb { will-change: transform; }
+#bgm .burst, #bgm .sun, #bgm .buddy, #bgm .core, #bgm .sunwrap, #bgm .ph, #bgm .ring, #bgm .band, #bgm .glow, #bgm .orb, #bgm .fly, #bgm .lamp { will-change: transform; }
 /* the background stays while you chat; it just steps back so messages read easily */
 body.chatting #bgm { opacity: .5; transition: opacity .6s; } body.chatting #bgm.sc-photo { opacity: 1; }
 body.chatting .sc-photo .scrim { background: rgba(12,9,15,.66); transition: background .6s; }
@@ -982,7 +982,7 @@ body.chatting .sc-photo .scrim { background: rgba(12,9,15,.66); transition: back
 .sc-landscape .star { position: absolute; width: 3px; height: 3px; background: #fff; animation: bgTwinkle 4s infinite; }
 /* picture backgrounds (your own artwork), with motion layered on top */
 .sc-photo { background: var(--sky, #150f1c); }
-.sc-photo .ph { position: absolute; left: -2%; right: -2%; top: 14%; bottom: -2%; background: var(--img) 50% 100% / cover no-repeat; -webkit-mask: linear-gradient(transparent, #000 22%); mask: linear-gradient(transparent, #000 22%); animation: bgKen 60s ease-in-out infinite alternate; }
+.sc-photo .ph { position: absolute; left: -2%; right: -2%; top: var(--ptop, 14vh); bottom: calc(-1 * var(--pbot, 2vh)); background: var(--img) 50% 100% / cover no-repeat; -webkit-mask: linear-gradient(transparent, #000 22%); mask: linear-gradient(transparent, #000 22%); animation: bgKen 60s ease-in-out infinite alternate; }
 @keyframes bgKen { from { transform: scale(1); } to { transform: scale(1.035); } }
 .sc-photo .scrim { position: absolute; inset: 0; background: linear-gradient(rgba(10,7,14,.62), rgba(10,7,14,.30) 45%, rgba(10,7,14,.05) 70%, rgba(10,7,14,.35)); }
 .sc-photo .tw { position: absolute; width: 4px; height: 4px; background: #fff6dc; box-shadow: 0 0 8px #ffe3a0; animation: bgTwinkle 3.5s ease-in-out infinite; }
@@ -1004,8 +1004,8 @@ body.chatting .sc-photo .scrim { background: rgba(12,9,15,.66); transition: back
 .sc-aurora .wave::before, .sc-wave .stream::before { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; background: linear-gradient(100deg, transparent, rgba(160,240,255,.22), transparent); will-change: transform; animation: bgSheen 9s ease-in-out infinite; }
 .sc-wave .stream::before { background: linear-gradient(100deg, transparent, rgba(255,250,220,.45), transparent); animation-duration: 6s; }
 @keyframes bgSheen { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
-.sc-moon .orb { position: absolute; left: 50%; top: 60%; width: 2px; height: 2px; animation: bgOrbit 16s linear infinite; }
-.sc-moon .orb i { position: absolute; left: 280px; width: 6px; height: 6px; background: #ffd98a; box-shadow: 0 0 12px #ffb44a; }
+.sc-moon .orb, .sc-halo .orb { position: absolute; left: 50%; top: 60%; width: 2px; height: 2px; animation: bgOrbit 16s linear infinite; }
+.sc-moon .orb i, .sc-halo .orb i { position: absolute; left: 280px; width: 6px; height: 6px; background: #ffd98a; box-shadow: 0 0 12px #ffb44a; }
 @keyframes bgOrbit { from { transform: scaleY(.28) rotate(0deg); } to { transform: scaleY(.28) rotate(360deg); } }
 .sc-meteor .shoot { position: absolute; width: 140px; height: 2px; background: linear-gradient(90deg, rgba(255,220,160,0), #ffe2a8); border-radius: 2px; transform: rotate(-30deg); opacity: 0; animation: bgShoot 7s ease-in infinite; }
 @keyframes bgShoot { 0% { opacity: 0; transform: rotate(-30deg) translateX(-200px); } 4% { opacity: 1; } 14% { opacity: 0; transform: rotate(-30deg) translateX(260px); } 100% { opacity: 0; transform: rotate(-30deg) translateX(260px); } }
@@ -1037,6 +1037,12 @@ body.chatting .sc-day .scrim { background: rgba(255,252,245,.62); }
 @keyframes bgCube { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-18px) rotate(18deg); } }
 .sc-daybreak .sun::before, .sc-orbit .core::before, .sc-landscape .sunwrap::before { content: ""; position: absolute; inset: -45%; border-radius: 50%; z-index: -1; background: radial-gradient(circle, rgba(243,197,106,.42), rgba(217,130,63,.16) 40%, transparent 68%); }
 .sc-daybreak .sun, .sc-orbit .core, .sc-landscape .sunwrap { isolation: isolate; }
+.sc-halo .ring1 { top: 55%; animation-duration: 14s; } .sc-halo .ring1 i { left: 36vw; background: #9fd6ff; box-shadow: 0 0 14px #5fb4ff; }
+.sc-datafall .drop { position: absolute; top: 66%; width: 3px; height: 26px; border-radius: 2px; opacity: 0; box-shadow: 0 0 8px currentColor; will-change: transform; animation: bgDrop 2.2s linear infinite; }
+@keyframes bgDrop { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(32vh); } }
+.sc-forest .fly { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff27a; box-shadow: 0 0 10px #ffe23a; animation: bgFly 7s ease-in-out infinite; }
+@keyframes bgFly { 0%,100% { opacity: .1; transform: translate(0, 0); } 30% { opacity: 1; } 50% { opacity: .9; transform: translate(26px, -18px); } 80% { opacity: .2; transform: translate(-14px, -30px); } }
+.sc-forest .lamp { position: absolute; left: 28.5%; top: 76%; width: 60px; height: 60px; margin: -30px; border-radius: 50%; background: radial-gradient(circle, rgba(255,200,120,.9), transparent 60%); animation: bgPulse2 3s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { #bgm, #bgm * { animation: none !important; } }
 /* picker in Settings */
 .scenepick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
@@ -2685,9 +2691,9 @@ document.querySelectorAll("#themeSeg button").forEach(b => b.onclick = async () 
 try { applyTheme(localStorage.getItem("lc4.theme") || "system"); } catch (e) {}
 // ---------- animated mascot backgrounds ----------
 const SCENES = [["auto", "Auto · day & night"], ["none", "None"], ["daybreak", "Daybreak"], ["companion", "Companion"], ["orbit", "Orbit"], ["landscape", "Pixel landscape"],
-  ["dusk", "Dusk hills"], ["dream", "Dreaming"], ["aurora", "Aurora sea"], ["moon", "Moonrise"], ["meteor", "Meteor ride"],
+  ["dusk", "Dusk hills"], ["dream", "Dreaming"], ["aurora", "Aurora sea"], ["moon", "Moonrise"], ["meteor", "Meteor ride"], ["halo", "Code halo"], ["tower", "Moon tower"], ["datafall", "Data falls"], ["forest", "Glow forest"],
   ["clouds", "Above the clouds"], ["lighthouse", "Lighthouse"], ["meadow", "Meadow"], ["wave", "Hello wave"]];
-const NIGHT_SCENES = ["dusk", "dream", "aurora", "moon", "meteor"], DAY_SCENES = ["clouds", "lighthouse", "meadow", "wave"];
+const NIGHT_SCENES = ["dusk", "dream", "aurora", "moon", "meteor", "halo", "tower", "datafall", "forest"], DAY_SCENES = ["clouds", "lighthouse", "meadow", "wave"];
 const PHOTO_SCENES = [...NIGHT_SCENES, ...DAY_SCENES];
 const SKY = { clouds: "#b8d8f7", lighthouse: "#88bbea", meadow: "#b9cfe6", wave: "#9dbee2" };
 // Auto: day pictures in light mode, night pictures in dark mode; on System it follows the clock (6am-6pm is day). A different picture each day.
@@ -2713,6 +2719,10 @@ function sceneHTML(id) {
       dots("drift", [[48, 66, 0], [54, 62, 1.8], [60, 58, 3.6], [66, 54, 5.4], [72, 50, 7.2]]);
     if (id === "aurora") return base + `<div class="band"></div><div class="glint"></div><div class="wave"></div>`;
     if (id === "moon") return base + `<div class="glow" style="width:62%"></div><div class="orb"><i></i></div><div class="orb" style="animation-delay:-8s"><i></i></div><div class="orb" style="animation-delay:-4s;animation-duration:22s"><i style="left:330px"></i></div>`;
+    if (id === "halo") return base + `<div class="orb ring1"><i></i></div><div class="orb ring1" style="animation-delay:-7s"><i></i></div><i class="zz" style="left:50%;top:62%">z</i><i class="zz" style="left:53%;top:58%;animation-delay:-3s">z</i>`;
+    if (id === "tower") return base + `<div class="glow" style="top:47%;width:48%"></div>` + dots("shoot", [[12, 6, 0], [70, 4, 3.5]]);
+    if (id === "datafall") return base + `<div class="glow" style="top:64%;width:70%"></div>` + [8, 17, 26, 35, 44, 56, 65, 74, 83, 92].map((x, i) => `<i class="drop" style="left:${x}%;animation-delay:-${(i * 0.37) % 2.2}s;background:${i % 3 ? "#ffd56b" : "#7cc4ff"}"></i>`).join("");
+    if (id === "forest") return base + dots("fly", [[18, 62, 0], [27, 70, 1.3], [40, 58, 2.6], [64, 66, .7], [76, 60, 2], [86, 72, 3.3], [52, 76, 1.8], [10, 74, 4.1]]) + `<div class="glint lamp"></div>`;
     if (id === "meteor") return base + dots("shoot", [[10, 8, 0], [30, 4, 2.4], [62, 10, 4.8], [80, 2, 1.2]]) + dots("ember", [[38, 86, 0], [46, 90, 1.4], [55, 88, 2.8], [63, 91, 4.1], [70, 87, 5.2]]);
   }
   if (id === "daybreak") return `<div class="burst"></div><div class="water"></div><div class="horizon"></div><div class="sun">${M}</div><div class="reflect">${M}</div>` +
@@ -2732,7 +2742,9 @@ function applyScene(pick) {
   const host = document.body;
   if (id !== "none") { const d = el("div", (PHOTO_SCENES.includes(id) ? "sc-photo " : "") + (DAY_SCENES.includes(id) ? "sc-day " : "") + "sc-" + id); d.id = "bgm"; d.dataset.scene = id; d.setAttribute("aria-hidden", "true"); d.innerHTML = sceneHTML(id); host.prepend(d); }
   document.body.dataset.scene = pick; document.body.dataset.shown = id; document.body.classList.toggle("has-bgm", id !== "none");
-  document.body.classList.toggle("has-lightbg", DAY_SCENES.includes(id)); document.body.style.setProperty("--sky", SKY[id] || "#150f1c"); document.body.classList.toggle("has-darkbg", NIGHT_SCENES.includes(id) || id === "landscape"); document.body.classList.toggle("has-photo", PHOTO_SCENES.includes(id));
+  document.body.classList.toggle("has-lightbg", DAY_SCENES.includes(id)); document.body.style.setProperty("--sky", SKY[id] || "#150f1c");
+  document.body.style.setProperty("--ptop", ({ forest: "26vh", tower: "18vh" })[id] || "14vh");
+  document.body.style.setProperty("--pbot", ({ datafall: "34vh" })[id] || "2vh");  // keeps the face below the message box document.body.classList.toggle("has-darkbg", NIGHT_SCENES.includes(id) || id === "landscape"); document.body.classList.toggle("has-photo", PHOTO_SCENES.includes(id));
   if (PHOTO_SCENES.includes(id)) document.body.style.setProperty("--blurimg", `url("/scenes/${id}-blur.webp")`);
   document.querySelectorAll("#scenePick button").forEach(b => { b.classList.toggle("on", b.dataset.s === pick); b.setAttribute("aria-checked", b.dataset.s === pick); });
 }
