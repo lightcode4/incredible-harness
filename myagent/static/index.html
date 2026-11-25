@@ -611,9 +611,26 @@ body.team-detail #teamsView > .pagehead, body.team-detail #tmBack { display: non
 .tmside .aempty { font-size: 12.5px; padding: 4px 4px 10px; } .tmleave { align-self: center; color: var(--faint); font-size: 12.5px; margin-top: 2px; }
 #tmSync.spin svg { animation: spin 1s linear infinite; }
 .tmgridcard { text-align: left; }
+.tmnewform { display: flex; flex-direction: column; gap: 8px; text-align: left; cursor: default; border-color: color-mix(in srgb, var(--accent) 50%, var(--line)) !important; }
+.tmnewform .tmbadge { width: 38px; height: 38px; font-size: 20px; border-radius: 11px; margin-bottom: 4px; } .tmnewform b { font-size: 16px; } .tmnewform small { color: var(--muted); font-size: 12.5px; }
+.tmnewform input { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 11px; padding: 10px 12px; font: inherit; font-size: 14px; outline: none; margin-top: 4px; }
+.tmnewform input:focus { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); } .tmnewbtns { display: flex; justify-content: flex-end; gap: 6px; margin-top: 2px; }
+/* the app's own dialog (instead of the browser's "127.0.0.1 says" pop-ups) */
+#uiDlg { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); color: var(--text); padding: 0; width: min(440px, 92vw); box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+#uiDlg::backdrop { background: rgba(10,8,5,.55); backdrop-filter: blur(3px); }
+#uiDlgForm { display: flex; flex-direction: column; gap: 14px; padding: 22px 22px 18px; } #uiDlgTitle { font-size: 16.5px; letter-spacing: -.01em; display: block; }
+.uidlghead { display: flex; gap: 14px; align-items: flex-start; } .uidlghead > div { flex: 1; min-width: 0; padding-top: 2px; }
+.uidlgicon { width: 40px; height: 40px; border-radius: 12px; flex: none; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, var(--soft)); color: var(--accent); }
+.uidlgicon.danger { background: color-mix(in srgb, #c4553c 18%, var(--soft)); color: #e9946a; }
+.uidlgicon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#uiDlg[open] { animation: dlgin .16s ease-out; } @keyframes dlgin { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+#uiDlgText { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; white-space: pre-line; } #uiDlgText:empty { display: none; }
+#uiDlgInput { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; font: inherit; font-size: 14px; outline: none; }
+#uiDlgInput:focus { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); } #uiDlgInput[hidden] { display: none; }
+.uidlgbtns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; } #uiDlgOk.danger { background: #c4553c; border-color: #c4553c; color: #fff; }
 /* back button: dark square with an arrow (like the send button), always visible at the top of a page */
 .backbtn { position: sticky; top: 8px; z-index: 6; width: 38px; height: 38px; border-radius: 11px; border: 1px solid var(--line); background: #2b2722; color: #f4efe6;
-  display: grid; place-items: center; cursor: pointer; margin: 0 0 6px; box-shadow: 0 6px 18px -10px rgba(0,0,0,.6); }
+  display: grid; place-items: center; cursor: pointer; margin: 0 0 18px; box-shadow: 0 6px 18px -10px rgba(0,0,0,.6); }
 .backbtn:hover { background: #38322b; } .backbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
 .backbtn.inline { position: static; margin: 0; box-shadow: none; }
 .pgsearch { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0 11px; height: 38px;
@@ -865,7 +882,17 @@ mark.findhit { background: color-mix(in srgb, var(--sun) 40%, transparent); colo
 .ghsign { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 6px 0 14px; } .ghsign small { color: var(--muted); font-size: 12.5px; }
 .ghcode { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; } .ghcode code, .ghbig { font: 600 20px var(--monoF); letter-spacing: .12em; padding: 6px 12px; border-radius: 10px; background: var(--soft); border: 1px solid var(--line); color: var(--text); }
 .ghalt > summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; } .ghcard { flex-wrap: wrap; }
-.mkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .mkbar input { width: 220px; } .mkbar select { max-width: 340px; }
+.mkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .mkbar input { width: 240px; } .mkbar select { max-width: 360px; min-width: 260px; }
+/* dark fields everywhere on the full pages (no plain white boxes) */
+.mkbar select, .mkbar input, #mkSearch, #pjName, #pjFolder, #pjInstr {
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 11px; padding: 0 12px; height: 38px; font: inherit; font-size: 13.5px; outline: none; box-sizing: border-box; }
+#pjInstr { height: auto; padding: 10px 12px; } .mkbar select { appearance: none; -webkit-appearance: none; padding-right: 34px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23b4a68c' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; }
+.mkbar select option { background: var(--panel); color: var(--text); }
+.mkbar select:focus, .mkbar input:focus, #mkSearch:focus, #pjName:focus, #pjFolder:focus, #pjInstr:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+#mkSearch { width: 100%; padding-left: 36px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%23b4a68c' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M20 20l-4.2-4.2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 12px center; }
 .mksrc { display: block; color: var(--faint); font-size: 11.5px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mkkind { font-style: normal; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; margin-left: 6px; text-transform: capitalize; }
 .chsteps { margin: 4px 0 10px 18px; padding: 0; color: var(--muted); font-size: 12.5px; line-height: 1.6; } .chsteps b, .chsteps code { color: var(--text); }
@@ -1276,6 +1303,9 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         </div>
       </div>
     </section>
+    <dialog id="uiDlg" aria-labelledby="uiDlgTitle"><form method="dialog" id="uiDlgForm">
+      <div class="uidlghead"><span class="uidlgicon" id="uiDlgIcon"></span><div><b id="uiDlgTitle"></b><p id="uiDlgText"></p></div></div><input id="uiDlgInput" spellcheck="false" autocomplete="off">
+      <div class="uidlgbtns"><button type="button" class="btn ghost" id="uiDlgCancel">Cancel</button><button type="submit" class="btn primary" id="uiDlgOk">OK</button></div></form></dialog>
     <div id="tmLight" hidden><img alt="Shared image"></div>
     <section id="projectsView" hidden>
       <button class="backbtn" id="pjBack" title="Back to chat (Esc)" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
@@ -2193,7 +2223,7 @@ async function loadChats() {
         if (e.target.closest("input")) return;
         if (e.target.closest(".pin")) { await api("/api/chat/pin", { id: c.id, on: !c.pinned }).catch(err => notice(err.message)); loadChats(); return; }
         if (e.target.closest(".ren")) { startRename(); return; }
-        if (e.target.closest(".del")) { if (confirm(`Delete "${c.title}"?`)) { await api("/api/chat/delete", { id: c.id }); loadChats(); } return; }
+        if (e.target.closest(".del")) { if (await uiConfirm(`Delete “${c.title}”?`, "This chat is removed from this computer.", "Delete", true)) { await api("/api/chat/delete", { id: c.id }); loadChats(); } return; }
         try { await api("/api/chat/open", { id: c.id }); } catch (err) { notice(err.message); }
       };
       list.appendChild(it);
@@ -2327,6 +2357,26 @@ $("checkUpdate").onclick = async () => {
   try { const r = await api("/api/update"); $("updateResult").textContent = r.error || (r.update ? `Build ${r.latest} is available.` : "You have the latest build."); if (r.update) showUpdate(r); }
   catch (e) { $("updateResult").textContent = e.message; }
 };
+// ---------- the app's own dialogs ----------
+function uiDialog({ title, text = "", input = false, value = "", placeholder = "", ok = "OK", danger = false }) {
+  return new Promise(res => {
+    const d = $("uiDlg"), inp = $("uiDlgInput");
+    $("uiDlgTitle").textContent = title; $("uiDlgText").textContent = text;
+    const ic = $("uiDlgIcon"); ic.className = "uidlgicon" + (danger ? " danger" : "");
+    ic.innerHTML = danger ? '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'
+      : input ? '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>'
+      : '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>'; $("uiDlgOk").textContent = ok; $("uiDlgOk").classList.toggle("danger", danger);
+    inp.hidden = !input; inp.value = value; inp.placeholder = placeholder;
+    let done = false; const finish = v => { if (done) return; done = true; d.close(); res(v); };
+    $("uiDlgForm").onsubmit = e => { e.preventDefault(); finish(input ? inp.value.trim() : true); };
+    $("uiDlgCancel").onclick = () => finish(input ? null : false);
+    d.oncancel = e => { e.preventDefault(); finish(input ? null : false); };
+    d.onclick = e => { if (e.target === d) finish(input ? null : false); };  // click outside to cancel
+    d.showModal(); setTimeout(() => (input ? inp : $("uiDlgOk")).focus(), 0);
+  });
+}
+const uiConfirm = (title, text = "", ok = "OK", danger = false) => uiDialog({ title, text, ok, danger });
+const uiPrompt = (title, opts = {}) => uiDialog({ title, input: true, ok: "OK", ...opts });
 let readyShown = 0;
 function showReady(build) {  // downloaded in the background: one click to install
   if (!build || readyShown === build) return; readyShown = build;
@@ -2750,7 +2800,7 @@ async function chromeCard(body = {}) { try { const r = await api("/api/chrome", 
 $("getAndroid").onclick = e => { e.preventDefault(); openUrl("https://github.com/lightcode4/incredible-herness/releases"); };
 $("edDownload").onclick = () => openUrl("https://github.com/lightcode4/incredible-herness/releases");
 $("chCopy").onclick = () => navigator.clipboard?.writeText($("chCode").textContent).then(() => notice("Pairing code copied."));
-$("chNew").onclick = () => { if (confirm("Make a new pairing code? Chrome will need the new one.")) chromeCard({ new_code: true }); };
+$("chNew").onclick = async () => { if (await uiConfirm("Make a new pairing code?", "Chrome will need the new code; the old one stops working.", "New code")) chromeCard({ new_code: true }); };
 $("chFolder").onclick = () => api("/api/chrome/folder").then(r => notice("Extension folder: " + r.path)).catch(e => notice(e.message));
 function syncStatus(r) { const t = $("ghSyncStatus"); if (!r || !r.t) { t.textContent = ""; return; }
   t.textContent = r.error ? "Last sync failed: " + r.error : `Last synced ${new Date(r.t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` + (r.pulled ? ` · ${r.pulled} chat${r.pulled > 1 ? "s" : ""} updated from your other computer` : ""); }
@@ -2804,7 +2854,7 @@ $("artPrev").onclick = () => artView("preview"); $("artShowCode").onclick = () =
 $("artPublish").onclick = async () => {
   if (!config.github_token) { notice("Publishing uses your GitHub account. Connect it in Settings > GitHub first."); return openSettings("github"); }
   const title = $("artTitle").textContent || "page";
-  if (!confirm(`Publish “${title}” as a public web page?\n\nAnyone with the link can open it. It's stored in a public lightcode4-pages repository on your GitHub, and publishing the same title again updates it.`)) return;
+  if (!(await uiConfirm(`Publish “${title}” as a public web page?`, "Anyone with the link can open it. It's stored in a public lightcode4-pages repository on your GitHub, and publishing the same title again updates it.", "Publish"))) return;
   const b = $("artPublish"); b.disabled = true; b.textContent = "Publishing…";
   try { const r = await api("/api/artifact/publish", { title, html: artifactDoc(artCur.code, artCur.lang) });
     navigator.clipboard?.writeText(r.url).catch(() => {});
@@ -2946,7 +2996,24 @@ function showTeamGrid() {
     teamBadge(c.querySelector(".tmbadge"), t.name); c.querySelector("h3").textContent = t.name;
     c.querySelector(".last").textContent = last ? `@${last.who}: ${last.text}` : "No messages yet"; faces(c.querySelector(".tmfaces"), t.members, 6);
     c.onclick = () => showTeam(t.repo); g.appendChild(c); });
-  const add = el("button", "pcard pjcard add", `${icon("plus")}<span>New team</span>`); add.onclick = () => $("tmNew").click(); g.appendChild(add);
+  const add = el("button", "pcard pjcard add", `${icon("plus")}<span>New team</span>`); add.id = "tmAddCard"; add.onclick = () => $("tmNew").click(); g.appendChild(add);
+}
+function newTeamForm() {  // right on the page: no pop-up
+  if (!tmData.connected) return openSettings("github");
+  if ($("tmNewForm")) return $("tmNewName").focus();
+  const f = el("form", "pcard pjcard tmnewform", `<span class="tmbadge">+</span><b>New team</b><small>Give it a name. You'll invite people next.</small>
+    <input id="tmNewName" placeholder="Team name, e.g. Studio" spellcheck="false" autocomplete="off" maxlength="60">
+    <div class="tmnewbtns"><button type="button" class="btn small ghost" id="tmNewCancel">Cancel</button><button type="submit" class="btn small primary" id="tmNewGo">Create team</button></div>`);
+  f.id = "tmNewForm";
+  const card = $("tmAddCard"); card ? card.replaceWith(f) : $("tmGrid").prepend(f);
+  const close = () => { f.remove(); showTeamGrid(); };
+  $("tmNewCancel").onclick = close;
+  $("tmNewName").onkeydown = e => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+  f.onsubmit = async e => { e.preventDefault(); const name = $("tmNewName").value.trim(); if (!name) return $("tmNewName").focus();
+    $("tmNewGo").disabled = true; $("tmNewGo").textContent = "Creating…";
+    try { const t = await api("/api/team/create", { name }); await loadTeams(); showTeam(t.repo); notice(`Created ${name}. Invite people with the Invite button.`); }
+    catch (er) { notice(er.message); $("tmNewGo").disabled = false; $("tmNewGo").textContent = "Create team"; } };
+  $("tmNewName").focus();
 }
 const dayLabel = t => { const d = new Date(t * 1000), now = new Date(), y = new Date(now - 864e5);
   return d.toDateString() === now.toDateString() ? "Today" : d.toDateString() === y.toDateString() ? "Yesterday" : d.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }); };
@@ -2975,7 +3042,7 @@ function drawTeam(t) {
     r.querySelector("b").textContent = (m.name || m.login) + (m.login === me ? " (you)" : "");
     r.querySelector("small").textContent = !m.joined ? "Invited · hasn't joined yet" : isOnline(m) ? (m.working_on ? "On " + m.working_on : "Active now") : `Active ${ago(m.t)}`;
     if (owner && m.login !== me && m.login !== (t.repo || "").split("/")[0]) { const x = el("button", "iconbtn", icon("x")); x.title = `Remove @${m.login}`;
-      x.onclick = async () => { if (!confirm(`Remove @${m.login} from ${t.name}?`)) return; try { drawTeam(await api("/api/team/remove", { repo: t.repo, who: m.login })); } catch (e) { notice(e.message); } }; r.appendChild(x); }
+      x.onclick = async () => { if (!(await uiConfirm(`Remove @${m.login} from ${t.name}?`, "They lose access to the team's projects, notes and messages.", "Remove", true))) return; try { drawTeam(await api("/api/team/remove", { repo: t.repo, who: m.login })); } catch (e) { notice(e.message); } }; r.appendChild(x); }
     mb.appendChild(r); });
   const pj = $("tmProjects"); pj.innerHTML = "";
   if (!(t.projects || []).length) pj.appendChild(el("div", "aempty", "No team projects yet."));
@@ -3030,8 +3097,7 @@ $("tmAll").onclick = async () => { $("tmInviteBox").hidden = true; $("tmWpBox").
 $("tmSync").onclick = async () => { const b = $("tmSync"); b.disabled = true; b.classList.add("spin");
   try { const t = await api("/api/team/sync", { repo: tmCur }); const i = tmData.teams.findIndex(x => x.repo === tmCur); if (i >= 0) tmData.teams[i] = { ...tmData.teams[i], ...t, synced: Date.now() / 1000 }; drawTeam({ ...t, synced: Date.now() / 1000 }); }
   catch (e) { notice(e.message); } finally { b.disabled = false; b.classList.remove("spin"); } };
-$("tmNew").onclick = async () => { if (!tmData.connected) return openSettings("github"); const name = prompt("Team name:", ""); if (!name) return;
-  try { const t = await api("/api/team/create", { name }); await loadTeams(); showTeam(t.repo); notice(`Created ${name}. Invite people by their GitHub username.`); } catch (e) { notice(e.message); } };
+$("tmNew").onclick = () => { if (tmCur) { $("tmAll").click(); setTimeout(newTeamForm, 300); } else newTeamForm(); };
 $("tmInvite").onclick = async () => { const who = $("tmWho").value.trim(); if (!who) return $("tmWho").focus(); $("tmInvite").disabled = true;
   try { drawTeam(await api("/api/team/invite", { repo: tmCur, who, role: $("tmRole").value })); $("tmWho").value = ""; $("tmInviteBox").hidden = true; notice(`Invited @${who.replace(/^@/, "")}. They'll see it under Teams in LightCode⁴ (and in their GitHub email).`); }
   catch (e) { notice(e.message); } finally { $("tmInvite").disabled = false; } };
@@ -3102,18 +3168,18 @@ $("tmNoteSave").onclick = async () => { const name = $("tmNoteName").value.trim(
   try { const r = await api("/api/team/note", { repo: tmCur, name, text: $("tmNoteText").value, rename: noteOrig || "" }); noteOrig = name.replace(/\.(md|txt)$/, "") + ".md"; $("tmNoteDel").hidden = false;
     drawTeam({ ...r, synced: Date.now() / 1000 }); noteMode(true); notice("Saved for the team."); }
   catch (e) { notice(e.message); } finally { $("tmNoteSave").disabled = false; } };
-$("tmNoteDel").onclick = async () => { if (!noteOrig || !confirm("Delete this note for everyone in the team?")) return;
+$("tmNoteDel").onclick = async () => { if (!noteOrig || !(await uiConfirm("Delete this note?", "It's removed for everyone in the team.", "Delete", true))) return;
   try { const r = await api("/api/team/note", { repo: tmCur, name: noteOrig, delete: true }); noteOrig = null; $("tmNoteEd").hidden = true; $("tmNoteEmpty").hidden = false; drawTeam({ ...r, synced: Date.now() / 1000 }); } catch (e) { notice(e.message); } };
 setInterval(async () => {  // while a team is open, fetch new messages and notes every 20 seconds
   if (!tmCur || $("tmDetail").hidden || !document.body.classList.contains("teams-open") || document.hidden || !$("tmNoteEd").hidden) return;
   try { const t = await api("/api/team/sync", { repo: tmCur }); drawTeam({ ...t, synced: Date.now() / 1000 }); } catch (e) {}
 }, 20000);
 $("tmWho").onkeydown = e => { if (e.key === "Enter") $("tmInvite").click(); };
-$("tmNewProject").onclick = async () => { const name = prompt("Project name:", ""); if (!name) return;
+$("tmNewProject").onclick = async () => { const name = await uiPrompt("New team project", { placeholder: "Project name", ok: "Create" }); if (!name) return;
   try { const r = await api("/api/team/project", { repo: tmCur, name }); closeTeams(); openProjects(r.project.id); } catch (e) { notice(e.message); } };
 $("tmShareChat").onclick = async () => { if (!currentChat) return notice("Open a chat first, then share it from here.");
   try { drawTeam(await api("/api/team/share-chat", { repo: tmCur, chat: currentChat, on: true })); notice("Shared with the team."); } catch (e) { notice(e.message); } };
-$("tmLeave").onclick = async () => { if (!confirm("Leave this team? Its projects are removed from this computer.")) return;
+$("tmLeave").onclick = async () => { if (!(await uiConfirm("Leave this team?", "Its projects are removed from this computer. You can be invited again.", "Leave", true))) return;
   try { await api("/api/team/remove", { repo: tmCur, who: tmData.me }); await loadTeams(); showTeamGrid(); } catch (e) { notice(e.message); } };
 $("pjBack").onclick = () => { closeProjects(); navSet("navPlay"); setTab("chat"); };
 $("pjNew").onclick = () => { if (!document.body.classList.contains("projects-open")) openProjects(); showProject(null); };
@@ -3124,7 +3190,7 @@ $("pjSave").onclick = async () => {
 };
 $("pjShare").onclick = async () => {
   if (!config.github_token) { notice("Team projects use your GitHub account. Connect it in Settings > GitHub first."); return openSettings("github"); }
-  const who = prompt("Invite teammates by GitHub username (separate with commas). They join with “Join shared project”.\n\nThe project's instructions and files are kept in a private repository on your GitHub; chats stay private to each person.", "");
+  const who = await uiPrompt("Share this project", { text: "Invite teammates by GitHub username (separate with commas). They join with “Join shared project”. The instructions and files are kept in a private repository on your GitHub; chats stay private to each person.", placeholder: "github-username, another-one", ok: "Share" });
   if (who === null) return;
   const b = $("pjShare"); b.disabled = true;
   try { const r = await api("/api/project/share", { id: pjCur, invite: who.split(",").map(x => x.trim()).filter(Boolean) });
@@ -3135,11 +3201,11 @@ $("pjSync").onclick = async () => { const b = $("pjSync"); b.disabled = true; b.
   catch (e) { notice(e.message); } finally { b.disabled = false; b.textContent = "Sync"; } };
 $("pjJoin").onclick = async () => {
   if (!config.github_token) { notice("Joining uses your GitHub account. Connect it in Settings > GitHub first."); return openSettings("github"); }
-  const repo = prompt("The shared project's repository (owner/repo), from the teammate who invited you:", "");
+  const repo = await uiPrompt("Join a shared project", { text: "The project's repository (owner/repo), from the teammate who invited you.", placeholder: "owner/lc4-project-name", ok: "Join" });
   if (!repo) return;
   try { const r = await api("/api/project/join", { repo: repo.trim() }); await loadProjects(); showProject(r.project.id); notice(`Joined ${r.project.name}.`); }
   catch (e) { notice(e.message); } };
-$("pjDelete").onclick = async () => { if (!pjCur || !confirm("Delete this project and its reference files? Its chats are kept.")) return;
+$("pjDelete").onclick = async () => { if (!pjCur || !(await uiConfirm("Delete this project?", "Its reference files are deleted. Its chats are kept.", "Delete", true))) return;
   await api("/api/project/delete", { id: pjCur }).catch(e => notice(e.message)); await loadProjects(); showProjectGrid(); };
 $("pjChat").onclick = async () => { try { await api("/api/project/chat", { id: pjCur }); closeProjects(); navSet("navPlay"); $("input").focus(); } catch (e) { $("pjErr").textContent = e.message; } };
 $("pjAddFile").onclick = () => $("pjFileInput").click();
@@ -3253,9 +3319,9 @@ async function recordAudio() {
 // ---------- Parallel chats & worktrees ----------
 $("parallelChat").onclick = async () => { try { await api("/api/chat/new", { worktree: true }); } catch (e) { startChatting(); notice(e.message); } };
 $("wtPill").onclick = async () => {
-  if (confirm("Merge this chat's work into your main branch and remove its separate folder?")) {
+  if (await uiConfirm("Merge this chat's work?", "Merges it into your main branch and removes its separate folder.", "Merge")) {
     try { const r = await api("/api/worktree/finish", { merge: true }); } catch (e) { notice(e.message); }
-  } else if (confirm("Discard this chat's worktree instead? Its uncommitted and unmerged work will be deleted.")) {
+  } else if (await uiConfirm("Discard this chat's worktree instead?", "Its uncommitted and unmerged work will be deleted.", "Discard", true)) {
     try { await api("/api/worktree/finish", { merge: false }); } catch (e) { notice(e.message); }
   }
 };
@@ -3291,7 +3357,7 @@ $("gitPush").onclick = () => gitDo(() => git("push"));
 $("gitPull").onclick = () => gitDo(() => git("pull"));
 $("gitPr").onclick = () => gitDo(() => git("pr"));
 $("gitBranch").onchange = () => gitDo(() => git("checkout", { branch: $("gitBranch").value }));
-$("gitNewBranch").onclick = () => { const n = prompt("New branch name:"); if (n) gitDo(() => git("checkout", { branch: n.trim(), create: true })); };
+$("gitNewBranch").onclick = async () => { const n = await uiPrompt("New branch", { placeholder: "branch-name", ok: "Create branch" }); if (n) gitDo(() => git("checkout", { branch: n.trim(), create: true })); };
 
 // ---------- Schedules & phone ----------
 function schedRow(t = {}) {
@@ -3364,11 +3430,11 @@ document.addEventListener("keydown", e => {
 $("installUpdate").onclick = () => { $("installUpdate").disabled = true; $("updateResult").textContent = "Downloading…"; api("/api/update/install").catch(e => $("updateResult").textContent = e.message); };
 function downloadJson(obj, name) { const a = el("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" })); a.download = name; a.click(); }
 $("exportSettings").onclick = async () => downloadJson(await api("/api/settings/export", { include_keys: false }), "lightcode4-settings.json");
-$("exportSettingsKeys").onclick = async () => { if (confirm("This file will contain your API keys. Keep it private. Continue?")) downloadJson(await api("/api/settings/export", { include_keys: true }), "lightcode4-settings-with-keys.json"); };
+$("exportSettingsKeys").onclick = async () => { if (await uiConfirm("Export with API keys?", "The file will contain your API keys. Keep it private.", "Export")) downloadJson(await api("/api/settings/export", { include_keys: true }), "lightcode4-settings-with-keys.json"); };
 $("importSettings").onclick = () => $("importFile").click();
 $("importFile").onchange = async e => { const f = e.target.files[0]; e.target.value = ""; if (!f) return;
   try { await api("/api/settings/import", { data: JSON.parse(await f.text()) }); $("settings").close(); notice("Settings imported."); } catch (err) { $("dlgError").textContent = err.message; } };
-$("reportBtn").onclick = () => { const t = prompt("What went wrong? (optional)") ?? null; if (t !== null) api("/api/report", { text: t }); };
+$("reportBtn").onclick = async () => { const t = await uiPrompt("Report a problem", { text: "What went wrong? (optional)", placeholder: "Describe what happened", ok: "Send report" }); if (t !== null) api("/api/report", { text: t }); };
 $("logsBtn").onclick = () => api("/api/logs/open").catch(e => $("dlgError").textContent = e.message);
 
 // ---------- Drag to reorder chats ----------
@@ -3623,7 +3689,7 @@ function drawMarket() { const q = $("mkSearch").value.trim().toLowerCase(), box 
   if (all.length > rows.length && !q) box.appendChild(el("div", "ghempty", `Showing 300 of ${all.length}. Search to find the rest.`)); }
 $("mkSources").onchange = () => loadMarket($("mkSources").value);
 $("mkRefresh").onclick = () => mk.source ? loadMarket(mk.source, true) : loadMarket("");
-$("mkRemoveSrc").onclick = async () => { if (!confirm(`Remove the marketplace ${mk.source}? Installed items stay.`)) return; await api("/api/market/source", { repo: mk.source, remove: true }); loadMarket(""); };
+$("mkRemoveSrc").onclick = async () => { if (!(await uiConfirm(`Remove the marketplace ${mk.source}?`, "Installed items stay.", "Remove", true))) return; await api("/api/market/source", { repo: mk.source, remove: true }); loadMarket(""); };
 $("mkSearch").oninput = drawMarket;
 $("gaSearch").oninput = () => { const q = $("gaSearch").value.trim().toLowerCase();
   document.querySelectorAll("#gaSkills .gacard, #gaConn .gacard").forEach(c => c.hidden = !!q && !c.textContent.toLowerCase().includes(q));
@@ -3717,7 +3783,7 @@ async function openCheckpoints() {
   [...cps].reverse().forEach(c => { const r = el("div", "cprow", "<div><b></b><small></small></div>");
     r.querySelector("b").textContent = c.text || "Message"; r.querySelector("small").textContent = (c.t ? fmtTime(c.t) + " · " : "") + c.files.join(", ");
     const b = el("button", "btn small"); b.textContent = "Restore to before this"; b.onclick = async () => {
-      if (!confirm(`Put your files back to how they were before “${c.text || "this message"}”? Later changes are undone too.`)) return;
+      if (!(await uiConfirm("Restore this checkpoint?", `Puts your files back to how they were before “${c.text || "this message"}”. Later changes are undone too.`, "Restore"))) return;
       try { await api("/api/checkpoints/restore", { turn: c.turn }); $("cpDlg").close(); notice("Files restored."); } catch (e) { notice(e.message); } };
     r.appendChild(b); list.appendChild(r); });
   $("cpDlg").showModal();
