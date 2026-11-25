@@ -647,8 +647,13 @@ class Workspace:
             raise ToolError("This file changed since you opened it (maybe the agent edited it). Reopen it to see the latest version.")
         if p.stat().st_size > 400_000:
             raise ToolError("This file is too large to edit here.")
+        before = p.stat().st_mtime_ns
         p.write_text(text, encoding="utf-8")
-        return {"size": p.stat().st_size, "mtime": str(p.stat().st_mtime_ns)}
+        st = p.stat()
+        if st.st_mtime_ns <= before:  # coarse clocks (Windows) can keep the old time; a save must always look newer
+            os.utime(p, ns=(st.st_atime_ns, before + 1_000_000))
+            st = p.stat()
+        return {"size": st.st_size, "mtime": str(st.st_mtime_ns)}
 
     def _inside(self, p: Path):
         try:
