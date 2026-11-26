@@ -35,6 +35,23 @@ test("every UI endpoint is routable (implemented or stubbed)", async () => {
   expect(KNOWN_ROUTES.length).toBeGreaterThan(100);
 });
 
+test("github status reports connection + signin availability", async () => {
+  const store = new Store();
+  const events = new EventHub();
+  const ctx = { store, events, session: new Session(store, events) };
+  const st = (await route("/api/github", {}, ctx)) as any;
+  expect(st.connected).toBe(false);
+  expect(st.signin).toBe(true);
+  expect(st.token_url).toContain("github.com");
+});
+
+test("github connect rejects an empty token", async () => {
+  const store = new Store();
+  const events = new EventHub();
+  const ctx = { store, events, session: new Session(store, events) };
+  await expect(route("/api/github/connect", { token: "" }, ctx)).rejects.toThrow();
+});
+
 test("send without an API key emits a setup event and throws", async () => {
   const store = new Store();
   store.config.api_key = "";
