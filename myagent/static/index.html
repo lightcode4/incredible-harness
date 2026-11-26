@@ -1261,15 +1261,24 @@ body.chatting .sc-day .scrim { background: rgba(255,252,245,.62); }
 .topbar #toggleSide { margin-left: -6px; }
 /* ---- compact update notice: a small card at the bottom of the sidebar ---- */
 #banner { display: none !important; }
-#banner.show { display: flex !important; position: static; width: auto; margin: 2px 0 12px; padding: 14px 14px 12px; flex-direction: column; align-items: stretch; gap: 10px; flex: none;
-  line-height: 1.4; border-radius: 16px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line)); box-shadow: 0 16px 50px -10px rgba(0,0,0,.5); animation: banrise .35s cubic-bezier(.33,1,.68,1); }
+/* collapsed by default: a compact pill — just the mascot + "Update ready" */
+#banner.show { display: flex !important; position: relative; width: auto; margin: 2px 0 12px; padding: 9px 11px; flex-direction: row; align-items: center; gap: 9px; flex: none; cursor: pointer;
+  line-height: 1.4; border-radius: 14px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line)); box-shadow: 0 10px 34px -12px rgba(0,0,0,.5); animation: banrise .35s cubic-bezier(.33,1,.68,1); transition: padding .18s ease; }
 @keyframes banrise { from { opacity: 0; transform: translateY(14px); } }
-#banner.show .banmasc { width: 40px; height: 36px; } #banner.show .banmasc .mascot { width: 40px; height: 36px; }
-#banner.show #bannerText { color: var(--text); font-size: 13.5px; } #banner.show #bannerText b { font-size: 14.5px; }
-#banner.show .uprow { display: flex; gap: 8px; margin-top: 2px; }
+#banner.show .banmasc { width: 30px; height: 27px; flex: none; } #banner.show .banmasc .mascot { width: 30px; height: 27px; }
+#banner.show #bannerText { color: var(--text); font-size: 13px; min-width: 0; } #banner.show #bannerText b { font-size: 13.5px; }
+#banner.show #bannerText br, #banner.show #bannerText span { display: none; }   /* the build line stays hidden until revealed */
+#banner.show .uprow { display: none; }
+#banner.show #bannerX { display: none; }
+/* revealed on hover, or pinned open after a click/tap */
+#banner.show:hover, #banner.show.open { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 14px 12px; border-radius: 16px; cursor: default; }
+#banner.show:hover .banmasc, #banner.show.open .banmasc { width: 40px; height: 36px; } #banner.show:hover .banmasc .mascot, #banner.show.open .banmasc .mascot { width: 40px; height: 36px; }
+#banner.show:hover #bannerText b, #banner.show.open #bannerText b { font-size: 14.5px; }
+#banner.show:hover #bannerText br, #banner.show.open #bannerText br, #banner.show:hover #bannerText span, #banner.show.open #bannerText span { display: inline; }
+#banner.show:hover .uprow, #banner.show.open .uprow { display: flex; gap: 8px; margin-top: 2px; }
 #banner.show #bannerBtn { flex: 1; padding: 8px 12px; font-size: 13px; border-radius: 10px; }
 #banner.show #bannerLater { padding: 8px 14px; font-size: 13px; border-radius: 10px; }
-#banner.show #bannerX { position: absolute; top: 9px; right: 9px; padding: 4px; color: var(--muted); } #banner.show #bannerX svg { width: 14px; height: 14px; }
+#banner.show:hover #bannerX, #banner.show.open #bannerX { display: block; position: absolute; top: 9px; right: 9px; padding: 4px; color: var(--muted); } #banner.show #bannerX svg { width: 14px; height: 14px; }
 /* ---- Chat / Code switch at the top of the sidebar ---- */
 .sidemode { display: flex; margin: 4px 6px 10px; padding: 3px; gap: 2px; background: color-mix(in srgb, var(--text) 5%, transparent); border: 1px solid var(--line); border-radius: 11px; }
 .sidemode button { width: auto !important; height: auto !important; min-height: 30px; flex: 1; display: flex !important; flex-direction: row; align-items: center; justify-content: center; gap: 7px; border: 0; background: none; padding: 6px 8px; border-radius: 8px; color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; }
@@ -2831,17 +2840,19 @@ let readyShown = 0;
 function showReady(build) {  // downloaded in the background: one click to install
   if (!build || readyShown === build) return; readyShown = build;
   $("banMasc").innerHTML = mascot(false);
-  $("bannerText").innerHTML = `<b>Update ready to install</b><br><span style="color:var(--muted)">Build ${esc(String(build))} is downloaded</span>`; $("banner").classList.add("show");
+  $("bannerText").innerHTML = `<b>Update ready<span> to install</span></b><br><span style="color:var(--muted)">Build ${esc(String(build))} is downloaded</span>`; $("banner").classList.add("show"); $("banner").classList.remove("open");
   $("bannerBtn").textContent = "Restart & install"; $("bannerBtn").disabled = false; $("bannerLater").hidden = false;
   $("bannerBtn").onclick = () => { $("bannerBtn").disabled = true; $("bannerLater").hidden = true; $("bannerText").textContent = "Installing… LightCode⁴ will reopen in a moment."; api("/api/update/install"); };
   $("installUpdate").hidden = false; $("updateResult").textContent = `Build ${build} is downloaded and ready.`;
 }
-$("bannerLater").onclick = () => { $("banner").classList.remove("show"); $("bannerLater").hidden = true; notice("OK. It stays downloaded; you'll be asked again next time you open LightCode⁴."); };
+$("bannerLater").onclick = () => { $("banner").classList.remove("show", "open"); $("bannerLater").hidden = true; notice("OK. It stays downloaded; you'll be asked again next time you open LightCode⁴."); };
 $("autoUpdate").onchange = () => { config.auto_update = $("autoUpdate").checked; api("/api/config", { auto_update: config.auto_update }).catch(e => notice(e.message)); };
-function showUpdate(r) { $("bannerLater").hidden = true; $("bannerText").innerHTML = `<b>Update ready</b><br><span style="color:var(--muted)">Build ${esc(String(r.latest))}</span>`; $("banner").classList.add("show");
+function showUpdate(r) { $("bannerLater").hidden = true; $("bannerText").innerHTML = `<b>Update ready</b><br><span style="color:var(--muted)">Build ${esc(String(r.latest))}</span>`; $("banner").classList.add("show"); $("banner").classList.remove("open");
   $("bannerBtn").textContent = "Install"; $("bannerBtn").onclick = () => { $("bannerBtn").disabled = true; $("bannerText").textContent = "Downloading the update…"; api("/api/update/install"); };
   $("installUpdate").hidden = false; }
-$("bannerX").onclick = () => $("banner").classList.remove("show");
+$("bannerX").onclick = e => { e.stopPropagation(); $("banner").classList.remove("show", "open"); };
+// collapsed pill expands on click/tap (hover also reveals it, via CSS); the action buttons keep their own handlers
+$("banner").addEventListener("click", e => { if (e.target.closest("#bannerBtn, #bannerLater, #bannerX")) return; $("banner").classList.toggle("open"); });
 
 // ---------- Attachments ----------
 function addFiles(list) {
