@@ -4,13 +4,18 @@
 
 import type { Store } from "./config";
 import type { EventHub } from "./events";
-import type { Session } from "./session";
+import type { ChatManager } from "./chats";
 import * as gh from "./github";
 import { listModels, testConnection, mergeCfg } from "./models";
+import { scan } from "./security";
+import * as files from "./files";
+import { checkUpdate, whatsNew } from "./update";
+import cyberCatalog from "./data/cyber-catalog.json";
+import providerCatalog from "./data/providers.json";
 import { homedir } from "os";
 import { join } from "path";
 
-export type Ctx = { store: Store; events: EventHub; session: Session };
+export type Ctx = { store: Store; events: EventHub; chats: ChatManager };
 type Handler = (body: any, ctx: Ctx) => unknown | Promise<unknown>;
 
 // keys the UI is allowed to write through /api/config
@@ -35,17 +40,25 @@ const handlers: Record<string, Handler> = {
     return store.publicConfig();
   },
 
-  "/api/send": (body, { session }) => {
+  "/api/send": (body, { chats }) => {
     const text = String(body?.text || "").trim();
     if (!text) throw new Error("Nothing to send.");
     // run the turn in the background; progress streams over SSE
-    void session.send(text).catch(() => {});
+    void chats.current.send(text).catch(() => {});
     return { ok: true };
   },
 
-  "/api/stop": (_b, { session }) => { session.stop(); return { ok: true }; },
+  "/api/stop": (_b, { chats }) => { chats.current.stop(); return { ok: true }; },
 
-  "/api/chats": (_b, { store }) => ({ chats: [], current: (store.config.last_chat as string) || "" }),
+  // ---- chats (Sessions list + New session) ----
+  "/api/chats": (_b, { chats }) => ({ chats: chats.list(), current: chats.current.id }),
+  "/api/clear": (_b, { chats }) => chats.newChat(),
+  "/api/chat/new": (body, { chats }) => chats.newChat(body?.cwd ? String(body.cwd) : undefined, body?.kind ? String(body.kind) : undefined),
+  "/api/chat/open": (body, { chats }) => chats.open(String(body?.id || "")),
+  "/api/chat/rename": (body, { chats }) => { chats.rename(String(body?.id || ""), String(body?.title || "")); return {}; },
+  "/api/chat/pin": (body, { chats }) => { chats.pin(String(body?.id || ""), Boolean(body?.on)); return {}; },
+  "/api/chat/delete": (body, { chats }) => { chats.delete(String(body?.id || "")); return {}; },
+  "/api/activate": (body, { chats }) => { if (body?.chat) chats.open(String(body.chat)); return {}; },
 
   "/api/models": async (body, { store }) => ({ models: await listModels(mergeCfg(store.config, body)) }),
   "/api/test-connection": async (body, { store }) => {
@@ -59,18 +72,44 @@ const handlers: Record<string, Handler> = {
       return { ok: true, reply: await testConnection(cfg) };
     } catch (e) { return { ok: false, error: (e as Error).message }; }
   },
-  "/api/providers": (_b, { store }) => ({ providers: [], current: store.config.service || "" }),
+  "/api/providers": (_b, { store }) => {
+    const keys = (store.config.keys as Record<string, string>) || {};
+    const service_models = (store.config.service_models as Record<string, string>) || {};
+    return {
+      providers: (providerCatalog as any).providers.map((p: any) => ({
+        ...p, has_key: Boolean(keys[p.id]) || Boolean(p.nokey), model_saved: service_models[p.id] || "",
+      })),
+      current: store.config.service || "",
+    };
+  },
 
+  "/api/whatsnew": () => whatsNew(),
+
+  // ---- Bug hunting + Cyber Security ----
+  "/api/security/scan": (body, { chats }) => scan(String(body?.path || chats.current.cwd)),
+  "/api/security/tools": () => cyberCatalog,
+
+  // ---- providers catalog + keys ----
   "/api/provider/key": (body, { store, events }) => {
-    if (body?.key) store.config.api_key = body.key;
-    if (body?.provider) store.config.provider = body.provider;
-    if (body?.model) store.config.model = body.model;
+    if (!store.config.keys) store.config.keys = {};
+    const keys = store.config.keys as Record<string, string>;
+    const sid = String(body?.service || "");
+    const key = String(body?.key || "").trim();
+    if (key) keys[sid] = key; else delete keys[sid];
     store.save();
     events.put({ kind: "config", config: store.publicConfig() });
     return store.publicConfig();
   },
 
-  "/api/whatsnew": () => ({ html: "<p>What's new will appear here.</p>" }),
+  // ---- files (file panel / editor) ----
+  "/api/files/list": (body, { chats }) => files.list(chats.current.cwd, String(body?.path || ".")),
+  "/api/files/read": (body, { chats }) => files.read(chats.current.cwd, String(body?.path || "")),
+  "/api/files/write": (body, { chats }) => files.write(chats.current.cwd, String(body?.path || ""), String(body?.content ?? "")),
+  "/api/files/find": (body, { chats }) => files.find(chats.current.cwd, String(body?.q || body?.query || "")),
+
+  // ---- self-update ----
+  "/api/update": () => checkUpdate(),
+  "/api/update/install": () => ({ ok: false, error: "In the packaged app, updates install through the desktop updater." }),
 
   // ---- GitHub (Settings > GitHub) ----
   "/api/github": (_b, { store }) => ({

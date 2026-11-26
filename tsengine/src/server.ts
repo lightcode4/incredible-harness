@@ -6,7 +6,7 @@ import { existsSync } from "fs";
 import { randomBytes } from "crypto";
 import { EventHub, type Event } from "./events";
 import { Store } from "./config";
-import { Session } from "./session";
+import { ChatManager } from "./chats";
 import { route } from "./routes";
 
 const STATIC_DIR =
@@ -26,8 +26,8 @@ export function startEngine(opts: { port?: number; host?: string } = {}): Engine
   const token = process.env.LC4_TOKEN || randomBytes(16).toString("hex");
   const store = new Store();
   const events = new EventHub();
-  const session = new Session(store, events);
-  const ctx = { store, events, session };
+  const chats = new ChatManager(store, events);
+  const ctx = { store, events, chats };
 
   async function serveStatic(path: string): Promise<Response | null> {
     const rel = path === "/" ? "/index.html" : path;
@@ -48,7 +48,7 @@ export function startEngine(opts: { port?: number; host?: string } = {}): Engine
         const send = (ev: Event) => controller.enqueue(enc.encode(`data: ${JSON.stringify(ev)}\n\n`));
         // initial state the UI expects on connect
         send({ kind: "config", config: store.publicConfig() });
-        send(session.replayEvent());
+        send(chats.current.replayEvent());
         unsub = events.subscribe(send);
         const ping = setInterval(() => controller.enqueue(enc.encode(": ping\n\n")), 15000);
         (controller as any)._cleanup = () => { clearInterval(ping); unsub(); };
