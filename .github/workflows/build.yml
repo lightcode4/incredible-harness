@@ -33,7 +33,7 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: |
-          python -m pip install anthropic openai pywebview pyinstaller playwright pypdf mss pyautogui pillow pynput
+          python -m pip install anthropic openai pywebview pyinstaller playwright pypdf mss pyautogui pillow pynput certifi
           if [ "${{ matrix.name }}" = "windows" ]; then python -m pip install pywinpty pystray; fi
 
       # Herness's own browser engine, installed inside the playwright package so PyInstaller bundles it.
@@ -54,7 +54,7 @@ jobs:
         if: matrix.name == 'mac'
         run: |
           pyinstaller --noconfirm --windowed --name "LightCode4" --icon assets/icon.icns --collect-submodules pynput \
-            --osx-bundle-identifier com.lightcode4.app --collect-all playwright \
+            --osx-bundle-identifier com.lightcode4.app --collect-all playwright --collect-data certifi \
             --add-data "myagent/static:myagent/static" run_app.py
           PLIST="dist/LightCode4.app/Contents/Info.plist"
           plutil -insert NSMicrophoneUsageDescription -string "Voice typing in the message box." "$PLIST"
@@ -89,7 +89,7 @@ jobs:
       - name: Build app (Windows)
         if: matrix.name == 'windows'
         run: |
-          pyinstaller --noconfirm --windowed --name "LightCode4" --icon assets/icon.ico --collect-submodules pynput --collect-all playwright --collect-all winpty --hidden-import pystray._win32 \
+          pyinstaller --noconfirm --windowed --name "LightCode4" --icon assets/icon.ico --collect-submodules pynput --collect-all playwright --collect-all winpty --collect-data certifi --hidden-import pystray._win32 \
             --add-data "myagent/static;myagent/static" run_app.py
           # Optional code signing: runs only when the Windows certificate secrets are added.
           # The app itself is signed before packaging, then the installer.

@@ -2190,6 +2190,11 @@ def main():
     cfg_on = {**cfg, "cyber_mode": True}
     assert "CYBER SECURITY MODE is on" in s.chat_system(cfg_on), "preamble reaches chat mode"
     assert "CYBER SECURITY MODE is on" in s.system_for(cfg_on), "preamble reaches code mode"
+    # the packaged app has no system CA bundle, so GitHub + update HTTPS must use a certifi-backed context
+    import ssl as _ssl
+    from myagent import github as _gh, platform_extras as _pxssl
+    assert isinstance(_gh._ssl_ctx(), _ssl.SSLContext) and isinstance(_pxssl._ssl_ctx(), _ssl.SSLContext), "TLS contexts are built"
+    assert _pxssl.asset_match("LightCode4-mac-build123.dmg") or _pxssl.asset_match("LightCode4-Setup-build123.exe"), "versioned installers still match"
     print("87 cyber security OK")
 
     print("ALL TESTS PASSED")

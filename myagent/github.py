@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import stat
 import subprocess
 import time
@@ -16,6 +17,20 @@ import urllib.request
 from pathlib import Path
 
 API = os.environ.get("LC4_GITHUB_API", "https://api.github.com")
+
+_SSL_CTX = None
+
+
+def _ssl_ctx():
+    """A TLS context that trusts certifi's CA bundle — the packaged app has no system bundle."""
+    global _SSL_CTX
+    if _SSL_CTX is None:
+        try:
+            import certifi
+            _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            _SSL_CTX = ssl.create_default_context()
+    return _SSL_CTX
 HOME = Path.home() / ".incredible-herness"
 # "Sign in with GitHub" uses GitHub's device flow (like the gh command line): no token to copy.
 # It needs the Client ID of a GitHub OAuth App with Device Flow enabled (public, not a secret).
@@ -39,7 +54,7 @@ def api(token: str, method: str, path: str, body=None, timeout: int = 30):
         "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "User-Agent": "LightCode4",
         "X-GitHub-Api-Version": "2022-11-28", **({"Content-Type": "application/json"} if data else {})})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
             raw = r.read()
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as e:
@@ -140,7 +155,7 @@ def _form(url: str, fields: dict) -> dict:
     data = urllib.parse.urlencode(fields).encode()
     req = urllib.request.Request(url, data=data, method="POST", headers={"Accept": "application/json", "User-Agent": "LightCode4"})
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=30, context=_ssl_ctx()) as r:
             return json.loads(r.read() or b"{}")
     except urllib.error.HTTPError as e:
         raise GitHubError(f"GitHub sign-in failed ({e.code}). Check the OAuth app has Device Flow enabled.")

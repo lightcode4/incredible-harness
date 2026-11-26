@@ -17,9 +17,24 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+
+_SSL_CTX = None
+
+
+def _ssl_ctx():
+    """TLS context trusting certifi's CA bundle (the packaged app ships no system bundle)."""
+    global _SSL_CTX
+    if _SSL_CTX is None:
+        try:
+            import certifi
+            _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            _SSL_CTX = ssl.create_default_context()
+    return _SSL_CTX
 from pathlib import Path
 
 HOME = Path.home() / ".incredible-herness"
@@ -184,7 +199,7 @@ def _fetch_range(url: str, start: int, end: int, f, lock, on_bytes, tries: int =
     while pos <= end:
         req = urllib.request.Request(url, headers={"User-Agent": "LightCode4", "Range": f"bytes={pos}-{end}"})
         try:
-            with urllib.request.urlopen(req, timeout=45) as r:
+            with urllib.request.urlopen(req, timeout=45, context=_ssl_ctx()) as r:
                 if r.status != 206 and pos > 0:
                     raise RuntimeError("The download server does not support resuming.")
                 while pos <= end and (chunk := r.read(min(256 << 10, end - pos + 1))):
@@ -212,7 +227,7 @@ def github_json(url: str, token: str = ""):
         if auth:
             headers["Authorization"] = f"Bearer {token}"
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as r:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30, context=_ssl_ctx()) as r:
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
             if not auth and token and e.code in (401, 403, 404):
@@ -307,7 +322,7 @@ def publish_gist(token: str, filename: str, content: str, description: str, publ
                                  headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
                                           "User-Agent": "LightCode4", "Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=30, context=_ssl_ctx()) as r:
             return json.loads(r.read())["html_url"]
     except urllib.error.HTTPError as e:
         raise ValueError(f"GitHub refused the gist ({e.code}). The token needs the 'gist' permission.")
