@@ -1,0 +1,86 @@
+[
+ {
+  "id": "code-review",
+  "name": "Code review",
+  "blurb": "Review changes for bugs, security issues and unclear code, ranked by severity.",
+  "installed": false
+ },
+ {
+  "id": "write-tests",
+  "name": "Write tests",
+  "blurb": "Add focused tests using the project's own test setup, then run them.",
+  "installed": false
+ },
+ {
+  "id": "debug",
+  "name": "Debugging",
+  "blurb": "Reproduce, find the root cause, fix it and prove the fix.",
+  "installed": false
+ },
+ {
+  "id": "commit-messages",
+  "name": "Commit messages",
+  "blurb": "Clear, conventional commit messages from the actual diff.",
+  "installed": false
+ },
+ {
+  "id": "explain-codebase",
+  "name": "Explain a codebase",
+  "blurb": "A guided tour: structure, main flows, where to start.",
+  "installed": false
+ },
+ {
+  "id": "security-review",
+  "name": "Security review",
+  "blurb": "Check for common vulnerabilities and leaked secrets.",
+  "installed": false
+ },
+ {
+  "id": "docs-writer",
+  "name": "Documentation",
+  "blurb": "Write or update READMEs and docs that match the code.",
+  "installed": false
+ },
+ {
+  "id": "release-notes",
+  "name": "Release notes",
+  "blurb": "Turn git history into readable notes for users.",
+  "installed": false
+ },
+ {
+  "id": "data-analysis",
+  "name": "Data analysis",
+  "blurb": "Explore a dataset, find what matters and chart it.",
+  "installed": false
+ },
+ {
+  "id": "deep-research",
+  "name": "Research",
+  "blurb": "Investigate a topic across sources and write a cited brief.",
+  "installed": false
+ },
+ {
+  "id": "frontend-design",
+  "name": "Frontend design",
+  "blurb": "Build polished, accessible web pages and components.",
+  "installed": false
+ },
+ {
+  "id": "brand-voice",
+  "name": "Brand guidelines",
+  "blurb": "Write and design in a consistent brand voice and look.",
+  "installed": false
+ },
+ {
+  "id": "file-organizer",
+  "name": "File organizer",
+  "blurb": "Tidy a messy folder safely, with a plan you approve first.",
+  "installed": false
+ },
+ {
+  "id": "internal-comms",
+  "name": "Internal comms",
+  "blurb": "Clear updates, announcements and summaries for a team.",
+  "installed": false
+ }
+]

@@ -15,6 +15,8 @@ import * as gitops from "./gitops";
 import * as ws from "./workspace";
 import cyberCatalog from "./data/cyber-catalog.json";
 import providerCatalog from "./data/providers.json";
+import galleryCatalog from "./data/gallery.json";
+import { run as runSelfcheck } from "./selfcheck";
 import { homedir } from "os";
 import { join } from "path";
 
@@ -120,6 +122,28 @@ const handlers: Record<string, Handler> = {
   "/api/term/input": (body, { terms }) => { terms.input(String(body?.id || ""), String(body?.data ?? "")); return {}; },
   "/api/term/resize": () => ({}),
   "/api/term/close": (body, { terms }) => { terms.close(String(body?.id || "")); return {}; },
+
+  // ---- skills gallery (display + install marker) ----
+  "/api/gallery": (_b, { store }) => {
+    const installed = new Set((store.config as any).installed_skills || []);
+    return {
+      skills: (galleryCatalog as any[]).map((s) => ({ ...s, installed: installed.has(s.id) })),
+      skills_custom: [],
+      connectors: [...((store.config.mcp as any[]) || []), ...((store.config.mcp_local as any[]) || [])].map((m) => m.name),
+    };
+  },
+  "/api/gallery/skill": (body, { store }) => {
+    const set = new Set((store.config as any).installed_skills || []);
+    const id = String(body?.id || "");
+    if (body?.remove) set.delete(id); else set.add(id);
+    (store.config as any).installed_skills = [...set];
+    store.save();
+    const installed = set;
+    return { skills: (galleryCatalog as any[]).map((s) => ({ ...s, installed: installed.has(s.id) })) };
+  },
+
+  // ---- self-check ----
+  "/api/selfcheck": (body, { store, chats }) => runSelfcheck(store, chats.current.cwd, Boolean(body?.model)),
 
   // ---- self-update ----
   "/api/update": () => checkUpdate(),
