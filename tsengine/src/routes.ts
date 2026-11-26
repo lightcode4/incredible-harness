@@ -16,6 +16,7 @@ import * as files from "./files";
 import { checkUpdate, whatsNew } from "./update";
 import * as gitops from "./gitops";
 import * as ws from "./workspace";
+import * as market from "./market";
 import cyberCatalog from "./data/cyber-catalog.json";
 import providerCatalog from "./data/providers.json";
 import galleryCatalog from "./data/gallery.json";
@@ -167,6 +168,22 @@ const handlers: Record<string, Handler> = {
     store.save();
     const installed = set;
     return { skills: (galleryCatalog as any[]).map((s) => ({ ...s, installed: installed.has(s.id) })) };
+  },
+
+  // ---- marketplace (skills / agents / commands from GitHub) ----
+  "/api/market": async (body, { store }) => {
+    const tok = String(store.config.github_token || "");
+    const src = String(body?.source || "");
+    const items = src ? await market.browse(src, tok, Boolean(body?.refresh)) : [];
+    return { sources: market.overview(), source: src, items };
+  },
+  "/api/market/source": (body) => ({
+    sources: body?.remove ? market.removeSource(String(body?.repo || "")) : market.addSource(String(body?.repo || "")),
+  }),
+  "/api/market/install": async (body, { store }) => {
+    const tok = String(store.config.github_token || "");
+    if (body?.remove) { market.uninstall(String(body?.repo || ""), String(body?.id || "")); return {}; }
+    return market.install(String(body?.repo || ""), String(body?.id || ""), tok);
   },
 
   // ---- self-check ----
