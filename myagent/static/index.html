@@ -60,15 +60,15 @@ aside.hidden { margin-left: -264px; }
 .chatitem:hover button { visibility: visible; } .chatitem button:hover { color: var(--bad); }
 .chatitem button svg { width: 14px; height: 14px; }
 .side-foot { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 6px; position: relative; }
-.acctbtn { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; padding: 7px 8px; border-radius: 11px; cursor: pointer; color: var(--text); text-align: left; }
+.acctbtn { display: flex; align-items: center; gap: 12px; width: 100%; background: none; border: 0; padding: 9px 9px; border-radius: 13px; cursor: pointer; color: var(--text); text-align: left; }
 .acctbtn:hover { background: var(--hover); }
-.acctav { position: relative; width: 29px; height: 29px; border-radius: 50%; background: linear-gradient(145deg, #7a6fd0, #b07cf0) center/cover; display: grid; place-items: center; flex: none; color: #fff; font-weight: 700; font-size: 13px; }
+.acctav { position: relative; width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(145deg, #7a6fd0, #b07cf0) center/cover; display: grid; place-items: center; flex: none; color: #fff; font-weight: 700; font-size: 18px; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
 .acctav.hasimg .acctini { display: none; }
-.acctav .dot { position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); border: 2px solid var(--side); }
+.acctav .dot { position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; border-radius: 50%; background: var(--ok); border: 2.5px solid var(--side); }
 .acctav .dot.off { background: var(--faint); }
-.acctinfo { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.25; }
-.acctinfo b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.acctinfo small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acctinfo { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.3; gap: 1px; }
+.acctinfo b { font-size: 15px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acctinfo small { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .acctchev { width: 14px; height: 14px; color: var(--muted); flex: none; }
 .acctmenu { position: absolute; bottom: calc(100% - 2px); left: 6px; right: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 -10px 34px rgba(0,0,0,.34); padding: 6px; z-index: 60; }
 .acctmenu[hidden] { display: none; }
@@ -1261,7 +1261,7 @@ body.chatting .sc-day .scrim { background: rgba(255,252,245,.62); }
 .topbar #toggleSide { margin-left: -6px; }
 /* ---- compact update notice: a small card at the bottom of the sidebar ---- */
 #banner { display: none !important; }
-#banner.show { display: flex !important; position: fixed; left: 14px; bottom: 70px; z-index: 46; width: 280px; margin: 0; padding: 16px 16px 14px; flex-direction: column; align-items: stretch; gap: 11px;
+#banner.show { display: flex !important; position: static; width: auto; margin: 2px 0 12px; padding: 14px 14px 12px; flex-direction: column; align-items: stretch; gap: 10px; flex: none;
   line-height: 1.4; border-radius: 16px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line)); box-shadow: 0 16px 50px -10px rgba(0,0,0,.5); animation: banrise .35s cubic-bezier(.33,1,.68,1); }
 @keyframes banrise { from { opacity: 0; transform: translateY(14px); } }
 #banner.show .banmasc { width: 40px; height: 36px; } #banner.show .banmasc .mascot { width: 40px; height: 36px; }
@@ -1457,6 +1457,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     </div></div>
   </div>
   <div class="side-foot">
+    <div id="banner"><button class="iconbtn" id="bannerX" aria-label="Dismiss"><svg><use href="#i-x"/></svg></button><span class="banmasc" id="banMasc"></span><span id="bannerText"></span><div class="uprow"><button class="btn small primary" id="bannerBtn">Download</button><button class="btn small ghost" id="bannerLater" hidden>Later</button></div></div>
     <div class="acctmenu" id="acctMenu" role="menu" hidden></div>
     <button class="acctbtn" id="acctBtn" aria-haspopup="menu" aria-expanded="false" title="Account">
       <span class="acctav" id="acctAv"><span class="acctini" id="acctIni">?</span><span class="dot" id="dot"></span></span>
@@ -1480,7 +1481,6 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <button class="iconbtn" id="sidePanelBtn" title="Show side panel (⌘.)" aria-label="Show side panel" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M15 4.5v15"/></svg></button>
     <button class="iconbtn" id="keysBtn" title="Help and keyboard shortcuts" aria-label="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg></button>
   </div>
-  <div id="banner"><button class="iconbtn" id="bannerX" aria-label="Dismiss"><svg><use href="#i-x"/></svg></button><span class="banmasc" id="banMasc"></span><span id="bannerText"></span><div class="uprow"><button class="btn small primary" id="bannerBtn">Download</button><button class="btn small ghost" id="bannerLater" hidden>Later</button></div></div>
   <div class="page">
     <div class="pagehead">
       <div><div class="eyebrow">Your personal agent</div><h1 class="serif" id="greet">Begin, a little brighter.</h1><p class="sub">A little light. A lot of possibility.</p></div>
