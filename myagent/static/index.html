@@ -75,7 +75,7 @@ aside.hidden { margin-left: -264px; }
 .acctitem { display: flex; align-items: center; gap: 11px; width: 100%; background: none; border: 0; padding: 8px 10px; border-radius: 9px; cursor: pointer; color: var(--text); font-size: 13.5px; text-align: left; }
 .acctitem:hover { background: var(--hover); }
 .acctitem svg { width: 17px; height: 17px; fill: none; stroke: var(--muted); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-.acctitem span { flex: 1; } .acctitem kbd { font-size: 11px; color: var(--faint); border: 0; background: none; }
+.acctitem .acctlabel { flex: 1; } .acctitem kbd { font-size: 11px; color: var(--faint); border: 0; background: none; }
 .acctsep { height: 1px; background: var(--line-soft); margin: 5px 8px; }
 .who { font-size: 12px; color: var(--muted); padding: 2px 10px 4px; display: flex; gap: 6px; align-items: center; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
@@ -723,6 +723,7 @@ body.quick { background: transparent; overflow: hidden; }
 .artkind { font-family: var(--monoF); font-size: 10.5px; color: var(--accent); background: var(--soft); border-radius: 6px; padding: 2px 6px; flex: none; }
 .artseg { display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 2px; flex: none; }
 .artseg button { border: 0; background: none; padding: 4px 10px; border-radius: 7px; font-size: 12.5px; color: var(--muted); cursor: pointer; } .artseg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.seg-ico button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; } .seg-ico button svg { width: 15px; height: 15px; flex: none; }
 #artFrame { flex: 1; border: 0; width: 100%; background: #fff; }
 #artCode { flex: 1; margin: 0; overflow: auto; padding: 12px 16px; font: 12.5px/1.55 var(--monoF); background: var(--codeblock); color: var(--codetext); white-space: pre; }
 .codeblock header > span:last-child { display: flex; gap: 10px; }
@@ -1856,7 +1857,10 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     </div>
     <div class="pane" data-p="theme">
       <div class="panehead"><h3>Theme</h3><p>How LightCode⁴ looks — for you, and the wallpaper your team shares.</p></div>
-      <div class="field"><label>Appearance</label><div class="artseg" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content"><button data-t="system">System</button><button data-t="light">Light</button><button data-t="dark">Dark</button></div></div>
+      <div class="field"><label>Appearance</label><div class="artseg seg-ico" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content">
+        <button data-t="system"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="#b9b3a0" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16z" fill="#8a9ce8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="#f5b942"/></svg>System</button>
+        <button data-t="light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.4" fill="#f5b942"/><g stroke="#f5b942" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M5.2 18.8l2.1-2.1"/></g></svg>Light</button>
+        <button data-t="dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="#8a9ce8"/></svg>Dark</button></div></div>
       <div class="field"><label>Background <small>Your mascot, big and animated behind the whole app. Auto picks day or night.</small></label><div class="scenepick" id="scenePick" role="radiogroup" aria-label="Background"></div></div>
       <div class="field"><label>Effects <small>Lower this if the app feels slow on an older or low-memory computer.</small></label>
         <div class="artseg" id="fxSeg" role="radiogroup" aria-label="Effects" style="width:max-content"><button data-fx="auto">Auto</button><button data-fx="full">Full</button><button data-fx="lite">Lite (less lag)</button></div></div>
@@ -2666,18 +2670,22 @@ const MG = {
 };
 function acctItems() {
   const gh = (config.github_user) || {}, connected = !!gh.login;
-  const items = [
-    ["Settings", "gear", () => openSettings(), "⌘,"],
-    ["Keyboard shortcuts", "key", () => $("keys").showModal(), "⌘/"],
-    ["Usage & cost", "chart", () => openUsage()],
-    ["Language", "globe", () => openSettings("model")],
-    ["What's new", "sparkle", () => showWhatsNew()],
-    ["Check for updates", "download", () => openSettings("about")],
-    ["Get help", "help", () => api("/api/open-url", { url: "https://github.com/lightcode4/incredible-harness#readme" }).catch(() => {})],
+  // [label, glyph, gradient, action, shortcut]
+  return [
+    ["Settings", "gear", "#8e8e93,#636366", () => openSettings(), "⌘,"],
+    ["Keyboard shortcuts", "key", "#3a3a3c,#5a5a5f", () => $("keys").showModal(), "⌘/"],
+    ["Usage & cost", "chart", "#ff5e6c,#d3304a", () => openUsage()],
+    ["Language", "globe", "#4da6ff,#1e74e0", () => openSettings("model")],
+    ["What's new", "sparkle", "#ff5e9a,#b24dd0", () => showWhatsNew()],
+    ["Check for updates", "download", "#4da6ff,#1e74e0", () => openSettings("about")],
+    ["Get help", "help", "#5ac8fa,#2e9be0", () => api("/api/open-url", { url: "https://github.com/lightcode4/incredible-harness#readme" }).catch(() => {})],
     "sep",
-    connected ? [`Sign out of GitHub`, "logout", () => disconnectGitHub()] : ["Connect GitHub", "github", () => openSettings("github")],
+    connected ? ["Sign out of GitHub", "logout", "#ff6b5a,#c03a2b", () => disconnectGitHub()] : ["Connect GitHub", "github", "#4a4a4f,#2c2c2e", () => openSettings("github")],
   ];
-  return items;
+}
+function acctTile(glyph, grad) {
+  const t = el("span", "nico sm"); t.style.background = `linear-gradient(145deg,${grad.split(",")[0]},${grad.split(",")[1]})`;
+  t.innerHTML = `<svg viewBox="0 0 24 24">${MG[glyph] || ""}</svg>`; return t;
 }
 function buildAcctMenu() {
   const m = $("acctMenu"); m.innerHTML = "";
@@ -2685,9 +2693,9 @@ function buildAcctMenu() {
   const head = el("div", "acctmail"); head.textContent = gh.login ? "@" + gh.login : "Not signed in to GitHub"; m.appendChild(head);
   acctItems().forEach(it => {
     if (it === "sep") { m.appendChild(el("div", "acctsep")); return; }
-    const [label, glyph, fn, kbd] = it;
-    const b = el("button", "acctitem", `<svg viewBox="0 0 24 24">${MG[glyph] || ""}</svg><span></span>${kbd ? `<kbd>${kbd}</kbd>` : ""}`);
-    b.querySelector("span").textContent = label; b.onclick = () => { closeAcct(); fn(); };
+    const [label, glyph, grad, fn, kbd] = it;
+    const b = el("button", "acctitem", `<span class="acctlabel"></span>${kbd ? `<kbd>${kbd}</kbd>` : ""}`);
+    b.querySelector(".acctlabel").textContent = label; b.prepend(acctTile(glyph, grad)); b.onclick = () => { closeAcct(); fn(); };
     m.appendChild(b);
   });
 }
