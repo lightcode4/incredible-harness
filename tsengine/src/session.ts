@@ -14,6 +14,7 @@ export interface Emitter { put(ev: Event): void; }
 import { streamTurn, type Msg } from "./providers";
 import { TOOL_SPECS, runTool } from "./tools";
 import { projectInstructions, readMemory } from "./workspace";
+import type { McpManager } from "./mcp";
 
 export const CHATS_DIR = join(homedir(), ".incredible-herness", "chats");
 
@@ -57,9 +58,12 @@ export class Session {
   private cur: Checkpoint | null = null;
   private stopFlag = false;
 
-  constructor(private store: Store, private events: Emitter, init?: Partial<Session> & { transcript?: Msg[]; ephemeral?: boolean }) {
+  mcp?: McpManager;
+
+  constructor(private store: Store, private events: Emitter, init?: Partial<Session> & { transcript?: Msg[]; ephemeral?: boolean; mcp?: McpManager }) {
     this.id = init?.id || "c" + randomBytes(5).toString("hex");
     if (init?.ephemeral) this.ephemeral = true;
+    if (init?.mcp) this.mcp = init.mcp;
     this.cwd = init?.cwd || String(store.config.cwd);
     if (init?.title) this.title = init.title;
     if (init?.kind) this.kind = init.kind;
@@ -257,9 +261,13 @@ export class Session {
       this.events.put({ kind: "title", chat: this.id, title: this.title });
     }
 
+    let mcpSpecs: typeof TOOL_SPECS = [];
+    try { if (this.mcp) mcpSpecs = await this.mcp.toolSpecs(); } catch { /* MCP optional */ }
+    const tools = [...TOOL_SPECS, ...mcpSpecs];
+
     try {
       for (let step = 0; step < 24 && !this.stopFlag; step++) {
-        const result = await streamTurn(cfg, this.system(), this.transcript, TOOL_SPECS, {
+        const result = await streamTurn(cfg, this.system(), this.transcript, tools, {
           onText: (d) => this.events.put({ kind: "text", text: d }),
           onThinking: (d) => this.events.put({ kind: "thinking", text: d }),
         });
@@ -273,8 +281,9 @@ export class Session {
           this.events.put({ kind: "tool", id: tc.id, name: tc.name, input: tc.args, summary: tc.name });
           if ((tc.name === "write_file" || tc.name === "edit_file") && tc.args?.path) this.snapshot(String(tc.args.path));
           let out: string;
-          try { out = await runTool(this.cwd, tc.name, tc.args); }
-          catch (e) { out = `Error: ${(e as Error).message}`; }
+          try {
+            out = this.mcp?.has(tc.name) ? await this.mcp.call(tc.name, tc.args) : await runTool(this.cwd, tc.name, tc.args);
+          } catch (e) { out = `Error: ${(e as Error).message}`; }
           this.events.put({ kind: "tool_result", id: tc.id, output: out });
           outs.push(`[${tc.name}] ${out}`);
         }

@@ -7,6 +7,7 @@ import type { EventHub } from "./events";
 import type { ChatManager } from "./chats";
 import type { Terminals } from "./terminal";
 import type { Scheduler } from "./scheduler";
+import type { McpManager } from "./mcp";
 import { existsSync, statSync } from "fs";
 import * as gh from "./github";
 import { listModels, testConnection, mergeCfg } from "./models";
@@ -22,7 +23,7 @@ import { run as runSelfcheck } from "./selfcheck";
 import { homedir } from "os";
 import { join } from "path";
 
-export type Ctx = { store: Store; events: EventHub; chats: ChatManager; terms: Terminals; scheduler: Scheduler };
+export type Ctx = { store: Store; events: EventHub; chats: ChatManager; terms: Terminals; scheduler: Scheduler; mcp: McpManager };
 type Handler = (body: any, ctx: Ctx) => unknown | Promise<unknown>;
 
 // keys the UI is allowed to write through /api/config
@@ -37,12 +38,26 @@ const WRITABLE = new Set([
 let ghStop = { done: true };
 
 const handlers: Record<string, Handler> = {
-  "/api/config": (body, { store, events }) => {
+  "/api/config": (body, { store, events, mcp }) => {
     let changed = false;
     for (const [k, v] of Object.entries(body || {})) {
       if (k === "client" || k === "chat") continue;
       if (WRITABLE.has(k)) { store.config[k] = v; changed = true; }
     }
+    // connectors: local MCP servers (blank env values keep the saved secret) and remote entries
+    if (Array.isArray(body?.mcp_local)) {
+      const old: Record<string, any> = {};
+      for (const m of (store.config.mcp_local as any[]) || []) old[m.name] = m;
+      store.config.mcp_local = body.mcp_local.map((m: any) => {
+        const prev = old[m.name] || {};
+        const env = { ...(prev.env || {}) };
+        for (const [k, v] of Object.entries(m.env || {})) if (v) env[k] = v;
+        return { ...m, env };
+      });
+      mcp.configure(store.config.mcp_local as any[]);
+      changed = true;
+    }
+    if (Array.isArray(body?.mcp)) { store.config.mcp = body.mcp; changed = true; }
     if (changed) { store.save(); events.put({ kind: "config", config: store.publicConfig() }); }
     return store.publicConfig();
   },

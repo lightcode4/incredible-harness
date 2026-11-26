@@ -6,20 +6,21 @@ import { join } from "path";
 import type { Store } from "./config";
 import type { EventHub } from "./events";
 import { Session, CHATS_DIR, type Emitter } from "./session";
+import type { McpManager } from "./mcp";
 
 export class ChatManager {
   private chats = new Map<string, Session>();
   private sideChats = new Map<string, Session>();
   current: Session;
 
-  constructor(private store: Store, private events: EventHub) {
+  constructor(private store: Store, private events: EventHub, private mcp?: McpManager) {
     // load saved chats
     try {
       mkdirSync(CHATS_DIR, { recursive: true });
       for (const f of readdirSync(CHATS_DIR)) {
         if (!f.endsWith(".json")) continue;
         const s = Session.load(store, events, f.slice(0, -5));
-        if (s) this.chats.set(s.id, s);
+        if (s) { s.mcp = mcp; this.chats.set(s.id, s); }
       }
     } catch { /* first run */ }
 
@@ -28,7 +29,7 @@ export class ChatManager {
   }
 
   private make(cwd?: string, kind?: string): Session {
-    const s = new Session(this.store, this.events, { cwd: cwd || String(this.store.config.cwd), kind: kind || String(this.store.config.mode || "code") });
+    const s = new Session(this.store, this.events, { cwd: cwd || String(this.store.config.cwd), kind: kind || String(this.store.config.mode || "code"), mcp: this.mcp });
     this.chats.set(s.id, s);
     return s;
   }
@@ -65,7 +66,7 @@ export class ChatManager {
       const tagged: Emitter = { put: (ev) => this.events.put({ ...ev, chat: sideId }) };
       side = new Session(this.store, tagged, {
         id: sideId, cwd: main.cwd, kind: main.kind, ephemeral: true,
-        transcript: main.transcript.map((m) => ({ ...m })),
+        transcript: main.transcript.map((m) => ({ ...m })), mcp: this.mcp,
       });
       this.sideChats.set(main.id, side);
     }
@@ -77,7 +78,7 @@ export class ChatManager {
 
   fork(idx: number, text = ""): { id: string } {
     const meta = this.current.forkMeta(idx);
-    const s = new Session(this.store, this.events, meta);
+    const s = new Session(this.store, this.events, { ...meta, mcp: this.mcp });
     this.chats.set(s.id, s);
     this.select(s);
     this.events.put({ kind: "chats_changed" });
@@ -88,6 +89,7 @@ export class ChatManager {
   open(id: string): { id: string } {
     let s = this.chats.get(id) || Session.load(this.store, this.events, id);
     if (!s) throw new Error("That chat no longer exists.");
+    s.mcp = this.mcp;
     this.chats.set(s.id, s);
     this.select(s);
     return { id: s.id };

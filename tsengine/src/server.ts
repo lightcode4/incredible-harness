@@ -9,6 +9,7 @@ import { Store } from "./config";
 import { ChatManager } from "./chats";
 import { Terminals } from "./terminal";
 import { Scheduler } from "./scheduler";
+import { McpManager } from "./mcp";
 import { route } from "./routes";
 
 const STATIC_DIR =
@@ -28,10 +29,13 @@ export function startEngine(opts: { port?: number; host?: string } = {}): Engine
   const token = process.env.LC4_TOKEN || randomBytes(16).toString("hex");
   const store = new Store();
   const events = new EventHub();
-  const chats = new ChatManager(store, events);
+  const mcp = new McpManager();
+  store.mcp = mcp;
+  mcp.configure((store.config.mcp_local as any[]) || []);
+  const chats = new ChatManager(store, events, mcp);
   const terms = new Terminals(events);
   const scheduler = new Scheduler(store, chats, events);
-  const ctx = { store, events, chats, terms, scheduler };
+  const ctx = { store, events, chats, terms, scheduler, mcp };
 
   async function serveStatic(path: string): Promise<Response | null> {
     const rel = path === "/" ? "/index.html" : path;

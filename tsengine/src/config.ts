@@ -85,6 +85,7 @@ const HIDDEN = new Set([
 
 export class Store {
   config: Config;
+  mcp?: { status(): unknown[] }; // set by the server once the MCP manager exists
 
   constructor() {
     this.config = defaults();
@@ -134,9 +135,9 @@ export class Store {
     c.context_window = (this.config as any).context_window || 0;
     try { c.commands = require("./workspace").commandList(String(this.config.cwd)); } catch { c.commands = []; }
     try { c.instructions = require("./workspace").projectInstructions(String(this.config.cwd)).names; } catch { c.instructions = []; }
-    c.mcp_local = [];
-    c.mcp = [];
-    c.mcp_status = [];
+    c.mcp_local = ((this.config.mcp_local as any[]) || []).map((m) => ({ ...m, env: Object.fromEntries(Object.keys(m.env || {}).map((k) => [k, ""])) }));
+    c.mcp = ((this.config.mcp as any[]) || []).map((m) => ({ name: m.name, url: m.url, token: "", has_token: Boolean(m.token), signed_in: Boolean(m.oauth) }));
+    c.mcp_status = this.mcp?.status() || [];
     c.fast_model_default = "";
     c.keys_set = Object.entries((this.config.keys as Record<string, unknown>) || {})
       .filter(([, v]) => v).map(([k]) => k).sort();

@@ -7,16 +7,19 @@ import { EventHub } from "./events";
 import { ChatManager } from "./chats";
 import { Terminals } from "./terminal";
 import { Scheduler } from "./scheduler";
+import { McpManager } from "./mcp";
 import { route, KNOWN_ROUTES } from "./routes";
 import { scan } from "./security";
 
 function ctx() {
   const store = new Store();
   const events = new EventHub();
-  const chats = new ChatManager(store, events);
+  const mcp = new McpManager();
+  store.mcp = mcp;
+  const chats = new ChatManager(store, events, mcp);
   const terms = new Terminals(events);
   const scheduler = new Scheduler(store, chats, events);
-  return { store, events, chats, terms, scheduler };
+  return { store, events, chats, terms, scheduler, mcp };
 }
 
 test("public config hides secrets and exposes UI fields", () => {
@@ -82,6 +85,17 @@ test("security scanner flags a hard-coded AWS key and os.system", () => {
   expect(ids).toContain("secret.aws_key");
   expect(ids).toContain("code.os_system");
   expect(r.counts.high).toBeGreaterThan(0);
+});
+
+test("mcp: configure registers servers and reports status", () => {
+  const { McpManager, toolName } = require("./mcp");
+  const m = new McpManager();
+  m.configure([{ name: "fs", command: "echo", args: ["hi"], enabled: true }, { name: "off", command: "x", enabled: false }]);
+  const st = m.status();
+  expect(st.length).toBe(1); // disabled one is skipped
+  expect(st[0].name).toBe("fs");
+  expect(toolName("fs", "read file!")).toBe("mcp_fs_read_file_");
+  m.stop();
 });
 
 test("projects save and list; schedules persist", async () => {
