@@ -55,7 +55,7 @@ async function overlaps(pg, label) {
     if (process.argv[3]) {  // translated interface: check the words changed and nothing overflows
       const text = await pg.innerText('aside');
       check(`[${L}] sidebar is translated`, text.includes('Más') && text.includes('Nueva sesión') && text.includes('Ajustes'), text.slice(0, 80));
-      await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
+      await pg.evaluate(() => openSettings()); await pg.waitForSelector('#settings[open]');
       for (const t of ['model', 'tools', 'perms']) { await pg.click(`#tabs button[data-p="${t}"]`); await pg.waitForTimeout(120); await overlaps(pg, `${L} settings ${t}`); }
       await pg.click('#cancelSettings');
       await pg.screenshot({ path: `audit-es-${w}.png` });
@@ -156,14 +156,14 @@ async function overlaps(pg, label) {
         await pg.dblclick('#railFab'); await pg.waitForTimeout(300); const hb = await pg.locator('#railFab').boundingBox();
         check('Double-click puts it back in its corner', Math.abs(hb.x - fb.x) < 3 && Math.abs(hb.y - fb.y) < 3 && !(await pg.isVisible('#railPop'))); }
       // --- settings tabs
-      await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
+      await pg.evaluate(() => openSettings()); await pg.waitForSelector('#settings[open]');
       for (const t of ['model', 'tools', 'perms', 'instr', 'memory', 'sched', 'mcp', 'services', 'github', 'phone', 'about']) {
         await pg.click(`#tabs button[data-p="${t}"]`); await pg.waitForTimeout(120); await overlaps(pg, `settings ${t}`);
       }
       await pg.click('#cancelSettings'); await pg.click('#navTeams'); await pg.waitForTimeout(500);
       check('Teams page opens with New team and asks to connect GitHub first', await pg.isVisible('#teamsView') && await pg.isVisible('#tmNew') && (await pg.innerText('#tmInvites')).includes('Connect GitHub'));
       await overlaps(pg, 'teams page');
-      await pg.click('#navPlay'); await pg.click('#openSettings'); await pg.waitForSelector('#settings[open]');
+      await pg.click('#navPlay'); await pg.evaluate(() => openSettings()); await pg.waitForSelector('#settings[open]');
       await pg.click('#tabs button[data-p="github"]');
       await pg.waitForTimeout(300);
       check('GitHub pane offers Sign in with GitHub, with a token as the fallback', await pg.isVisible('#ghSignIn') && (await pg.locator('#ghAlt summary').innerText()).includes('token'));
@@ -448,13 +448,17 @@ async function overlaps(pg, label) {
       check('The global switch turns Cyber Security mode on for the harness', await pg.evaluate(async () => { document.getElementById('cyGlobal').click(); await new Promise(r => setTimeout(r, 180)); const on = document.body.classList.contains('cyber-on') && config.cyber_mode === true; document.getElementById('cyGlobal').click(); await new Promise(r => setTimeout(r, 120)); return on; }));
       await pg.keyboard.press('Escape'); await pg.waitForTimeout(200);
       check('Esc leaves the Cyber Security section', !(await pg.evaluate(() => document.body.classList.contains('cyber-open'))));
+      // account / profile menu
+      await pg.click('#acctBtn'); await pg.waitForSelector('#acctMenu:not([hidden])', { timeout: 4000 });
+      check('Account menu opens with profile actions', await pg.evaluate(() => { const t = document.getElementById('acctMenu').innerText; return t.includes('Settings') && t.includes("What's new") && t.includes('Usage'); }));
+      await pg.evaluate(() => closeAcct());
       // settings: code intelligence + quick chat shortcut
-      await pg.click('#openSettings'); await pg.click('#tabs button[data-p="tools"]'); await pg.waitForSelector('.lsprow', { timeout: 8000 });
+      await pg.evaluate(() => openSettings()); await pg.click('#tabs button[data-p="tools"]'); await pg.waitForSelector('.lsprow', { timeout: 8000 });
       check('Settings lists language servers with their status', (await pg.locator('.lsprow').count()) === 6 && (await pg.innerText('#lspList')).includes('Python'));
       check('Quick chat shortcut is shown in plain words', (await pg.inputValue('#quickKey')) === 'ctrl+alt+space');
       await overlaps(pg, 'settings tools'); await pg.click('#cancelSettings');
       // appearance switch — now in its own Theme tab
-      await pg.click('#openSettings'); await pg.click('#tabs button[data-p="theme"]'); await pg.waitForSelector('#themeSeg button[data-t="dark"]', { timeout: 6000 }); await pg.waitForTimeout(300);
+      await pg.evaluate(() => openSettings()); await pg.click('#tabs button[data-p="theme"]'); await pg.waitForSelector('#themeSeg button[data-t="dark"]', { timeout: 6000 }); await pg.waitForTimeout(300);
       check('Theme tab groups Appearance, Background and Team wallpaper', await pg.isVisible('#scenePick') && await pg.isVisible('#fxSeg') && (await pg.innerText('#thWpHint')).toLowerCase().includes('team'));
       await pg.click('#themeSeg button[data-t="dark"]'); await pg.waitForTimeout(200);
       const darkBg = await pg.evaluate(() => getComputedStyle(document.body).backgroundColor);

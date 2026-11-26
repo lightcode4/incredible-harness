@@ -58,7 +58,25 @@ aside.hidden { margin-left: -264px; }
 .chatitem button { border: 0; background: none; color: var(--faint); padding: 2px; border-radius: 5px; visibility: hidden; display: grid; }
 .chatitem:hover button { visibility: visible; } .chatitem button:hover { color: var(--bad); }
 .chatitem button svg { width: 14px; height: 14px; }
-.side-foot { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 6px; }
+.side-foot { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 6px; position: relative; }
+.acctbtn { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; padding: 7px 8px; border-radius: 11px; cursor: pointer; color: var(--text); text-align: left; }
+.acctbtn:hover { background: var(--hover); }
+.acctav { position: relative; width: 29px; height: 29px; border-radius: 50%; background: linear-gradient(145deg, #7a6fd0, #b07cf0) center/cover; display: grid; place-items: center; flex: none; color: #fff; font-weight: 700; font-size: 13px; }
+.acctav.hasimg .acctini { display: none; }
+.acctav .dot { position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); border: 2px solid var(--side); }
+.acctav .dot.off { background: var(--faint); }
+.acctinfo { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.25; }
+.acctinfo b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acctinfo small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acctchev { width: 14px; height: 14px; color: var(--muted); flex: none; }
+.acctmenu { position: absolute; bottom: calc(100% - 2px); left: 6px; right: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 -10px 34px rgba(0,0,0,.34); padding: 6px; z-index: 60; }
+.acctmenu[hidden] { display: none; }
+.acctmenu .acctmail { font-size: 11.5px; color: var(--faint); padding: 6px 10px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acctitem { display: flex; align-items: center; gap: 11px; width: 100%; background: none; border: 0; padding: 8px 10px; border-radius: 9px; cursor: pointer; color: var(--text); font-size: 13.5px; text-align: left; }
+.acctitem:hover { background: var(--hover); }
+.acctitem svg { width: 17px; height: 17px; fill: none; stroke: var(--muted); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.acctitem span { flex: 1; } .acctitem kbd { font-size: 11px; color: var(--faint); border: 0; background: none; }
+.acctsep { height: 1px; background: var(--line-soft); margin: 5px 8px; }
 .who { font-size: 12px; color: var(--muted); padding: 2px 10px 4px; display: flex; gap: 6px; align-items: center; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
 .dot.off { background: var(--bad); }
@@ -1401,8 +1419,12 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     </div></div>
   </div>
   <div class="side-foot">
-    <button class="navbtn" id="openSettings"><svg><use href="#i-gear"/></svg>Settings</button>
-    <div class="who"><span class="dot" id="dot"></span><span id="who">Connecting…</span></div>
+    <div class="acctmenu" id="acctMenu" role="menu" hidden></div>
+    <button class="acctbtn" id="acctBtn" aria-haspopup="menu" aria-expanded="false" title="Account">
+      <span class="acctav" id="acctAv"><span class="acctini" id="acctIni">?</span><span class="dot" id="dot"></span></span>
+      <span class="acctinfo"><b id="acctName">Account</b><small id="who">Connecting…</small></span>
+      <svg class="acctchev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
   </div>
 </aside>
 
@@ -2545,6 +2567,7 @@ function showConfig(c) {
   if (typeof applyScene === "function" && (c.scene || "auto") !== document.body.dataset.scene) applyScene(c.scene || "auto");
   document.body.classList.toggle("cyber-on", !!c.cyber_mode); if ($("cyOn")) $("cyOn").hidden = !c.cyber_mode; if ($("cyGlobal")) $("cyGlobal").checked = !!c.cyber_mode;
   if (typeof applyFx === "function") applyFx(c.effects || "auto");
+  if (typeof applyAccount === "function") applyAccount(c);
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
   $("modelName").textContent = c.model + (c.provider === "claude" ? ` · ${c.effort}` : "");
   $("who").textContent = { claude: "Claude", openai: "OpenAI", local: "Local" }[c.provider] + " · " + c.model;
@@ -2628,7 +2651,62 @@ $("saveSettings").onclick = async () => {
   } catch (e) { $("dlgError").textContent = e.message; }
 };
 $("cancelSettings").onclick = $("closeSettings").onclick = () => $("settings").close();
-$("openSettings").onclick = () => openSettings(); $("modelPill").onclick = () => openSettings(); $("folderPill").onclick = () => openSettings();
+$("modelPill").onclick = () => openSettings(); $("folderPill").onclick = () => openSettings();
+// ---------- account / profile menu ----------
+const MG = {
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 4.5v2M12 17.5v2M4.5 12h2M17.5 12h2M6.5 6.5l1.4 1.4M16.1 16.1l1.4 1.4M17.5 6.5l-1.4 1.4M6.5 17.5l1.4-1.4"/>',
+  key: '<rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M8 14h8"/>',
+  chart: '<path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/>',
+  globe: '<circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4a13 13 0 0 1 0 16M12 4a13 13 0 0 0 0 16"/>',
+  sparkle: '<path d="M12 4l1.5 5 5 1.5-5 1.5L12 17l-1.5-5L5.5 10.5 10.5 9z"/>',
+  download: '<path d="M12 4v10M8 11l4 4 4-4M5 19h14"/>',
+  help: '<circle cx="12" cy="12" r="8.2"/><path d="M9.6 9.3a2.4 2.4 0 1 1 3.3 2.2c-.7.3-1 .9-1 1.6M12 16.4h.01"/>',
+  logout: '<path d="M15 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h9M10 12h10M17 9l3 3-3 3"/>',
+  github: '<path d="M9 19c-4 1.4-4-2.4-6-3m12 6v-3.6c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.7 4.7 0 0 0-1.3-3.2 4.3 4.3 0 0 0-.1-3.2s-1-.3-3.4 1.3a11.5 11.5 0 0 0-6 0C6.3 3 5.3 3.3 5.3 3.3a4.3 4.3 0 0 0-.1 3.2A4.7 4.7 0 0 0 4 9.8c0 4.6 2.7 5.6 5.5 6-.6.6-.6 1.2-.5 2V23"/>',
+};
+function acctItems() {
+  const gh = (config.github_user) || {}, connected = !!gh.login;
+  const items = [
+    ["Settings", "gear", () => openSettings(), "⌘,"],
+    ["Keyboard shortcuts", "key", () => $("keys").showModal(), "⌘/"],
+    ["Usage & cost", "chart", () => openUsage()],
+    ["Language", "globe", () => openSettings("model")],
+    ["What's new", "sparkle", () => showWhatsNew()],
+    ["Check for updates", "download", () => openSettings("about")],
+    ["Get help", "help", () => api("/api/open-url", { url: "https://github.com/lightcode4/incredible-harness#readme" }).catch(() => {})],
+    "sep",
+    connected ? [`Sign out of GitHub`, "logout", () => disconnectGitHub()] : ["Connect GitHub", "github", () => openSettings("github")],
+  ];
+  return items;
+}
+function buildAcctMenu() {
+  const m = $("acctMenu"); m.innerHTML = "";
+  const gh = (config.github_user) || {};
+  const head = el("div", "acctmail"); head.textContent = gh.login ? "@" + gh.login : "Not signed in to GitHub"; m.appendChild(head);
+  acctItems().forEach(it => {
+    if (it === "sep") { m.appendChild(el("div", "acctsep")); return; }
+    const [label, glyph, fn, kbd] = it;
+    const b = el("button", "acctitem", `<svg viewBox="0 0 24 24">${MG[glyph] || ""}</svg><span></span>${kbd ? `<kbd>${kbd}</kbd>` : ""}`);
+    b.querySelector("span").textContent = label; b.onclick = () => { closeAcct(); fn(); };
+    m.appendChild(b);
+  });
+}
+function openAcct() { buildAcctMenu(); $("acctMenu").hidden = false; $("acctBtn").setAttribute("aria-expanded", "true"); }
+function closeAcct() { $("acctMenu").hidden = true; $("acctBtn").setAttribute("aria-expanded", "false"); }
+$("acctBtn").onclick = e => { e.stopPropagation(); $("acctMenu").hidden ? openAcct() : closeAcct(); };
+document.addEventListener("click", e => { if (!$("acctMenu").hidden && !$("acctBtn").contains(e.target) && !$("acctMenu").contains(e.target)) closeAcct(); });
+function applyAccount(c) {
+  const gh = c.github_user || {}, av = $("acctAv");
+  if (gh.avatar_url) { av.style.backgroundImage = `url("${gh.avatar_url}")`; av.classList.add("hasimg"); }
+  else { av.style.backgroundImage = ""; av.classList.remove("hasimg"); }
+  $("acctIni").textContent = (gh.login || gh.name || "?").trim()[0].toUpperCase();
+  $("acctName").textContent = gh.login ? (gh.name || gh.login) : "Account";
+}
+function showWhatsNew() {
+  uiDialog({ title: "What's new", text: `You're on LightCode⁴ ${config.version || ""} · build ${config.build ?? "?"}.\n\nSee the full list of changes and downloads on GitHub.`, ok: "View releases", cancel: "Close" })
+    .then(ok => { if (ok) api("/api/open-url", { url: "https://github.com/lightcode4/incredible-harness/releases" }).catch(() => {}); });
+}
+async function disconnectGitHub() { try { await api("/api/github/disconnect"); notice("Signed out of GitHub."); } catch (e) { notice(e.message); } }
 $("instrPill").onclick = () => openSettings("instr");
 $("toggleSide").onclick = () => $("side").classList.toggle("hidden");
 function updateModeBtn() {
@@ -4223,7 +4301,7 @@ $("thWpTeam").onchange = thDrawWp;
     navTeams: ["#34c759,#1a8f3c", "people"], navProjects: ["#4da6ff,#1e74e0", "folder"], navCyber: ["#ff6b5a,#c03a2b", "shield"],
     navFiles: ["#5ac8fa,#2e9be0", "doc"], navTasks: ["#ffb24d,#ff7a1a", "reminders"], navGit: ["#ff8a3d,#e0621e", "git"],
     navUsage: ["#ff5e6c,#d3304a", "chart"], navGallery: ["#5ac8fa,#2e6ad0", "store"], navActivity: ["#4cd964,#2aa048", "activity"],
-    navHelp: ["#5ac8fa,#2e9be0", "help"], openSettings: ["#c7cdd6,#8a929c", "gears"],
+    navHelp: ["#5ac8fa,#2e9be0", "help"],
   };
   const BY_SET = { model: ["#b07cf0,#7a3fd0", "brain"], instr: ["#8e8e93,#636366", "doc"], tools: ["#8e8e93,#636366", "gears"], mcp: ["#34c759,#1a8f3c", "plug"], sched: ["#ffb24d,#ff7a1a", "clock"] };
   // Settings dialog tabs (vertical rail)
