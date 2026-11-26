@@ -1226,7 +1226,10 @@ body.chatting .sc-day .scrim { background: rgba(255,252,245,.62); }
 /* ---- settings tabs never squeezed ---- */
 /* ---- Settings: sections on the left, Daybreak cards on the right ---- */
 #settings { width: min(960px, 94vw); }
-#settings[open] { display: grid; grid-template-columns: 220px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; height: min(740px, 90vh); max-height: 90vh; overflow: hidden; }
+/* non-modal Settings: its own dimmer, with the sidebar raised above it so you can leave by clicking a session */
+body.settings-open::before { content: ""; position: fixed; inset: 0; background: rgba(10, 8, 5, .5); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); z-index: 50; }
+body.settings-open aside { position: relative; z-index: 60; }
+#settings[open] { display: grid; grid-template-columns: 220px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; height: min(740px, 90vh); max-height: 90vh; overflow: hidden; position: fixed; inset: 0; margin: auto; z-index: 70; }
 #settings .dlg-head { grid-column: 1 / -1; padding: 16px 20px 12px; border-bottom: 1px solid var(--line-soft); }
 #settings .dlg-head h2 { font-size: 26px; font-weight: 400; margin: 0; }
 #settings .tabs { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; border: 0; border-right: 1px solid var(--line-soft); overflow-y: auto; overflow-x: hidden; min-height: 0; background: var(--side); }
@@ -2683,7 +2686,21 @@ async function openSettings(tab) {
   $("dlgError").textContent = ""; $("dlgError").style.color = ""; $("updateResult").textContent = "";
   try { const r = await api("/api/instructions"); $("instr").value = instrLoaded = r.text; $("instrLabel").textContent = r.file; } catch (e) { instrLoaded = $("instr").value = ""; }
   showTab(typeof tab === "string" ? tab : "model");
-  if (!$("settings").open) $("settings").showModal();
+  // open non-modally so the sidebar stays live — you can jump straight to a session without a back button
+  if (!$("settings").open) { $("settings").show(); document.body.classList.add("settings-open"); }
+}
+$("settings").addEventListener("close", () => document.body.classList.remove("settings-open"));
+// clicking the sidebar or anywhere outside the panel leaves Settings (and lets that click navigate)
+document.addEventListener("pointerdown", e => {
+  if (!document.body.classList.contains("settings-open")) return;
+  if (e.target.closest("#settings")) return;
+  $("settings").close();
+}, true);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("settings-open")) $("settings").close(); });
+// return to the conversation from any full-screen section
+function leaveSections() {
+  document.body.classList.remove("projects-open", "usage-open", "gallery-open", "teams-open", "cyber-open", "models-open", "team-detail");
+  if (typeof closeModelsView === "function") closeModelsView();
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => showTab(b.dataset.p));
 document.querySelectorAll("#seg button").forEach(b => b.onclick = () => { if (b.dataset.v !== provider) $("model").value = ""; setProvider(b.dataset.v); });
@@ -4215,7 +4232,7 @@ function setTab(t) { document.querySelectorAll(".ctab").forEach(b => b.classList
 document.querySelectorAll(".ctab").forEach(b => b.onclick = () => b.dataset.c === "chat" ? closePanel() : openPanel(b.dataset.c));
 $("greet").textContent = "Begin, a little brighter.";
 const navSet = (id) => { document.querySelectorAll("aside .navbtn").forEach(b => b.classList.toggle("on", !!id && b.id === id)); };
-$("navPlay").onclick = () => { navSet("navPlay"); closePanel(); };
+$("navPlay").onclick = () => { leaveSections(); navSet("navPlay"); closePanel(); if ($("settings").open) $("settings").close(); };
 $("navSessions").onclick = () => { $("sessBox").classList.toggle("open"); loadChats(); };
 $("navFiles").onclick = () => { navSet("navFiles"); openPanel("term"); };
 $("navGit").onclick = () => { navSet("navGit"); openPanel("git"); };
