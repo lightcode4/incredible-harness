@@ -780,6 +780,31 @@ body.quick { background: transparent; overflow: hidden; }
 .secacts { display: flex; gap: 6px; margin-top: 8px; }
 #secCount { background: var(--bad); color: #fff; }
 .flash { animation: flash 1.2s ease; } @keyframes flash { 0%, 40% { box-shadow: 0 0 0 2px var(--sun); } 100% { box-shadow: none; } }
+/* Cyber Security section */
+body.cyber-open .page > .pagehead, body.cyber-open .page > .modelbar, body.cyber-open .page > .grid { display: none; }
+body.cyber-open #cyberView { display: block !important; }
+#navCyber #cyOn, #cyOn { background: var(--ok); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+.cyswitch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.cyswitch input { position: absolute; opacity: 0; } .cyswitch i { width: 38px; height: 22px; border-radius: 999px; background: var(--line); position: relative; transition: background .15s; }
+.cyswitch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.cyswitch input:checked + i { background: var(--accent); } .cyswitch input:checked + i::after { transform: translateX(16px); }
+.cyseg { display: inline-flex; gap: 2px; background: var(--soft); border-radius: 12px; padding: 3px; margin: 4px 0 16px; }
+.cyseg button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; padding: 7px 16px; border-radius: 9px; cursor: pointer; }
+.cyseg button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+.cypane { display: none; } .cypane.on { display: block; }
+.cywork { max-width: 760px; }
+#cyInput { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); padding: 12px 14px; font: inherit; font-size: 14px; resize: vertical; }
+.cychips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.cychips button { border: 1px solid var(--line); background: var(--panel); color: var(--body); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; cursor: pointer; }
+.cychips button:hover { border-color: var(--accent); color: var(--text); }
+.cyworkfoot { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.cyfind { max-width: 320px; margin-bottom: 14px; }
+.cytag { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; border-radius: 6px; padding: 1px 7px; background: var(--soft); color: var(--muted); }
+.cytag.mcp { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.cytag.skill { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
+.cyrea { border: 1px solid var(--accent); border-radius: 16px; padding: 18px 20px; max-width: 760px; background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }
+.cyrea h2 { margin: 0 0 4px; font-size: 18px; } .cyrea .cmd { display: block; margin: 12px 0; padding: 9px 12px; background: var(--codeblock); color: var(--codetext); border-radius: 8px; font: 12.5px var(--monoF); overflow-x: auto; }
+.cyrea ul { margin: 8px 0; padding-left: 18px; color: var(--muted); font-size: 13px; } .cyrea .gafoot { margin-top: 12px; }
 @keyframes fpulse { 50% { transform: scale(1.5); opacity: .6; } }
 #railPop { position: absolute; width: 300px; max-height: min(620px, calc(100vh - 40px)); overflow-y: auto; opacity: 0; visibility: hidden;
   transform: scale(.96); transition: opacity .16s, transform .16s, visibility 0s .16s; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.06), 0 18px 48px rgba(91,65,21,.16); }
@@ -1337,6 +1362,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
   <button class="navbtn" id="navTeams"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 13.7c3 .2 5.5 2.1 5.5 5.3"/></svg>Teams</button>
   <button class="navbtn" id="navProjects"><svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 10.5h17"/></svg>Projects</button>
   <button class="navbtn" data-set="model"><svg><use href="#i-brain"/></svg>Models</button>
+  <button class="navbtn" id="navCyber"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.4-3 7.7-7 9-4-1.3-7-4.6-7-9V6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>Cyber Security<em id="cyOn" hidden>ON</em></button>
   <div class="more" id="more">
     <button class="navbtn" id="moreBtn" aria-expanded="false" aria-controls="moreList"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>More<svg class="mchev"><use href="#i-chev"/></svg></button>
     <div class="morelist" id="moreList"><div class="morelist-inner">
@@ -1497,6 +1523,32 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         </div>
         <div class="pjchats"><div class="rsec" style="margin-top:0;border-top:0">Chats in this project</div><div id="pjChatList"></div></div>
       </div>
+    </section>
+    <section id="cyberView" hidden>
+      <button class="backbtn" id="cyBack" title="Back to chat (Esc)" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
+      <div class="pagehead"><div><div class="eyebrow">Authorized testing · your own lab</div><h1 class="serif">Cyber Security</h1>
+        <p class="sub">A security workbench, a bug-bounty toolkit, and REA for reverse engineering.</p></div>
+        <span class="spacer"></span>
+        <label class="cyswitch" title="Apply Cyber Security mode to every chat in the harness"><span>Across the whole harness</span><input type="checkbox" id="cyGlobal"><i></i></label></div>
+      <div class="cyseg" id="cySeg" role="tablist">
+        <button class="on" data-c="work" role="tab">Workbench</button><button data-c="bounty" role="tab">Bug bounty</button><button data-c="rea" role="tab">REA</button></div>
+
+      <div class="cypane on" data-c="work">
+        <div class="cywork">
+          <p class="sub">Describe the target and what you're testing. The agent works in Cyber Security mode — recon, analysis, exploit help and clear write-ups — scoped to systems you're authorized to test.</p>
+          <textarea id="cyInput" rows="4" placeholder="e.g. Recon my staging app at 10.0.0.5 — enumerate services and flag likely injection points. It's my own lab."></textarea>
+          <div class="cychips" id="cyChips"></div>
+          <div class="cyworkfoot"><small class="sub">Starting a workbench chat turns Cyber Security mode on.</small><span class="spacer"></span><button class="btn primary" id="cyStart"><svg><use href="#i-plus"/></svg>Start workbench chat</button></div>
+        </div>
+      </div>
+
+      <div class="cypane" data-c="bounty">
+        <label class="pgsearch cyfind"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><input id="cySearch" placeholder="Search the toolkit" spellcheck="false"></label>
+        <div id="cyGroups"></div>
+        <p class="sub" id="cyExcluded" style="margin-top:14px"></p>
+      </div>
+
+      <div class="cypane" data-c="rea"><div id="cyRea"></div></div>
     </section>
     <section id="modelsView" hidden>
       <button class="backbtn" id="mvBack" title="Back to chat (Esc)" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></button>
@@ -2357,7 +2409,7 @@ function replay(ev) {
   if (ev.chat?.mode) setModeUI(ev.chat.mode); if (typeof showQueue === "function") showQueue(ev.queue || []);
   if ((ev.chat?.id || null) !== currentChat) { $("scLog").innerHTML = ""; scAdd(el("div", "aempty", "Ask anything about this session. Side chat can read and search, but never edits files or runs commands.")); sideCur = null; }
   currentChat = ev.chat?.id || null; compactions = ev.compactions || 0;
-  document.body.classList.remove("projects-open", "usage-open", "gallery-open", "teams-open");
+  document.body.classList.remove("projects-open", "usage-open", "gallery-open", "teams-open", "cyber-open");
   log.innerHTML = ""; endBlock(); Object.keys(tools).forEach(k => delete tools[k]);
   const wt = ev.chat?.worktree; $("wtPill").hidden = !wt; if (wt) $("wtName").textContent = wt.branch;
   undoable = new Set(ev.undoable || []);
@@ -2428,6 +2480,7 @@ function showConfig(c) {
   config = c; if (c.chat_kind) setModeUI(c.chat_kind); setTimeout(() => { if (typeof folderLabel === "function") { folderLabel(); if (!document.body.classList.contains("chatting")) $("hello").textContent = greeting(); } }, 0); if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
   if (c.theme && !$("settings").open) applyTheme(c.theme);
   if (typeof applyScene === "function" && (c.scene || "auto") !== document.body.dataset.scene) applyScene(c.scene || "auto");
+  document.body.classList.toggle("cyber-on", !!c.cyber_mode); if ($("cyOn")) $("cyOn").hidden = !c.cyber_mode; if ($("cyGlobal")) $("cyGlobal").checked = !!c.cyber_mode;
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
   $("modelName").textContent = c.model + (c.provider === "claude" ? ` · ${c.effort}` : "");
   $("who").textContent = { claude: "Claude", openai: "OpenAI", local: "Local" }[c.provider] + " · " + c.model;
@@ -3172,7 +3225,7 @@ async function runSearch() {
 let pjData = { projects: [], chats: [] }, pjCur = null;
 const pjIcon = '<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M3.5 10.5h17"/></svg>';
 async function openProjects(pid) {
-  document.body.classList.remove("models-open", "usage-open", "gallery-open", "teams-open");
+  document.body.classList.remove("models-open", "usage-open", "gallery-open", "teams-open", "cyber-open");
   closePanel(); document.body.classList.add("projects-open"); $("crumbHere").textContent = "Projects";
   navSet("navProjects"); await loadProjects(); pid ? showProject(pid) : showProjectGrid();
 }
@@ -3214,7 +3267,7 @@ $("navProjects").onclick = () => openProjects();
 let tmData = { teams: [], invitations: [] }, tmCur = null;
 const ago = t => { if (!t) return "never"; const s = Date.now() / 1000 - t; return s < 90 ? "just now" : s < 3600 ? Math.round(s / 60) + " min ago" : s < 86400 ? Math.round(s / 3600) + " h ago" : new Date(t * 1000).toLocaleDateString(); };
 async function openTeams(repo) {
-  document.body.classList.remove("models-open", "usage-open", "gallery-open", "projects-open");
+  document.body.classList.remove("models-open", "usage-open", "gallery-open", "projects-open", "cyber-open");
   closePanel(); document.body.classList.add("teams-open"); $("crumbHere").textContent = "Teams"; navSet("navTeams");
   await loadTeams(); repo ? showTeam(repo) : showTeamGrid();
 }
@@ -3937,7 +3990,7 @@ const CONN_BLURB = { Linear: "Issues and projects. Sign in with one click.", Not
   GitHub: "Repositories, issues and pull requests (needs a token).", "Files (another folder)": "Let the agent read and write a folder outside the project.",
   "SQLite database": "Query a local SQLite database.", Postgres: "Query a PostgreSQL database.", Slack: "Read and post Slack messages (needs a bot token)." };
 async function openGallery() {
-  document.body.classList.remove("models-open", "projects-open", "usage-open", "teams-open"); closePanel(); document.body.classList.add("gallery-open");
+  document.body.classList.remove("models-open", "projects-open", "usage-open", "teams-open", "cyber-open"); closePanel(); document.body.classList.add("gallery-open");
   $("crumbHere").textContent = "Skills & connectors"; navSet("navGallery"); await loadGallery();
 }
 function closeGallery() { document.body.classList.remove("gallery-open"); }
@@ -3959,6 +4012,86 @@ async function loadGallery() {
     else { f.appendChild(el("span")); const a = el("button", "btn small primary"); a.textContent = "Set up"; a.onclick = async () => { await openSettings("mcp"); [...$("presets").querySelectorAll("button")].find(b => b.textContent === p.label)?.click(); }; f.appendChild(a); }
     cn.appendChild(c); });
 }
+// ---------- Cyber Security section ----------
+const CY_CHIPS = [
+  "Recon my staging host (my own lab) — enumerate services and likely injection points.",
+  "Review this endpoint for authorization bugs and write a reproduction.",
+  "Reverse engineer this Electron app's main process with REA.",
+  "Red-team my own LLM app for prompt injection with a small attack suite.",
+];
+let cyLoaded = false, cyTools = { groups: [], rea: null };
+async function openCyber() {
+  document.body.classList.remove("models-open", "projects-open", "usage-open", "gallery-open", "teams-open");
+  closePanel(); document.body.classList.add("cyber-open"); $("crumbHere").textContent = "Cyber Security"; navSet("navCyber");
+  $("cyGlobal").checked = !!config.cyber_mode;
+  if (!cyLoaded) await loadCyber();
+}
+function closeCyber() { document.body.classList.remove("cyber-open"); }
+async function loadCyber() {
+  try { cyTools = await api("/api/security/tools"); cyLoaded = true; } catch (e) { notice(e.message); return; }
+  cyRenderGroups(); cyRenderRea();
+  $("cyExcluded").textContent = "Deliberately left out: AI jailbreak / guardrail-bypass repositories — owning a lab doesn't make those app bug-hunting tools.";
+}
+function cyActions(t, f) {
+  if (t.kind === "mcp" && t.connect) { const a = el("button", "btn small primary"); a.textContent = "Add connector"; a.onclick = () => cyAddConnector(t); f.appendChild(a); }
+  else if (t.kind === "skill") { const a = el("button", "btn small primary"); a.textContent = "Add to marketplace"; a.onclick = () => cyAddSource(t, a); f.appendChild(a); }
+  else if (t.setup) { const a = el("button", "btn small"); a.textContent = "Copy setup"; a.onclick = () => cyCopy(t.setup, a); f.appendChild(a); }
+  const repo = el("button", "btn small"); repo.textContent = "Open repo"; repo.onclick = () => api("/api/open-url", { url: t.url }).catch(() => window.open(t.url)); f.appendChild(repo);
+}
+function cyCard(t) {
+  const c = el("div", "gacard", `<b></b><p></p><div class="gafoot"></div>`);
+  const tag = t.kind === "mcp" ? "Connector" : t.kind === "skill" ? "Skill" : "Tool";
+  c.querySelector("b").innerHTML = `${esc(t.name)} <span class="cytag ${esc(t.kind)}">${tag}</span>`;
+  c.querySelector("p").textContent = t.blurb; cyActions(t, c.querySelector(".gafoot"));
+  return c;
+}
+function cyRenderGroups() {
+  const q = ($("cySearch").value || "").toLowerCase(), box = $("cyGroups"); box.innerHTML = "";
+  cyTools.groups.forEach(g => {
+    const tools = g.tools.filter(t => t.featured !== "rea" && (!q || (t.name + " " + t.blurb + " " + t.repo).toLowerCase().includes(q)));
+    if (!tools.length) return;
+    box.appendChild(el("div", "rsec", g.name));
+    const grid = el("div", "gagrid"); tools.forEach(t => grid.appendChild(cyCard(t))); box.appendChild(grid);
+  });
+  if (!box.children.length) box.appendChild(el("div", "aempty", "No tools match your search."));
+}
+function cyRenderRea() {
+  const t = cyTools.rea, box = $("cyRea"); box.innerHTML = ""; if (!t) return;
+  const d = el("div", "cyrea", `<h2></h2><p></p><ul><li>Native binaries → pseudocode &amp; assembly</li><li>JavaScript / Electron apps &amp; ASAR archives</li><li>.NET assemblies, websites, Android apps, firmware</li><li>Recorded runtime &amp; network activity</li></ul><code class="cmd"></code><div class="gafoot"></div>`);
+  d.querySelector("h2").textContent = t.name; d.querySelector("p").textContent = t.blurb; d.querySelector(".cmd").textContent = t.setup;
+  cyActions(t, d.querySelector(".gafoot")); box.appendChild(d);
+}
+async function cyAddConnector(t) {
+  await openSettings("mcp");
+  const c = t.connect || {};
+  if (c.remote) mcpRow(c.remote); else lmcpRow(c.local || { name: t.repo.split("/")[1] });
+  $("dlgError").textContent = (c.local || c.remote || {}).tip || "Check the repo's README and point it at your own lab."; $("dlgError").style.color = "var(--muted)";
+}
+async function cyAddSource(t, btn) {
+  btn.disabled = true; try { await api("/api/market/source", { repo: t.repo }); btn.textContent = "✓ Added"; notice(`Added ${t.name} to your Marketplace.`); }
+  catch (e) { btn.disabled = false; notice(e.message); }
+}
+function cyCopy(text, btn) { navigator.clipboard?.writeText(text).then(() => { const o = btn.textContent; btn.textContent = "Copied"; setTimeout(() => btn.textContent = o, 1200); }).catch(() => {}); }
+async function cySetGlobal(on) { config.cyber_mode = on; $("cyGlobal").checked = on; $("cyOn").hidden = !on; document.body.classList.toggle("cyber-on", on); await api("/api/config", { cyber_mode: on }).catch(e => notice(e.message)); }
+async function cyStart() {
+  const text = $("cyInput").value.trim();
+  if (!config.cyber_mode) await cySetGlobal(true);
+  closeCyber(); navSet("navPlay"); setTab("code");
+  await api("/api/chat/new", { kind: "code" }).catch(() => {});
+  if (text) { $("input").value = text; autosize(); setTimeout(() => $("send").click(), 60); } else $("input").focus();
+  $("cyInput").value = "";
+}
+$("navCyber").onclick = e => { e.stopPropagation(); openCyber(); };
+$("cyBack").onclick = () => { closeCyber(); navSet("navPlay"); setTab("chat"); };
+$("cyberView").addEventListener("click", e => { if (e.target === $("cyberView")) $("cyBack").click(); });
+$("cySeg").querySelectorAll("button").forEach(b => b.onclick = () => {
+  $("cySeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("#cyberView .cypane").forEach(p => p.classList.toggle("on", p.dataset.c === b.dataset.c));
+});
+$("cySearch").oninput = cyRenderGroups;
+$("cyStart").onclick = cyStart;
+$("cyGlobal").onchange = () => cySetGlobal($("cyGlobal").checked);
+(function cyChips() { const box = $("cyChips"); CY_CHIPS.forEach(t => { const b = el("button"); b.textContent = t.length > 56 ? t.slice(0, 54) + "…" : t; b.title = t; b.onclick = () => { $("cyInput").value = t; $("cyInput").focus(); }; box.appendChild(b); }); })();
 // ---------- Marketplace (GitHub repositories of skills, agents, commands and plugins) ----------
 let mk = { source: "", items: [], sources: [] };
 async function loadMarket(source = "", refresh = false) {
@@ -4000,7 +4133,7 @@ $("addonBtn").onclick = async () => { const b = $("addonBtn"), m = $("addonMsg")
     $("addonUrl").value = ""; loadGallery(); if (r.kind === "marketplace") loadMarket(r.source); }
   catch (e) { m.className = "addonmsg bad"; m.textContent = e.message; b.disabled = false; } finally { b.textContent = "Install skill"; } };
 // ---- leave any page with Esc, or by clicking its empty background ----
-const PAGES = [["gallery-open", "gaBack"], ["usage-open", "usBack"], ["projects-open", "pjBack"], ["teams-open", "tmBack"]];
+const PAGES = [["gallery-open", "gaBack"], ["usage-open", "usBack"], ["projects-open", "pjBack"], ["teams-open", "tmBack"], ["cyber-open", "cyBack"]];
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape" || document.querySelector("dialog[open]") || !$("tmLight").hidden) return;
   const t = e.target; if (t.matches?.("input, textarea, select") && t.value) { t.blur(); return; }
@@ -4020,7 +4153,7 @@ $("navGallery").onclick = e => { e.stopPropagation(); openGallery(); };
 $("gaBack").onclick = () => { closeGallery(); navSet("navPlay"); setTab("chat"); };
 let usDays = 30, usData = null, usTable = false;
 async function openUsage() {
-  document.body.classList.remove("models-open", "projects-open", "gallery-open", "teams-open"); closePanel(); document.body.classList.add("usage-open");
+  document.body.classList.remove("models-open", "projects-open", "gallery-open", "teams-open", "cyber-open"); closePanel(); document.body.classList.add("usage-open");
   $("crumbHere").textContent = "Usage & cost"; navSet("navUsage"); await loadUsage();
 }
 function closeUsage() { document.body.classList.remove("usage-open"); }
@@ -4351,7 +4484,7 @@ $("modelPill").onclick = e => { e.stopPropagation(); $("provMenu").hidden = !$("
 new MutationObserver(() => $("modelPill").classList.toggle("open", !$("provMenu").hidden)).observe($("provMenu"), { attributes: true, attributeFilter: ["hidden"] });
 document.addEventListener("click", e => { if (!$("provMenu").hidden && !e.target.closest("#provMenu, #modelPill")) $("provMenu").hidden = true; });
 document.addEventListener("keydown", e => { if (e.key === "Escape") $("provMenu").hidden = true; });
-function openModelsView() { $("provMenu").hidden = true; closePanel(); closeProjects(); closeUsage(); closeGallery(); document.body.classList.add("models-open"); $("crumbHere").textContent = "Models"; loadProviders(); }
+function openModelsView() { $("provMenu").hidden = true; closePanel(); closeProjects(); closeUsage(); closeGallery(); closeCyber(); document.body.classList.add("models-open"); $("crumbHere").textContent = "Models"; loadProviders(); }
 function closeModelsView() { document.body.classList.remove("models-open"); setTab("chat"); }
 $("provAll").onclick = openModelsView; $("mvBack").onclick = closeModelsView;
 document.querySelector('aside [data-set="model"]').onclick = () => { navSet(""); document.querySelector('aside [data-set="model"]').classList.add("on"); openModelsView(); };

@@ -2175,6 +2175,23 @@ def main():
     assert sec86.scan(str(clean))["findings"] == [], "clean project has no findings"
     print("86 security review OK")
 
+    # 87. Cyber Security: the toolkit catalog excludes guardrail-bypass repos and features REA;
+    #     the global switch adds a security preamble to the agent's system prompt
+    from myagent import security_tools as st87
+    cat = st87.catalog()
+    repos = {t["repo"] for g in cat["groups"] for t in g["tools"]}
+    assert "elder-plinius/L1B3RT4S" not in repos and "SnailSploit/Claude-Red" not in repos, "jailbreak repos excluded"
+    assert cat["rea"] and cat["rea"]["repo"] == "morluto/rea" and cat["rea"].get("connect"), "REA is featured with a connector"
+    assert any("PortSwigger" in t["name"] for g in cat["groups"] for t in g["tools"]), "Burp MCP is listed"
+    assert all(t["url"].startswith("https://github.com/") for g in cat["groups"] for t in g["tools"]), "every tool links to its repo"
+    cfg = {**s.config, "cwd": str(clean)}
+    off = s.chat_system(cfg) + s.system_for(cfg)
+    assert "CYBER SECURITY MODE" not in off, "off by default"
+    cfg_on = {**cfg, "cyber_mode": True}
+    assert "CYBER SECURITY MODE is on" in s.chat_system(cfg_on), "preamble reaches chat mode"
+    assert "CYBER SECURITY MODE is on" in s.system_for(cfg_on), "preamble reaches code mode"
+    print("87 cyber security OK")
+
     print("ALL TESTS PASSED")
 
 

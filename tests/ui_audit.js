@@ -426,6 +426,17 @@ async function overlaps(pg, label) {
       await pg.keyboard.press('Escape'); await pg.waitForTimeout(250);
       check('Esc leaves the Skills page', !(await pg.isVisible('#galleryView')));
       await pg.click('#navGallery').catch(() => {}); await pg.waitForTimeout(400); if (await pg.isVisible('#galleryView')) await pg.click('#gaBack');
+      // Cyber Security section
+      await pg.click('#navCyber'); await pg.waitForFunction(() => document.body.classList.contains('cyber-open'), { timeout: 6000 });
+      await pg.click('#cySeg button[data-c="bounty"]'); await pg.waitForSelector('#cyGroups .gacard', { timeout: 6000 });
+      const bounty = await pg.innerText('#cyGroups');
+      check('Cyber Security · Bug bounty lists the toolkit', (await pg.locator('#cyGroups .gacard').count()) >= 8 && /Burp/.test(bounty) && /garak/i.test(bounty), bounty.slice(0, 80));
+      check('Jailbreak repos are excluded from the toolkit', !/L1B3RT4S|Claude-Red/i.test(await pg.innerText('#cyberView')) && /guardrail-bypass/i.test(await pg.innerText('#cyExcluded')));
+      await pg.click('#cySeg button[data-c="rea"]'); await pg.waitForSelector('#cyRea .cyrea', { timeout: 6000 });
+      check('REA has its own tab', /Reverse Engineer/i.test(await pg.innerText('#cyRea')));
+      check('The global switch turns Cyber Security mode on for the harness', await pg.evaluate(async () => { document.getElementById('cyGlobal').click(); await new Promise(r => setTimeout(r, 180)); const on = document.body.classList.contains('cyber-on') && config.cyber_mode === true; document.getElementById('cyGlobal').click(); await new Promise(r => setTimeout(r, 120)); return on; }));
+      await pg.keyboard.press('Escape'); await pg.waitForTimeout(200);
+      check('Esc leaves the Cyber Security section', !(await pg.evaluate(() => document.body.classList.contains('cyber-open'))));
       // settings: code intelligence + quick chat shortcut
       await pg.click('#openSettings'); await pg.click('#tabs button[data-p="tools"]'); await pg.waitForSelector('.lsprow', { timeout: 8000 });
       check('Settings lists language servers with their status', (await pg.locator('.lsprow').count()) === 6 && (await pg.innerText('#lspList')).includes('Python'));

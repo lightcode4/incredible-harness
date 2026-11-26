@@ -31,7 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, bridge, extras, gallery, github, gitops, lsp, market, projects, security, sync, teams
+from . import __version__, bridge, extras, gallery, github, gitops, lsp, market, projects, security, security_tools, sync, teams
 from .catalog import BY_ID as PROVIDER_BY_ID, PROVIDERS, guess_service
 from . import platform_extras as px
 from .mcp_local import McpError, McpManager
@@ -1260,7 +1260,7 @@ class Session:
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
                        "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code", "services": {},
-                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "", "teams": [], "team_shares": {}, "auto_update": True, "scene": "auto",
+                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "", "teams": [], "team_shares": {}, "auto_update": True, "scene": "auto", "cyber_mode": False,
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.set_badge = None  # set by the desktop app (Dock badge)
@@ -1355,6 +1355,20 @@ class Session:
             return cfg["fast_model"]
         return "claude-haiku-5-5" if cfg["provider"] == "claude" else cfg["model"]
 
+    CYBER_PREAMBLE = (
+        "CYBER SECURITY MODE is on. You are assisting with authorized security work — bug bounty, "
+        "penetration testing and reverse engineering — in the user's own lab or against targets they are "
+        "explicitly authorized to test. Before any active scanning or exploitation, confirm the scope and "
+        "authorization if it isn't already clear, and stay within it. Help with recon, vulnerability analysis, "
+        "writing and adapting exploits/payloads, and clear reproduction and remediation write-ups. The user's "
+        "Cyber Security toolkit (Burp/Metasploit/Shodan/Exploit-DB MCP connectors, pentest and recon agents, "
+        "AI red-team tools, and REA for reverse engineering) may be available as connectors — use them when "
+        "they fit. Do not help attack systems the user has no authorization for, enable mass/indiscriminate "
+        "targeting, or bypass another AI's safety guardrails. Keep findings and any sensitive data private.\n\n")
+
+    def _cyber_prefix(self, cfg: dict) -> str:
+        return self.CYBER_PREAMBLE if cfg.get("cyber_mode") else ""
+
     def system_for(self, cfg: dict) -> str:
         text, _ = project_instructions(cfg["cwd"])
         proj = self.project_by_id(cfg.get("project"))
@@ -1370,7 +1384,7 @@ class Session:
             text = ("GitHub is not connected yet. If a task needs GitHub (push, pull request, private repository), call "
                     "connect_github instead of asking the user for tokens, passwords or their git name and email; continue "
                     "once they say they approved it.\n\n" + text).strip()
-        return system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")), cfg.get("language", ""),
+        return self._cyber_prefix(cfg) + system_prompt(cfg["cwd"], text, extras.read_memory(), bool(cfg.get("computer")), cfg.get("language", ""),
                              extras.skills(cfg["cwd"]), extras.agents(cfg["cwd"]),
                              extras.style_text(cfg.get("style", "normal"), cfg.get("style_custom", "")))
 
@@ -1611,7 +1625,7 @@ class Session:
         return [t for t in TOOLS if t["name"] in CHAT_TOOL_NAMES] + self.mcp.tool_specs()
 
     def chat_system(self, cfg: dict) -> str:
-        s = self.CHAT_SYSTEM
+        s = self._cyber_prefix(cfg) + self.CHAT_SYSTEM
         if cfg.get("language"):
             s += f" Always reply in {cfg['language']}."
         st = extras.style_text(cfg.get("style", "normal"), cfg.get("style_custom", ""))
@@ -2674,6 +2688,8 @@ def make_handler(session: Session, token: str):
                     session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/security/scan":  # bug hunting: static security scan of the working folder
                     result = security.scan(chat.ws.cwd) if chat else {"findings": [], "counts": {}, "scanned": 0, "root": ""}
+                elif path == "/api/security/tools":  # the Cyber Security toolkit catalog
+                    result = security_tools.catalog()
                 elif path == "/api/context":
                     result = chat.context_report() if chat else {}
                 elif path == "/api/files/find":
@@ -2918,12 +2934,12 @@ def make_handler(session: Session, token: str):
                     result = {"url": session.set_remote(bool(data.get("on")))}
                     session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/config":
-                    if set(data) <= {"auto", "plan", "theme", "sound", "onboarded", "name", "auto_update", "scene"}:  # display choices: no restart needed
+                    if set(data) <= {"auto", "plan", "theme", "sound", "onboarded", "name", "auto_update", "scene", "cyber_mode"}:  # display choices: no restart needed
                         for k, v in data.items():
                             session.config[k] = ((str(v) if str(v) in ("auto", "none", "daybreak", "companion", "orbit", "landscape", "dusk", "dream", "aurora", "moon", "meteor", "clouds", "lighthouse", "meadow", "wave", "halo", "tower", "datafall", "forest") else "auto") if k == "scene"
                                                  else (str(v) if str(v) in ("system", "light", "dark") else "system") if k == "theme"
                                                  else " ".join(str(v).split())[:40] if k == "name" else bool(v))
-                        if set(data) & {"theme", "sound", "onboarded", "name", "auto_update", "scene"}:
+                        if set(data) & {"theme", "sound", "onboarded", "name", "auto_update", "scene", "cyber_mode"}:
                             session.save()
                     else:
                         if chat and chat.busy:

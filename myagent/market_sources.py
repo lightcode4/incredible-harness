@@ -121,4 +121,8 @@ DEFAULT_SOURCES = [
     "softaworks/agent-toolkit",
     "coldteadotai/pr-lens",
     "vyber07/reverse-skill",
+    # Cyber Security skill collections (also listed in the Cyber Security section)
+    "trailofbits/skills",
+    "mukul975/Anthropic-Cybersecurity-Skills",
+    "transilienceai/communitytools",
 ]
