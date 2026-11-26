@@ -379,7 +379,16 @@ body.agent-browsing .agentbadge { display: block; }
   --user: #3a2f1b; --code: #2b2317; --codeblock: #0f0c07; --codetext: #f1e7cf; --ok: #b3c47c; --bad: #e6a08c; --warn: #e8bd72; --plan: #dfbd69;
   --soft: #3a2f1b; --sun: #dfbd69; --brand-ink: #e6cf98; --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
 }
-:root[data-theme="dark"] { color-scheme: dark; } :root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="black"] {
+  --bg: #000000; --side: #000000; --panel: #0b0b0d; --text: #f1ece0; --muted: #8f8b82; --faint: #5a574f; --body: #c6c2b8;
+  --line: #1c1c20; --line-soft: #141418; --accent: #dfbd69; --accent-hover: #ecd08c; --accent-text: #000000; --hover: #121214;
+  --user: #101012; --code: #0e0e10; --codeblock: #000000; --codetext: #f1e7cf; --ok: #b3c47c; --bad: #e6a08c; --warn: #e8bd72; --plan: #dfbd69;
+  --soft: #141218; --sun: #dfbd69; --brand-ink: #e6cf98; --shadow: 0 1px 2px rgba(0,0,0,.6), 0 10px 30px rgba(0,0,0,.6);
+}
+/* Pure-black (OLED): the animated scene is hidden so the whole app is truly #000 */
+:root[data-theme="black"] #bgm { display: none !important; }
+:root[data-theme="black"] body, :root[data-theme="black"] { background: #000 !important; }
+:root[data-theme="dark"], :root[data-theme="black"] { color-scheme: dark; } :root[data-theme="light"] { color-scheme: light; }
 body { font-family: var(--sans); font-size: 14.5px; background: var(--bg); }
 .serif, h1.serif, .assistant h1, .assistant h2, .assistant h3 { font-family: var(--serifF); font-weight: 400; }
 .mono, code, pre, .toolcard .sum, kbd, .codeblock pre { font-family: var(--monoF) !important; }
@@ -550,7 +559,7 @@ body.gallery-open #galleryView { display: block !important; }
 .gacard .gafoot { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; } .gacard .added { font-size: 12px; color: var(--ok); font-weight: 600; }
 body.usage-open .page > .pagehead, body.usage-open .page > .modelbar, body.usage-open .page > .grid { display: none; }
 body.usage-open #usageView { display: block !important; }
-:root { --chart: #a87420; } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --chart: #dfbd69; } } :root[data-theme="dark"] { --chart: #dfbd69; }
+:root { --chart: #a87420; } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --chart: #dfbd69; } } :root[data-theme="dark"] { --chart: #dfbd69; } :root[data-theme="black"] { --chart: #dfbd69; }
 .ustiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 18px; }
 .ustile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
 .ustile small { display: block; font-size: 11.5px; color: var(--muted); } .ustile b { display: block; font-family: var(--monoF); font-weight: 500; font-size: 24px; color: var(--text); margin-top: 4px; }
@@ -1890,7 +1899,8 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <div class="field"><label>Appearance</label><div class="artseg seg-ico" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content">
         <button data-t="system"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="#b9b3a0" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16z" fill="#8a9ce8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="#f5b942"/></svg>System</button>
         <button data-t="light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.4" fill="#f5b942"/><g stroke="#f5b942" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M5.2 18.8l2.1-2.1"/></g></svg>Light</button>
-        <button data-t="dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="#8a9ce8"/></svg>Dark</button></div></div>
+        <button data-t="dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="#8a9ce8"/></svg>Dark</button>
+        <button data-t="black"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#000" stroke="#4a4a4a" stroke-width="1.4"/><path d="M12 5.2a6.8 6.8 0 0 0 0 13.6 5.3 5.3 0 0 1 0-13.6z" fill="#2b2b2b"/></svg>Black</button></div></div>
       <div class="field"><label>Background <small>Your mascot, big and animated behind the whole app. Auto picks day or night.</small></label><div class="scenepick" id="scenePick" role="radiogroup" aria-label="Background"></div></div>
       <div class="field"><label>Effects <small>Lower this if the app feels slow on an older or low-memory computer.</small></label>
         <div class="artseg" id="fxSeg" role="radiogroup" aria-label="Effects" style="width:max-content"><button data-fx="auto">Auto</button><button data-fx="full">Full</button><button data-fx="lite">Lite (less lag)</button></div></div>
@@ -2965,10 +2975,10 @@ if (new URLSearchParams(location.search).get("quick")) {
 }
 $("quickTry").onclick = () => api("/api/quick/toggle").catch(e => notice(e.message));
 // ---------- Appearance ----------
-function applyTheme(t) { if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+function applyTheme(t) { if (t === "light" || t === "dark" || t === "black") document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
   try { localStorage.setItem("lc4.theme", t || "system"); } catch (e) {}
   if (typeof renderProviders === "function") renderProviders();
-  if (typeof applyScene === "function" && document.body.dataset.scene === "auto") applyScene("auto"); }
+  if (typeof applyScene === "function") applyScene(document.body.dataset.scene || "auto"); }
 function markTheme(t) { document.querySelectorAll("#themeSeg button").forEach(b => { b.classList.toggle("on", b.dataset.t === t); b.setAttribute("aria-checked", b.dataset.t === t); }); }
 document.querySelectorAll("#themeSeg button").forEach(b => b.onclick = async () => { markTheme(b.dataset.t); applyTheme(b.dataset.t); config.theme = b.dataset.t;
   await api("/api/config", { theme: b.dataset.t }).catch(e => notice(e.message)); });
@@ -2981,7 +2991,7 @@ const NIGHT_SCENES = ["dusk", "dream", "aurora", "moon", "meteor", "halo", "towe
 const PHOTO_SCENES = [...NIGHT_SCENES, ...DAY_SCENES];
 const SKY = { clouds: "#b8d8f7", lighthouse: "#88bbea", meadow: "#b9cfe6", wave: "#9dbee2" };
 // Auto: day pictures in light mode, night pictures in dark mode; on System it follows the clock (6am-6pm is day). A different picture each day.
-function isDaytime() { const t = document.documentElement.dataset.theme; if (t === "light") return true; if (t === "dark") return false; const h = new Date().getHours(); return h >= 6 && h < 18; }
+function isDaytime() { const t = document.documentElement.dataset.theme; if (t === "light") return true; if (t === "dark" || t === "black") return false; const h = new Date().getHours(); return h >= 6 && h < 18; }
 function resolveScene(id) { if (id !== "auto") return id; const set = isDaytime() ? DAY_SCENES : NIGHT_SCENES, day = Math.floor(Date.now() / 864e5); return set[day % set.length]; }
 function sceneHTML(id) {
   const M = mascot(false), rnd = (a) => a.map(x => x).join("");
@@ -3021,6 +3031,13 @@ function sceneHTML(id) {
 }
 function applyScene(pick) {
   pick = SCENES.some(s => s[0] === pick) ? pick : "auto";
+  if (document.documentElement.dataset.theme === "black") {  // pure-black (OLED): no scene, no glass — the whole app stays #000
+    document.getElementById("bgm")?.remove();
+    document.body.classList.remove("has-bgm", "has-lightbg", "has-darkbg", "has-photo");
+    document.body.dataset.scene = pick; document.body.dataset.shown = "none";
+    document.querySelectorAll("#scenePick button").forEach(b => { b.classList.toggle("on", b.dataset.s === pick); b.setAttribute("aria-checked", b.dataset.s === pick); });
+    return;
+  }
   const id = resolveScene(pick);
   document.getElementById("bgm")?.remove();
   const host = document.body;

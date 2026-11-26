@@ -2951,7 +2951,7 @@ def make_handler(session: Session, token: str):
                         for k, v in data.items():
                             session.config[k] = ((str(v) if str(v) in ("auto", "none", "daybreak", "companion", "orbit", "landscape", "dusk", "dream", "aurora", "moon", "meteor", "clouds", "lighthouse", "meadow", "wave", "halo", "tower", "datafall", "forest") else "auto") if k == "scene"
                                                  else (str(v) if str(v) in ("auto", "full", "lite") else "auto") if k == "effects"
-                                                 else (str(v) if str(v) in ("system", "light", "dark") else "system") if k == "theme"
+                                                 else (str(v) if str(v) in ("system", "light", "dark", "black") else "system") if k == "theme"
                                                  else " ".join(str(v).split())[:40] if k == "name" else bool(v))
                         if set(data) & {"theme", "sound", "onboarded", "name", "auto_update", "scene", "cyber_mode", "effects"}:
                             session.save()
