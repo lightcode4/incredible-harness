@@ -385,9 +385,12 @@ body.agent-browsing .agentbadge { display: block; }
   --user: #101012; --code: #0e0e10; --codeblock: #000000; --codetext: #f1e7cf; --ok: #b3c47c; --bad: #e6a08c; --warn: #e8bd72; --plan: #dfbd69;
   --soft: #141218; --sun: #dfbd69; --brand-ink: #e6cf98; --shadow: 0 1px 2px rgba(0,0,0,.6), 0 10px 30px rgba(0,0,0,.6);
 }
-/* Pure-black (OLED): the animated scene is hidden so the whole app is truly #000 */
-:root[data-theme="black"] #bgm { display: none !important; }
-:root[data-theme="black"] body, :root[data-theme="black"] { background: #000 !important; }
+/* Pure-black (OLED): day/night scenes are suppressed in JS so the app is truly #000; only OLED wallpapers show.
+   (--bg is #000 for this theme, so body is black via the normal propagating path — no explicit body background,
+   which would otherwise paint over the z-index:-1 wallpaper layer.) */
+.sc-oled { background: #000 !important; }
+.sc-oled .ph { inset: 0 !important; -webkit-mask: none !important; mask: none !important; background: var(--img) 50% 42% / cover no-repeat !important; }
+.sc-oled .scrim { background: linear-gradient(rgba(0,0,0,.28), rgba(0,0,0,.04) 40%, rgba(0,0,0,.18)) !important; }
 :root[data-theme="dark"], :root[data-theme="black"] { color-scheme: dark; } :root[data-theme="light"] { color-scheme: light; }
 body { font-family: var(--sans); font-size: 14.5px; background: var(--bg); }
 .serif, h1.serif, .assistant h1, .assistant h2, .assistant h3 { font-family: var(--serifF); font-weight: 400; }
@@ -2986,14 +2989,17 @@ try { applyTheme(localStorage.getItem("lc4.theme") || "system"); } catch (e) {}
 // ---------- animated mascot backgrounds ----------
 const SCENES = [["auto", "Auto · day & night"], ["none", "None"], ["daybreak", "Daybreak"], ["companion", "Companion"], ["orbit", "Orbit"], ["landscape", "Pixel landscape"],
   ["dusk", "Dusk hills"], ["dream", "Dreaming"], ["aurora", "Aurora sea"], ["moon", "Moonrise"], ["meteor", "Meteor ride"], ["halo", "Code halo"], ["tower", "Moon tower"], ["datafall", "Data falls"], ["forest", "Glow forest"],
-  ["clouds", "Above the clouds"], ["lighthouse", "Lighthouse"], ["meadow", "Meadow"], ["wave", "Hello wave"]];
+  ["clouds", "Above the clouds"], ["lighthouse", "Lighthouse"], ["meadow", "Meadow"], ["wave", "Hello wave"],
+  ["kakashi", "Kakashi"], ["kakashi-neon", "Kakashi · neon"], ["kakashi-eye", "Kakashi · Sharingan"]];
 const NIGHT_SCENES = ["dusk", "dream", "aurora", "moon", "meteor", "halo", "tower", "datafall", "forest"], DAY_SCENES = ["clouds", "lighthouse", "meadow", "wave"];
-const PHOTO_SCENES = [...NIGHT_SCENES, ...DAY_SCENES];
-const SKY = { clouds: "#b8d8f7", lighthouse: "#88bbea", meadow: "#b9cfe6", wave: "#9dbee2" };
+const OLED_SCENES = ["kakashi", "kakashi-neon", "kakashi-eye"];  // pure-black photo wallpapers: show the picture, never tint the UI tokens
+const PHOTO_SCENES = [...NIGHT_SCENES, ...DAY_SCENES, ...OLED_SCENES];
+const SKY = { clouds: "#b8d8f7", lighthouse: "#88bbea", meadow: "#b9cfe6", wave: "#9dbee2", kakashi: "#000", "kakashi-neon": "#000", "kakashi-eye": "#000" };
 // Auto: day pictures in light mode, night pictures in dark mode; on System it follows the clock (6am-6pm is day). A different picture each day.
 function isDaytime() { const t = document.documentElement.dataset.theme; if (t === "light") return true; if (t === "dark" || t === "black") return false; const h = new Date().getHours(); return h >= 6 && h < 18; }
 function resolveScene(id) { if (id !== "auto") return id; const set = isDaytime() ? DAY_SCENES : NIGHT_SCENES, day = Math.floor(Date.now() / 864e5); return set[day % set.length]; }
 function sceneHTML(id) {
+  if (OLED_SCENES.includes(id)) return `<div class="ph" style="--img:url('/scenes/${id}.webp')"></div><div class="scrim"></div>`;  // OLED wallpaper: just the picture on black
   const M = mascot(false), rnd = (a) => a.map(x => x).join("");
   const dots = (cls, list, extra = "") => list.map(([x, y, d]) => `<i class="${cls}" style="left:${x}%;top:${y}%;animation-delay:-${d}s${extra}"></i>`).join("");
   const stars = dots("tw", [[8, 10, 0], [22, 6, 1.1], [37, 14, 2.3], [63, 8, .6], [78, 12, 1.7], [91, 6, 2.9], [14, 24, 1.4], [86, 26, .3]]);
@@ -3031,7 +3037,7 @@ function sceneHTML(id) {
 }
 function applyScene(pick) {
   pick = SCENES.some(s => s[0] === pick) ? pick : "auto";
-  if (document.documentElement.dataset.theme === "black") {  // pure-black (OLED): no scene, no glass — the whole app stays #000
+  if (document.documentElement.dataset.theme === "black" && !OLED_SCENES.includes(pick)) {  // pure-black (OLED): only OLED wallpapers show; everything else stays solid #000
     document.getElementById("bgm")?.remove();
     document.body.classList.remove("has-bgm", "has-lightbg", "has-darkbg", "has-photo");
     document.body.dataset.scene = pick; document.body.dataset.shown = "none";
@@ -3041,7 +3047,7 @@ function applyScene(pick) {
   const id = resolveScene(pick);
   document.getElementById("bgm")?.remove();
   const host = document.body;
-  if (id !== "none") { const d = el("div", (PHOTO_SCENES.includes(id) ? "sc-photo " : "") + (DAY_SCENES.includes(id) ? "sc-day " : "") + "sc-" + id); d.id = "bgm"; d.dataset.scene = id; d.setAttribute("aria-hidden", "true"); d.innerHTML = sceneHTML(id); host.prepend(d); }
+  if (id !== "none") { const d = el("div", (PHOTO_SCENES.includes(id) ? "sc-photo " : "") + (DAY_SCENES.includes(id) ? "sc-day " : "") + (OLED_SCENES.includes(id) ? "sc-oled " : "") + "sc-" + id); d.id = "bgm"; d.dataset.scene = id; d.setAttribute("aria-hidden", "true"); d.innerHTML = sceneHTML(id); host.prepend(d); }
   document.body.dataset.scene = pick; document.body.dataset.shown = id; document.body.classList.toggle("has-bgm", id !== "none");
   document.body.classList.toggle("has-lightbg", DAY_SCENES.includes(id)); document.body.style.setProperty("--sky", SKY[id] || "#150f1c");
   document.body.style.setProperty("--ptop", ({ forest: "26vh", tower: "18vh" })[id] || "14vh");
