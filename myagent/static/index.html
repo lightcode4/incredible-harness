@@ -2755,7 +2755,7 @@ $("acctBtn").onclick = e => { e.stopPropagation(); $("acctMenu").hidden ? openAc
 document.addEventListener("click", e => { if (!$("acctMenu").hidden && !$("acctBtn").contains(e.target) && !$("acctMenu").contains(e.target)) closeAcct(); });
 function applyAccount(c) {
   const gh = c.github_user || {}, av = $("acctAv");
-  if (gh.avatar_url) { av.style.backgroundImage = `url("${gh.avatar_url}")`; av.classList.add("hasimg"); }
+  if (gh.avatar) { av.style.backgroundImage = `url("${gh.avatar}")`; av.classList.add("hasimg"); }
   else { av.style.backgroundImage = ""; av.classList.remove("hasimg"); }
   $("acctIni").textContent = (gh.login || gh.name || "?").trim()[0].toUpperCase();
   $("acctName").textContent = gh.login ? (gh.name || gh.login) : "Account";
