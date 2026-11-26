@@ -5,6 +5,7 @@
 import type { Store } from "./config";
 import type { EventHub } from "./events";
 import type { ChatManager } from "./chats";
+import type { Terminals } from "./terminal";
 import * as gh from "./github";
 import { listModels, testConnection, mergeCfg } from "./models";
 import { scan } from "./security";
@@ -17,7 +18,7 @@ import providerCatalog from "./data/providers.json";
 import { homedir } from "os";
 import { join } from "path";
 
-export type Ctx = { store: Store; events: EventHub; chats: ChatManager };
+export type Ctx = { store: Store; events: EventHub; chats: ChatManager; terms: Terminals };
 type Handler = (body: any, ctx: Ctx) => unknown | Promise<unknown>;
 
 // keys the UI is allowed to write through /api/config
@@ -108,6 +109,12 @@ const handlers: Record<string, Handler> = {
   "/api/files/read": (body, { chats }) => files.read(chats.current.cwd, String(body?.path || "")),
   "/api/files/write": (body, { chats }) => files.write(chats.current.cwd, String(body?.path || ""), String(body?.content ?? "")),
   "/api/files/find": (body, { chats }) => files.find(chats.current.cwd, String(body?.q || body?.query || "")),
+
+  // ---- terminal (line mode) ----
+  "/api/term/open": (_b, { terms, chats }) => terms.open(chats.current.cwd),
+  "/api/term/input": (body, { terms }) => { terms.input(String(body?.id || ""), String(body?.data ?? "")); return {}; },
+  "/api/term/resize": () => ({}),
+  "/api/term/close": (body, { terms }) => { terms.close(String(body?.id || "")); return {}; },
 
   // ---- self-update ----
   "/api/update": () => checkUpdate(),

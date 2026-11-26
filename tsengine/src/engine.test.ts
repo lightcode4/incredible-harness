@@ -5,6 +5,7 @@ import { join } from "path";
 import { Store } from "./config";
 import { EventHub } from "./events";
 import { ChatManager } from "./chats";
+import { Terminals } from "./terminal";
 import { route, KNOWN_ROUTES } from "./routes";
 import { scan } from "./security";
 
@@ -12,7 +13,8 @@ function ctx() {
   const store = new Store();
   const events = new EventHub();
   const chats = new ChatManager(store, events);
-  return { store, events, chats };
+  const terms = new Terminals(events);
+  return { store, events, chats, terms };
 }
 
 test("public config hides secrets and exposes UI fields", () => {

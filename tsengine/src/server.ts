@@ -7,6 +7,7 @@ import { randomBytes } from "crypto";
 import { EventHub, type Event } from "./events";
 import { Store } from "./config";
 import { ChatManager } from "./chats";
+import { Terminals } from "./terminal";
 import { route } from "./routes";
 
 const STATIC_DIR =
@@ -27,7 +28,8 @@ export function startEngine(opts: { port?: number; host?: string } = {}): Engine
   const store = new Store();
   const events = new EventHub();
   const chats = new ChatManager(store, events);
-  const ctx = { store, events, chats };
+  const terms = new Terminals(events);
+  const ctx = { store, events, chats, terms };
 
   async function serveStatic(path: string): Promise<Response | null> {
     const rel = path === "/" ? "/index.html" : path;
