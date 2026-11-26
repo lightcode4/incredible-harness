@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Allow the shell to launch the bundled engine sidecar and the main window to run.",
+  "windows": ["main", "*"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:webview:default",
+    "shell:allow-execute",
+    "shell:allow-spawn",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [{ "name": "binaries/lc4-engine", "sidecar": true, "args": true }]
+    }
+  ]
+}

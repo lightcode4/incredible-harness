@@ -1,0 +1,23 @@
+{
+  "name": "lightcode4-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LightCode⁴ engine — TypeScript/Bun port of the Python agent engine (serves the existing UI).",
+  "type": "module",
+  "module": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch run src/index.ts",
+    "build": "bun build src/index.ts --compile --target bun --outfile dist/lc4-engine",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "prepare:tauri": "bash scripts/prepare.sh",
+    "tauri": "tauri"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@tauri-apps/cli": "2.1.0",
+    "@types/bun": "1.1.14",
+    "typescript": "5.7.2"
+  }
+}
