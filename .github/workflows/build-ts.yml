@@ -8,6 +8,7 @@ on:
   push:
     paths:
       - "tsengine/**"
+      - "myagent/static/**"   # the TS app bundles this UI, so rebuild when it changes
       - ".github/workflows/build-ts.yml"
 
 permissions:
