@@ -82,6 +82,15 @@ test("security scanner flags a hard-coded AWS key and os.system", () => {
   expect(r.counts.high).toBeGreaterThan(0);
 });
 
+test("fork creates a separate session and selects it", async () => {
+  const c = ctx();
+  const n0 = ((await route("/api/chats", {}, c)) as any).chats.length;
+  const f = (await route("/api/fork", { idx: 0 }, c)) as any;
+  const after = (await route("/api/chats", {}, c)) as any;
+  expect(after.chats.length).toBe(n0 + 1);
+  expect(after.current).toBe(f.id);
+});
+
 test("context report returns a window and token breakdown", async () => {
   const c = ctx();
   const r = (await route("/api/context", {}, c)) as any;

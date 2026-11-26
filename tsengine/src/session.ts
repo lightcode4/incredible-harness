@@ -32,7 +32,7 @@ export function contextWindow(model: string, override = 0): number {
   return 128_000;
 }
 
-type Checkpoint = { id: string; label: string; when: number; files: Record<string, string | null> };
+type Checkpoint = { id: string; label: string; when: number; atMsg: number; files: Record<string, string | null> };
 
 export type ChatMeta = {
   id: string; title: string; kind: string; cwd: string; pinned: boolean; updated: number; running: boolean;
@@ -136,6 +136,74 @@ export class Session {
     return restored;
   }
 
+  // Restore the files recorded in a list of checkpoints (newest first) to their originals.
+  private restoreCheckpoints(cps: Checkpoint[]): number {
+    let restored = 0;
+    for (const c of cps.slice().reverse()) {
+      for (const [rel, original] of Object.entries(c.files)) {
+        const full = join(this.cwd, rel);
+        try {
+          if (original === null) { if (existsSync(full)) require("fs").rmSync(full); }
+          else writeFileSync(full, original);
+          restored++;
+        } catch { /* skip */ }
+      }
+    }
+    return restored;
+  }
+
+  // Go back to message `idx`: drop later messages, optionally undo the files those turns changed.
+  rewind(idx: number, text = "", undoFiles = true): number {
+    let restored = 0;
+    if (undoFiles) {
+      const after = this.checkpoints.filter((c) => c.atMsg >= idx);
+      restored = this.restoreCheckpoints(after);
+      this.checkpoints = this.checkpoints.filter((c) => c.atMsg < idx);
+    }
+    this.transcript = this.transcript.slice(0, Math.max(0, idx));
+    this.save();
+    this.events.put(this.replayEvent());
+    this.events.put({ kind: "fs_changed" });
+    this.events.put({ kind: "chats_changed" });
+    if (text.trim()) void this.send(text).catch(() => {});
+    return restored;
+  }
+
+  undo(turn: string): number {
+    const c = this.checkpoints.find((x) => x.id === turn);
+    if (!c) return 0;
+    const n = this.restoreCheckpoints([c]);
+    this.checkpoints = this.checkpoints.filter((x) => x.id !== turn);
+    this.events.put({ kind: "fs_changed" });
+    return n;
+  }
+
+  // Copy the conversation up to `idx` into a brand-new session.
+  forkMeta(idx: number): { cwd: string; kind: string; title: string; transcript: Msg[] } {
+    return { cwd: this.cwd, kind: this.kind, title: this.title ? this.title + " (fork)" : "", transcript: this.transcript.slice(0, idx).map((m) => ({ ...m })) };
+  }
+
+  // Summarize the conversation so far to free up context.
+  async compact(focus = ""): Promise<void> {
+    if (this.busy || !this.transcript.length) return;
+    this.busy = true;
+    this.events.put({ kind: "status", busy: true });
+    try {
+      const prompt = `Summarize the conversation so far into a compact brief that preserves goals, decisions, file changes and open tasks${focus ? `, focusing on: ${focus}` : ""}. Write it as notes the assistant can continue from.`;
+      const res = await streamTurn(this.store.config, "You compress conversations faithfully.",
+        [...this.transcript, { role: "user", content: prompt }], [], {});
+      this.transcript = [{ role: "user", content: "Summary of the conversation so far:\n\n" + (res.text || "(no summary)") }];
+      this.save();
+      this.events.put({ kind: "compacted", compactions: 1 });
+      this.events.put(this.replayEvent());
+    } catch (e) {
+      this.events.put({ kind: "notice", text: (e as Error).message });
+    } finally {
+      this.busy = false;
+      this.events.put({ kind: "status", busy: false });
+    }
+  }
+
   contextReport() {
     const est = (o: unknown) => Math.floor(JSON.stringify(o).length / 4);
     const model = String(this.store.config.model || "");
@@ -177,7 +245,7 @@ export class Session {
     this.events.put({ kind: "status", busy: true });
     this.transcript.push({ role: "user", content: text });
     this.turnNo++;
-    this.cur = { id: "t" + this.turnNo, label: text.slice(0, 40), when: Date.now() / 1000, files: {} };
+    this.cur = { id: "t" + this.turnNo, label: text.slice(0, 40), when: Date.now() / 1000, atMsg: this.transcript.length - 1, files: {} };
     if (!this.title) {
       this.title = text.slice(0, 48).replace(/\s+/g, " ").trim();
       this.events.put({ kind: "title", chat: this.id, title: this.title });

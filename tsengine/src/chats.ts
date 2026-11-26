@@ -54,6 +54,16 @@ export class ChatManager {
     return { id: s.id };
   }
 
+  fork(idx: number, text = ""): { id: string } {
+    const meta = this.current.forkMeta(idx);
+    const s = new Session(this.store, this.events, meta);
+    this.chats.set(s.id, s);
+    this.select(s);
+    this.events.put({ kind: "chats_changed" });
+    if (text.trim()) void s.send(text).catch(() => {});
+    return { id: s.id };
+  }
+
   open(id: string): { id: string } {
     let s = this.chats.get(id) || Session.load(this.store, this.events, id);
     if (!s) throw new Error("That chat no longer exists.");

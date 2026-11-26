@@ -62,6 +62,11 @@ const handlers: Record<string, Handler> = {
   "/api/chat/pin": (body, { chats }) => { chats.pin(String(body?.id || ""), Boolean(body?.on)); return {}; },
   "/api/chat/delete": (body, { chats }) => { chats.delete(String(body?.id || "")); return {}; },
   "/api/activate": (body, { chats }) => { if (body?.chat) chats.open(String(body.chat)); return {}; },
+  "/api/fork": (body, { chats }) => chats.fork(Number(body?.idx ?? 1e9), String(body?.text || "")),
+  "/api/rewind": (body, { chats }) => ({ restored: chats.current.rewind(Number(body?.idx ?? -1), String(body?.text || ""), body?.undo_files !== false) }),
+  "/api/undo": (body, { chats }) => ({ restored: chats.current.undo(String(body?.turn || "")) }),
+  "/api/compact": (body, { chats }) => { void chats.current.compact(String(body?.focus || "")); return { ok: true }; },
+  "/api/continue": (_b, { chats }) => ({ ok: !chats.current.busy }),
 
   "/api/models": async (body, { store }) => ({ models: await listModels(mergeCfg(store.config, body)) }),
   "/api/test-connection": async (body, { store }) => {
