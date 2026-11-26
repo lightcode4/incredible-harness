@@ -7,7 +7,7 @@ async function tab(pg, t) {
   if (!(await pg.isVisible('#panel .ptabs'))) { await pg.click('#sidePanelBtn'); await pg.waitForTimeout(200); }
   await pg.click(`#panel .ptabs .tab[data-v="${t}"]`); await pg.waitForTimeout(150);
 }
-async function navTo(pg, sel) { if (!(await pg.isVisible(sel))) { await pg.hover('#moreBtn'); await pg.waitForTimeout(300); } await pg.click(sel); }
+async function navTo(pg, sel) { if (!(await pg.isVisible(sel))) { await pg.evaluate(() => document.querySelector('.more')?.classList.add('open')); await pg.waitForTimeout(350); } await pg.waitForSelector(sel, { state: 'visible' }); await pg.click(sel); }
 const check = (name, ok, detail = '') => (ok ? passed : problems).push(name + (detail ? ' — ' + detail : ''));
 async function overlaps(pg, label) {
   const found = await pg.evaluate(() => {
