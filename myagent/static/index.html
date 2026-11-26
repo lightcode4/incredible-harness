@@ -40,8 +40,9 @@ button { cursor: pointer; }
 svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 /* Sidebar */
-aside { width: 264px; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 14px 10px 10px; transition: margin .2s; min-height: 0; }
+aside { width: 264px; background: var(--side); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 14px 10px 10px; transition: margin-left .28s cubic-bezier(.33, 1, .68, 1); min-height: 0; }
 aside.hidden { margin-left: -264px; }
+@media (prefers-reduced-motion: reduce) { aside { transition: none; } }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 12px; }
 .logo { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; color: var(--accent-text); flex: none; }
 .logo svg { width: 17px; height: 17px; stroke-width: 2.2; }
@@ -59,13 +60,6 @@ aside.hidden { margin-left: -264px; }
 .chatitem:hover button { visibility: visible; } .chatitem button:hover { color: var(--bad); }
 .chatitem button svg { width: 14px; height: 14px; }
 .side-foot { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 6px; position: relative; }
-/* auto-hide the sidebar while the agent works; slide it back in on hover */
-body.working aside#side { position: fixed; left: 0; top: 0; height: 100vh; width: var(--sidew, 264px); z-index: 45; transform: translateX(calc(-100% + 11px)); transition: transform .32s cubic-bezier(.33, 1, .68, 1); box-shadow: none; }
-body.working aside#side::after { content: ""; position: absolute; left: 100%; top: 0; bottom: 0; width: 22px; }
-body.working aside#side::before { content: ""; position: absolute; right: 3px; top: 50%; width: 3px; height: 40px; margin-top: -20px; border-radius: 3px; background: var(--faint); opacity: .7; transition: opacity .2s; }
-body.working aside#side:hover { transform: none; box-shadow: 14px 0 50px -12px rgba(0, 0, 0, .6); }
-body.working aside#side:hover::before { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { body.working aside#side { transition: none; } }
 .acctbtn { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; padding: 7px 8px; border-radius: 11px; cursor: pointer; color: var(--text); text-align: left; }
 .acctbtn:hover { background: var(--hover); }
 .acctav { position: relative; width: 29px; height: 29px; border-radius: 50%; background: linear-gradient(145deg, #7a6fd0, #b07cf0) center/cover; display: grid; place-items: center; flex: none; color: #fff; font-weight: 700; font-size: 13px; }
@@ -810,7 +804,8 @@ body.quick { background: transparent; overflow: hidden; }
 .sevpill.medium { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
 .sevpill.low { background: color-mix(in srgb, var(--muted) 20%, transparent); color: var(--body); }
 .sevpill.ok { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
-.secfind { display: flex; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--panel); }
+.secfind { display: flex; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--panel); align-items: flex-start; }
+.secfind > .sevpill { align-self: flex-start; flex: none; }
 .secfind .secbody { min-width: 0; flex: 1; }
 .sechead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .sechead b { font-size: 13.5px; }
@@ -2224,11 +2219,8 @@ function setBusy(b) {
   busy = b; const s = $("send");
   s.classList.toggle("stop", b); s.innerHTML = icon(b ? "stop" : "enter"); s.title = b ? "Stop" : "Send (Enter)";
   updateSend();
-  if (b && sideAuto) { $("side").style.setProperty("--sidew", $("side").offsetWidth + "px"); document.body.classList.add("working"); }
-  else document.body.classList.remove("working");
   if (b) showWorking(); else { endBlock(); hideWorking(); }
 }
-let sideAuto = true;  // sidebar tucks away while working, reveals on hover
 function updateSend() { if (!busy) $("send").disabled = !$("input").value.trim() && !pendingFiles.length; else $("send").disabled = false;
   if (busy) { const q = !!$("input").value.trim(); $("send").classList.toggle("stop", !q); $("send").innerHTML = icon(q ? "enter" : "stop"); $("send").title = q ? "Queue: send when the current reply is done" : "Stop"; } }
 
@@ -2618,7 +2610,6 @@ function showConfig(c) {
   document.body.classList.toggle("cyber-on", !!c.cyber_mode); if ($("cyOn")) $("cyOn").hidden = !c.cyber_mode; if ($("cyGlobal")) $("cyGlobal").checked = !!c.cyber_mode;
   if (typeof applyFx === "function") applyFx(c.effects || "auto");
   if (typeof applyAccount === "function") applyAccount(c);
-  if (typeof sideAuto !== "undefined") sideAuto = c.side_auto !== false;
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
   $("modelName").textContent = c.model + (c.provider === "claude" ? ` · ${c.effort}` : "");
   $("who").textContent = { claude: "Claude", openai: "OpenAI", local: "Local" }[c.provider] + " · " + c.model;
@@ -2776,7 +2767,8 @@ $("wnClose").onclick = () => $("whatsNew").close();
 if ($("abtLogo")) { $("abtLogo").innerHTML = mascot(false); $("abtWhatsNew").onclick = showWhatsNew; $("abtGithub").onclick = () => api("/api/open-url", { url: "https://github.com/lightcode4/incredible-harness" }).catch(() => {}); }
 async function disconnectGitHub() { try { await api("/api/github/disconnect"); notice("Signed out of GitHub."); } catch (e) { notice(e.message); } }
 $("instrPill").onclick = () => openSettings("instr");
-$("toggleSide").onclick = () => $("side").classList.toggle("hidden");
+function syncSideToggle() { const hidden = $("side").classList.contains("hidden"); const b = $("toggleSide"); b.title = hidden ? "Expand sidebar (⌘B)" : "Collapse sidebar (⌘B)"; b.setAttribute("aria-label", b.title); b.setAttribute("aria-expanded", String(!hidden)); }
+$("toggleSide").onclick = () => { $("side").classList.toggle("hidden"); syncSideToggle(); }; syncSideToggle();
 function updateModeBtn() {
   const m = config.plan ? "plan" : config.auto ? "auto" : "ask";
   $("modeLabel").textContent = { ask: "Asks first", auto: "Auto-approve", plan: "Plan mode" }[m];

@@ -242,7 +242,12 @@ async function overlaps(pg, label) {
         g && g.remove(); return ok;
       }));
       check('Working bar shows a friendly phrase, not the raw command', await pg.evaluate(() => toolPhrase({ name: 'bash' }) === 'Running commands' && toolPhrase({ name: 'read_file' }) === 'Reading files' && toolPhrase({ name: 'web_search' }) === 'Searching the web'));
-      check('Sidebar auto-hides while the agent works', await pg.evaluate(() => { sideAuto = true; setBusy(true); const on = document.body.classList.contains('working') && getComputedStyle(document.getElementById('side')).position === 'fixed'; setBusy(false); sideAuto = false; return on && !document.body.classList.contains('working'); }));
+      { const w0 = await pg.evaluate(() => document.querySelector('main').getBoundingClientRect().width);
+        await pg.click('#toggleSide'); await pg.waitForTimeout(420);
+        const collapsed = await pg.evaluate(() => document.getElementById('side').classList.contains('hidden') && parseFloat(getComputedStyle(document.getElementById('side')).marginLeft) < -100);
+        const w1 = await pg.evaluate(() => document.querySelector('main').getBoundingClientRect().width);
+        check('Collapsing the sidebar reflows the chat to full width', collapsed && w1 > w0 + 100, `${w0} -> ${w1}`);
+        await pg.click('#toggleSide'); await pg.waitForTimeout(420); }
       check('Edits show a compact "Edited <file> +N −M" summary', await pg.evaluate(() => {
         toolCard({ name: 'multi_edit', summary: 'Edit demo.js', id: 'edsum', diff: '--- a/demo.js\n+++ b/demo.js\n@@\n-old\n+new1\n+new2\n' });
         const c = tools['edsum']; const t = c ? c.querySelector('.sum').textContent : '';
