@@ -121,7 +121,6 @@ export class Store {
     c.update_ready = null;
     c.rules = { allow: [], deny: [] };
     c.hooks = {};
-    c.instructions = [];
     c.chat_cwd = this.config.cwd;
     c.chat_project = null;
     c.has_chats = false;
@@ -133,7 +132,8 @@ export class Store {
     c.phone_url = "";
     c.remote_url = "";
     c.context_window = (this.config as any).context_window || 0;
-    c.commands = [];
+    try { c.commands = require("./workspace").commandList(String(this.config.cwd)); } catch { c.commands = []; }
+    try { c.instructions = require("./workspace").projectInstructions(String(this.config.cwd)).names; } catch { c.instructions = []; }
     c.mcp_local = [];
     c.mcp = [];
     c.mcp_status = [];

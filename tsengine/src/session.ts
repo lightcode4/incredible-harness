@@ -10,6 +10,7 @@ import type { EventHub } from "./events";
 import type { Store } from "./config";
 import { streamTurn, type Msg } from "./providers";
 import { TOOL_SPECS, runTool } from "./tools";
+import { projectInstructions, readMemory } from "./workspace";
 
 export const CHATS_DIR = join(homedir(), ".incredible-herness", "chats");
 
@@ -73,8 +74,13 @@ export class Session {
   private system(): string {
     const cfg = this.store.config;
     const cyber = cfg.cyber_mode ? CYBER_PREAMBLE : "";
-    return cyber + `You are LightCode⁴, a coding agent working in the folder ${this.cwd}. ` +
+    let s = cyber + `You are LightCode⁴, a coding agent working in the folder ${this.cwd}. ` +
       `Be concise and act directly. Use the provided tools to read and change files and run commands.`;
+    const mem = readMemory();
+    if (mem.trim()) s += `\n\n# What the user asked you to remember\n${mem}`;
+    const instr = projectInstructions(this.cwd).text;
+    if (instr.trim()) s += `\n\n# Project instructions\n${instr}`;
+    return s;
   }
 
   stop(): void { this.stopFlag = true; }

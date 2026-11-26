@@ -11,6 +11,7 @@ import { scan } from "./security";
 import * as files from "./files";
 import { checkUpdate, whatsNew } from "./update";
 import * as gitops from "./gitops";
+import * as ws from "./workspace";
 import cyberCatalog from "./data/cyber-catalog.json";
 import providerCatalog from "./data/providers.json";
 import { homedir } from "os";
@@ -188,7 +189,25 @@ const handlers: Record<string, Handler> = {
   "/api/schedules": () => ({ schedules: [] }),
   "/api/projects": () => ({ projects: [] }),
   "/api/teams": () => ({ teams: [] }),
-  "/api/commands": () => ({ commands: [] }),
+  "/api/commands": (_b, { chats }) => ({ commands: ws.commandList(chats.current.cwd) }),
+
+  "/api/instructions": (body, { chats, store, events }) => {
+    const cwd = chats.current.cwd;
+    const file = ws.instructionFile(cwd);
+    if (typeof body?.text === "string") {
+      require("fs").mkdirSync(require("path").dirname(join(cwd, file)), { recursive: true });
+      require("fs").writeFileSync(join(cwd, file), body.text);
+      events.put({ kind: "config", config: store.publicConfig() });
+    }
+    let text = "";
+    try { text = require("fs").readFileSync(join(cwd, file), "utf8"); } catch {}
+    return { file, text };
+  },
+
+  "/api/memory": (body) => {
+    if (typeof body?.text === "string") ws.writeMemory(body.text);
+    return { text: ws.readMemory() };
+  },
   "/api/context": () => ({ files: [], rules: { allow: [], deny: [] } }),
   "/api/git": (body, { chats }) => gitops.action(chats.current.cwd, body),
   "/api/export": (body, { chats }) => {
