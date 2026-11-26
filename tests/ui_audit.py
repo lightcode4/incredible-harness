@@ -20,6 +20,7 @@ SCRIPT[:] = [("tool", "todo_write", {"todos": [{"content": "Read app.py", "statu
 import os
 server, url, session = start_server(str(work))
 session.config["onboarded"] = True  # the first-run welcome is checked on its own
+session.config["effects"] = "full"  # don't let the CI machine's low core count auto-enable perf mode (checked separately)
 lang = os.environ.get("HERNESS_UI_LANG", "")
 if lang:
     session.config["ui_language"] = lang

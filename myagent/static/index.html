@@ -432,9 +432,11 @@ body:not(.chatting) #dock, #dock { display: flex; }
 #scroll { flex: 1; } .col { max-width: 900px; padding: 0 22px; }
 #panel { display: none; flex: 1; min-height: 0; flex-direction: column; width: auto; max-width: none; min-width: 0; border-left: 0; position: static; }
 body.panel-open #panel { display: flex; }
-#dock { border-top: 1px solid var(--line); padding: 12px 16px 10px; flex-direction: column; align-items: stretch; gap: 6px; }
-.composer { max-width: none; border-radius: 12px; box-shadow: none; }
-.send { border-radius: 9px; }
+#dock { border-top: 1px solid var(--line); padding: 12px 16px 10px; flex-direction: column; align-items: center; gap: 6px; }
+.composer { width: 100%; max-width: 600px; border-radius: 24px; box-shadow: 0 6px 22px rgba(0,0,0,.16); padding: 7px 8px 7px 16px; }
+#dock #compbar, #dock #workbar { width: 100%; max-width: 600px; box-sizing: border-box; }
+#dock #input { min-height: 24px; }
+.send { border-radius: 10px; }
 .foot { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); } .foot span { display: flex; gap: 5px; align-items: center; } .foot svg { width: 11px; height: 11px; }
 .user { background: var(--soft); border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line)); border-radius: 12px; }
 details.toolcard { border-radius: 10px; box-shadow: none; }
@@ -784,6 +786,17 @@ body.quick { background: transparent; overflow: hidden; }
 body.cyber-open .page > .pagehead, body.cyber-open .page > .modelbar, body.cyber-open .page > .grid { display: none; }
 body.cyber-open #cyberView { display: block !important; }
 #navCyber #cyOn, #cyOn { background: var(--ok); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+#side .nemo { width: 22px; height: 22px; display: inline-grid; place-items: center; font-size: 16px; line-height: 1; flex: none; }
+.thsel { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 11px; padding: 0 12px; height: 38px; font: inherit; font-size: 13.5px; outline: none; max-width: 280px; }
+.wpgrid button { height: 52px; border-radius: 10px; border: 2px solid var(--line); position: relative; cursor: pointer; overflow: hidden; }
+.wpgrid button.on { border-color: var(--accent); }
+.wpgrid button span { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font-size: 11px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.85); }
+/* performance: pause the animated background when the window is in the background, and simplify it on weak machines */
+body.bg-paused #bgm, body.bg-paused #bgm * { animation-play-state: paused !important; }
+body.perf #bgm, body.perf #bgm * { animation: none !important; transform: none !important; }
+body.perf #bgm .spark, body.perf #bgm .tw, body.perf #bgm .drift, body.perf #bgm .pollen, body.perf #bgm .ember, body.perf #bgm .shoot, body.perf #bgm .fly, body.perf #bgm .zz, body.perf #bgm .gull, body.perf #bgm .cube, body.perf #bgm .orb, body.perf #bgm .band, body.perf #bgm .beam, body.perf #bgm .stream, body.perf #bgm .wave, body.perf #bgm .burst, body.perf #bgm .cl, body.perf #bgm .bird, body.perf #bgm .star, body.perf #bgm .glint, body.perf #bgm .sunpulse, body.perf #bgm .sparkle { display: none !important; }
+body.perf.has-photo aside#side, body.perf.has-photo dialog, body.perf.has-photo #composer,
+body.perf.has-darkbg #composer, body.perf.has-lightbg aside#side, body.perf.has-lightbg dialog, body.perf.has-lightbg #composer { background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .cyswitch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
 .cyswitch input { position: absolute; opacity: 0; } .cyswitch i { width: 38px; height: 22px; border-radius: 999px; background: var(--line); position: relative; transition: background .15s; }
 .cyswitch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
@@ -1127,6 +1140,7 @@ body.chatting .sc-day .scrim { background: rgba(255,252,245,.62); }
 #log details.toolcard > summary:hover { background: var(--hover); color: var(--text); }
 #log details.toolcard > summary svg:first-child { width: 14px; height: 14px; opacity: .75; }
 #log .toolcard .sum { font-size: 12.5px; color: inherit; }
+#log .toolcard .sum b { color: var(--text); font-weight: 600; } .dplus { color: var(--ok); } .dminus { color: var(--bad); }
 #log .toolcard .badge { font-size: 10.5px; padding: 1px 7px; } #log .toolcard .badge:empty { display: none; }
 #log .toolcard .badge.ok { background: none; color: var(--ok); padding: 0; } #log .toolcard .badge.ok::before { content: "✓ "; }
 #log .toolcard .chev { opacity: 0; width: 13px; height: 13px; } #log .toolcard > summary:hover .chev, #log .toolcard[open] .chev { opacity: .6; }
@@ -1786,7 +1800,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
 <dialog id="settings">
   <div class="dlg-head"><h2 class="serif">Settings</h2><button class="iconbtn" id="closeSettings"><svg><use href="#i-x"/></svg></button></div>
   <div class="tabs" id="tabs">
-    <button data-p="model" class="on">Model</button><button data-p="tools">Tools &amp; limits</button><button data-p="perms">Permissions</button>
+    <button data-p="model" class="on">Model</button><button data-p="tools">Tools &amp; limits</button><button data-p="theme">Theme</button><button data-p="perms">Permissions</button>
     <button data-p="instr">Project instructions</button><button data-p="memory">Memory</button><button data-p="sched">Schedules</button>
     <button data-p="services">Services</button><button data-p="github">GitHub</button><button data-p="mcp">Connectors</button><button data-p="phone">Phone</button><button data-p="about">Updates</button>
   </div>
@@ -1813,6 +1827,17 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <div class="field"><label>API key</label><input id="key" type="password" placeholder="Paste your key"><small>Saved only on this computer, readable only by your user account.</small></div>
       <div class="field"><label>Working folder</label><div style="display:flex;gap:8px"><input id="cwd" spellcheck="false"><button class="btn" id="pick" hidden>Browse…</button></div></div>
     </div>
+    <div class="pane" data-p="theme">
+      <div class="panehead"><h3>Theme</h3><p>How LightCode⁴ looks — for you, and the wallpaper your team shares.</p></div>
+      <div class="field"><label>Appearance</label><div class="artseg" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content"><button data-t="system">System</button><button data-t="light">Light</button><button data-t="dark">Dark</button></div></div>
+      <div class="field"><label>Background <small>Your mascot, big and animated behind the whole app. Auto picks day or night.</small></label><div class="scenepick" id="scenePick" role="radiogroup" aria-label="Background"></div></div>
+      <div class="field"><label>Effects <small>Lower this if the app feels slow on an older or low-memory computer.</small></label>
+        <div class="artseg" id="fxSeg" role="radiogroup" aria-label="Effects" style="width:max-content"><button data-fx="auto">Auto</button><button data-fx="full">Full</button><button data-fx="lite">Lite (less lag)</button></div></div>
+      <div class="field"><label>Team wallpaper <small>Everyone in the team sees this behind your shared conversations.</small></label>
+        <select id="thWpTeam" class="thsel" aria-label="Team"></select>
+        <div class="scenepick wpgrid" id="thWpGrid" style="margin-top:10px"></div>
+        <small id="thWpHint" class="sub"></small></div>
+    </div>
     <div class="pane" data-p="tools">
       <div class="field chromecard"><label>Your Chrome <small>Let the agent read and use your own Chrome, where you're signed in. Every click and typing step asks you first.</small></label>
         <ol class="chsteps"><li>Click <b>Show extension folder</b>.</li><li>In Chrome, open <code>chrome://extensions</code>, turn on <b>Developer mode</b>, click <b>Load unpacked</b> and pick that folder.</li>
@@ -1825,8 +1850,6 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
           <li><b>VS Code:</b> Extensions view → <b>⋯</b> → <b>Install from VSIX…</b>. <b>JetBrains:</b> Settings → Plugins → ⚙︎ → <b>Install Plugin from Disk…</b></li></ol>
         <button class="btn small" id="edDownload">Open downloads</button></div>
       <div class="field"><label for="myName">What should LightCode⁴ call you? <small>(used in the greeting)</small></label><input id="myName" maxlength="40" placeholder="Your first name"></div>
-      <div class="field"><label>Background <small>Your mascot, big and animated behind the whole app.</small></label><div class="scenepick" id="scenePick" role="radiogroup" aria-label="Background"></div></div>
-      <div class="field"><label for="themeSel">Appearance</label><div class="artseg" id="themeSeg" role="radiogroup" aria-label="Appearance" style="width:max-content"><button data-t="system">System</button><button data-t="light">Light</button><button data-t="dark">Dark</button></div></div>
       <label class="toggle"><span>Sound when a task finishes<small>A soft chime when a longer task is done, or when LightCode⁴ is in the background.</small></span><span class="switch"><input type="checkbox" id="soundOn"><span></span></span></label>
       <div class="field"><label for="quickKey">Quick chat shortcut <small>(opens a small LightCode⁴ box over any app; leave empty to turn off)</small></label>
         <div class="fprow" style="margin:0"><input id="quickKey" spellcheck="false" placeholder="ctrl+alt+space"><button class="btn" id="quickTry">Try it</button></div>
@@ -1962,7 +1985,7 @@ function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.
 function add(node) { const stick = nearBottom(); log.appendChild(node); if (stick || replaying) scroll(true); return node; }
 let workStart = 0, workTimer = null;
 function showWorking() {  // the work line stays pinned above the message box, wherever you scroll
-  const w = $("workbar"); if (!w.hidden) return; workStart = Date.now(); $("wbStep").textContent = ""; w.querySelector(".wbm").innerHTML = mascot(true); w.hidden = false;
+  const w = $("workbar"); if (!w.hidden) return; workStart = Date.now(); $("wbStep").textContent = ""; w.querySelector(".wbt").textContent = "Working…"; w.querySelector(".wbm").innerHTML = mascot(true); w.hidden = false;
   const tick = () => { const s = Math.round((Date.now() - workStart) / 1000); $("wbTime").textContent = s < 60 ? s + "s" : Math.floor(s / 60) + "m " + (s % 60) + "s"; };
   tick(); clearInterval(workTimer); workTimer = setInterval(tick, 1000);
 }
@@ -2135,6 +2158,19 @@ function updateSend() { if (!busy) $("send").disabled = !$("input").value.trim()
 
 // ---------- Tool cards ----------
 const tools = {};
+function toolPhrase(ev) {  // a short, human phrase for the working bar instead of the raw command
+  const n = ev.name || "", s = ev.summary || "", file = () => { const m = s.match(/([^\s/\\]+\.[A-Za-z0-9]{1,6})\b/); return m ? " " + m[1] : ""; };
+  if (n === "bash") return "Running commands";
+  if (["read_file", "read_pdf", "notebook_read"].includes(n)) return "Reading files";
+  if (["grep", "glob", "list_files", "code_symbols", "find_references", "code_intel"].includes(n)) return "Searching the project";
+  if (["web_search", "fetch_url"].includes(n)) return "Searching the web";
+  if (n === "write_file") return "Writing a file" + file();
+  if (/edit/.test(n)) return "Editing" + (file() || " a file");
+  if (n === "task") return "Working with a sub-agent";
+  if (n.startsWith("browser_")) return "Using the browser";
+  if (n === "todo_write") return "Planning the work";
+  return "Working";
+}
 const toolIcon = (name, s) => name === "task" ? "agent" : name === "fetch_url" ? "globe" : s.startsWith("$") ? "term" : /^(read|write|edit)/.test(s) ? "file" : "search";
 function toolCard(ev, needsApproval) {
   endBlock();
@@ -2145,7 +2181,14 @@ function toolCard(ev, needsApproval) {
   else if (ev.error) { badge.className = "badge bad"; badge.textContent = "Invalid"; }
   else if (needsApproval) { badge.className = "badge wait"; badge.textContent = "Needs approval"; }
   else { badge.textContent = replaying ? "" : "Running"; }
-  if (ev.diff) { const pre = el("pre"); pre.innerHTML = diffHtml(ev.diff); card.querySelector(".toolbody").appendChild(pre); }
+  if (ev.diff) {
+    let a = 0, r = 0; for (const l of ev.diff.split("\n")) { if (l[0] === "+" && !l.startsWith("+++")) a++; else if (l[0] === "-" && !l.startsWith("---")) r++; }
+    const fname = (ev.summary.match(/([^\s/\\]+\.[A-Za-z0-9]{1,8})\b/) || [, ev.summary])[1];
+    const verb = /write|create/i.test(ev.name || "") ? "Created" : "Edited";
+    const sum = card.querySelector(".sum"); sum.innerHTML = `${verb} <b></b> <span class="dplus"></span><span class="dminus"></span>`;
+    sum.querySelector("b").textContent = fname; sum.querySelector(".dplus").textContent = a ? "+" + a : ""; sum.querySelector(".dminus").textContent = r ? " −" + r : "";
+    const pre = el("pre"); pre.innerHTML = diffHtml(ev.diff); card.querySelector(".toolbody").appendChild(pre);
+  }
   add(card);
   if (needsApproval) {
     card.open = true; card.classList.add("asking");
@@ -2194,6 +2237,21 @@ function toolCard(ev, needsApproval) {
   }
   if (ev.id) tools[ev.id] = card;
   if (!needsApproval && !ev.blocked && READS.has(ev.name)) groupReads(card);
+  else if (!needsApproval && !ev.blocked && RUNS.has(ev.name)) groupRuns(card);
+}
+const RUNS = new Set(["bash"]);
+function groupRuns(card) {  // consecutive commands collapse into one "Ran N commands" row (expand to see each)
+  card.dataset.run = "1";
+  const prev = card.previousElementSibling;
+  let g = prev?.classList.contains("runsgroup") ? prev : null;
+  if (!g && prev?.matches?.("details.toolcard[data-run]")) {
+    g = el("details", "step toolgroup runsgroup", `<summary>${icon("term")}<span class="gsum"></span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="tgbody"></div>`);
+    prev.before(g); g.querySelector(".tgbody").appendChild(prev);
+  }
+  if (!g) return;
+  g.querySelector(".tgbody").appendChild(card);
+  const n = g.querySelectorAll(".tgbody > details").length;
+  g.querySelector(".gsum").textContent = `Ran ${n} command${n > 1 ? "s" : ""}`;
 }
 const READS = new Set(["read_file", "read_pdf", "list_files", "glob", "grep", "code_symbols", "find_references", "code_intel", "web_search", "fetch_url", "bash_output", "notebook_read"]);
 function groupReads(card) {
@@ -2352,7 +2410,7 @@ function handle(ev) {
     case "end_block": endBlock(); break;
     case "notice": notice(ev.text); break;
     case "server_tool": endBlock(); { const s = add(el("div", "srv", icon(/search/.test(ev.text) ? "search" : /fetch/.test(ev.text) ? "globe" : "plug"))); s.appendChild(document.createTextNode(ev.text)); } break;
-    case "tool": toolCard(ev, false); if (!replaying && ev.summary) $("wbStep").textContent = "· " + ev.summary; break;
+    case "tool": toolCard(ev, false); if (!replaying) { document.querySelector("#workbar .wbt").textContent = toolPhrase(ev); $("wbStep").textContent = ""; } break;
     case "approve": toolCard(ev, true); break;
     case "tool_result": toolResult(ev); break;
     case "todos": endBlock(); setTodos(ev.todos); break;
@@ -2481,6 +2539,7 @@ function showConfig(c) {
   if (c.theme && !$("settings").open) applyTheme(c.theme);
   if (typeof applyScene === "function" && (c.scene || "auto") !== document.body.dataset.scene) applyScene(c.scene || "auto");
   document.body.classList.toggle("cyber-on", !!c.cyber_mode); if ($("cyOn")) $("cyOn").hidden = !c.cyber_mode; if ($("cyGlobal")) $("cyGlobal").checked = !!c.cyber_mode;
+  if (typeof applyFx === "function") applyFx(c.effects || "auto");
   if (typeof updateModeBtn === "function") setTimeout(updateModeBtn, 0);
   $("modelName").textContent = c.model + (c.provider === "claude" ? ` · ${c.effort}` : "");
   $("who").textContent = { claude: "Claude", openai: "OpenAI", local: "Local" }[c.provider] + " · " + c.model;
@@ -2504,7 +2563,7 @@ function mcpRow(m = {}) {
   };
   $("mcpRows").appendChild(r);
 }
-function showTab(p) { document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.p === p)); document.querySelectorAll(".pane").forEach(x => x.classList.toggle("on", x.dataset.p === p)); }
+function showTab(p) { document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.p === p)); document.querySelectorAll(".pane").forEach(x => x.classList.toggle("on", x.dataset.p === p)); if (p === "theme" && typeof thLoadWallpaper === "function") thLoadWallpaper(); }
 let instrLoaded = "";
 async function openSettings(tab) {
   loadServices(); renderGitHub(); chromeCard();
@@ -4092,6 +4151,45 @@ $("cySearch").oninput = cyRenderGroups;
 $("cyStart").onclick = cyStart;
 $("cyGlobal").onchange = () => cySetGlobal($("cyGlobal").checked);
 (function cyChips() { const box = $("cyChips"); CY_CHIPS.forEach(t => { const b = el("button"); b.textContent = t.length > 56 ? t.slice(0, 54) + "…" : t; b.title = t; b.onclick = () => { $("cyInput").value = t; $("cyInput").focus(); }; box.appendChild(b); }); })();
+// ---------- performance: reduce effects on weak machines, pause when backgrounded ----------
+const LOWEND = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+function applyFx(mode) {
+  mode = ["auto", "full", "lite"].includes(mode) ? mode : "auto";
+  const reduce = mode === "lite" || (mode === "auto" && (LOWEND || matchMedia("(prefers-reduced-motion: reduce)").matches));
+  document.body.classList.toggle("perf", reduce);
+  document.querySelectorAll("#fxSeg button").forEach(b => b.classList.toggle("on", b.dataset.fx === mode));
+}
+document.addEventListener("visibilitychange", () => document.body.classList.toggle("bg-paused", document.hidden));
+addEventListener("blur", () => document.body.classList.add("bg-paused"));
+addEventListener("focus", () => document.body.classList.remove("bg-paused"));
+document.querySelectorAll("#fxSeg button").forEach(b => b.onclick = async () => { config.effects = b.dataset.fx; applyFx(b.dataset.fx); await api("/api/config", { effects: b.dataset.fx }).catch(e => notice(e.message)); });
+// ---------- Theme: team wallpaper picker ----------
+async function thLoadWallpaper() {
+  try { if (!tmData || !tmData.teams) await loadTeams(); } catch (e) {}
+  const teams = (tmData && tmData.teams) || [], sel = $("thWpTeam"), grid = $("thWpGrid"), hint = $("thWpHint");
+  if (!teams.length) { sel.hidden = true; grid.hidden = true; hint.textContent = "You're not in a team yet — create one under Teams to set a shared wallpaper."; return; }
+  sel.hidden = false; grid.hidden = false; hint.textContent = "";
+  sel.innerHTML = teams.map(t => `<option value="${esc(t.repo)}">${esc(t.name || "Team")}</option>`).join("");
+  thDrawWp();
+}
+function thDrawWp() {
+  const repo = $("thWpTeam").value, team = ((tmData && tmData.teams) || []).find(t => t.repo === repo) || {}, cur = team.wallpaper || {};
+  const grid = $("thWpGrid"); grid.innerHTML = "";
+  WALLPAPERS.forEach(([id, label]) => { const b = el("button", "wp-" + id + (cur.kind !== "image" && (cur.id || "none") === id ? " on" : ""), "<span></span>"); b.type = "button"; b.querySelector("span").textContent = label; b.title = label;
+    b.onclick = async () => { try { const t = await api("/api/team/wallpaper", { repo, preset: id }); const i = tmData.teams.findIndex(x => x.repo === repo); if (i >= 0) tmData.teams[i] = { ...tmData.teams[i], ...t }; thDrawWp(); notice("Wallpaper updated for the team."); } catch (e) { notice(e.message); } };
+    grid.appendChild(b); });
+}
+$("thWpTeam").onchange = thDrawWp;
+// ---------- colored (emoji) sidebar icons ----------
+(function navEmoji() {
+  const BY_ID = { newchat: "➕", navPlay: "✨", navSessions: "💬", navTeams: "👥", navProjects: "📁",
+    navCyber: "🛡️", navFiles: "📂", navTasks: "✅", navGit: "🔀", navUsage: "📊", navGallery: "🧩",
+    navActivity: "📈", navHelp: "❓", openSettings: "⚙️" };
+  const BY_SET = { model: "🧠", instr: "📋", tools: "🛠️", mcp: "🔌", sched: "⏰" };
+  const put = (btn, emo) => { if (!btn) return; const s = btn.querySelector("svg"); const n = el("span", "nemo", ""); n.textContent = emo; s ? s.replaceWith(n) : btn.prepend(n); };
+  Object.entries(BY_ID).forEach(([id, e]) => put(document.getElementById(id), e));
+  Object.entries(BY_SET).forEach(([k, e]) => put(document.querySelector(`#side .navbtn[data-set="${k}"]`), e));
+})();
 // ---------- Marketplace (GitHub repositories of skills, agents, commands and plugins) ----------
 let mk = { source: "", items: [], sources: [] };
 async function loadMarket(source = "", refresh = false) {

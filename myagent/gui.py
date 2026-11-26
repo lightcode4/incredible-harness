@@ -1260,7 +1260,7 @@ class Session:
                        "recent_folders": [], "ui_language": "en", "service": "", "keys": {}, "service_models": {},
                        "projects": [], "quick_hotkey": "<ctrl>+<alt>+<space>", "pinned": [], "titles": {},
                        "theme": "system", "sound": False, "onboarded": False, "name": "", "mode": "code", "services": {},
-                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "", "teams": [], "team_shares": {}, "auto_update": True, "scene": "auto", "cyber_mode": False,
+                       "github_user": {}, "github_folder": "", "style": "normal", "style_custom": "", "sync_chats": False, "last_sync": {}, "bridge_key": "", "teams": [], "team_shares": {}, "auto_update": True, "scene": "auto", "cyber_mode": False, "effects": "auto",
                        "last_chat": ""}
         self.focused = True  # is a LightCode4 window in front? (the page reports focus changes)
         self.set_badge = None  # set by the desktop app (Dock badge)
@@ -2934,12 +2934,13 @@ def make_handler(session: Session, token: str):
                     result = {"url": session.set_remote(bool(data.get("on")))}
                     session.events.put({"kind": "config", "config": session.public_config()})
                 elif path == "/api/config":
-                    if set(data) <= {"auto", "plan", "theme", "sound", "onboarded", "name", "auto_update", "scene", "cyber_mode"}:  # display choices: no restart needed
+                    if set(data) <= {"auto", "plan", "theme", "sound", "onboarded", "name", "auto_update", "scene", "cyber_mode", "effects"}:  # display choices: no restart needed
                         for k, v in data.items():
                             session.config[k] = ((str(v) if str(v) in ("auto", "none", "daybreak", "companion", "orbit", "landscape", "dusk", "dream", "aurora", "moon", "meteor", "clouds", "lighthouse", "meadow", "wave", "halo", "tower", "datafall", "forest") else "auto") if k == "scene"
+                                                 else (str(v) if str(v) in ("auto", "full", "lite") else "auto") if k == "effects"
                                                  else (str(v) if str(v) in ("system", "light", "dark") else "system") if k == "theme"
                                                  else " ".join(str(v).split())[:40] if k == "name" else bool(v))
-                        if set(data) & {"theme", "sound", "onboarded", "name", "auto_update", "scene", "cyber_mode"}:
+                        if set(data) & {"theme", "sound", "onboarded", "name", "auto_update", "scene", "cyber_mode", "effects"}:
                             session.save()
                     else:
                         if chat and chat.busy:

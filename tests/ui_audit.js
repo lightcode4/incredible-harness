@@ -236,6 +236,17 @@ async function overlaps(pg, label) {
       check('Findings can be filtered', await pg.evaluate(() => { const n = document.querySelectorAll('#secList .secfind').length; const s = document.getElementById('secSearch'); s.value = 'zz-no-such-finding-zz'; s.dispatchEvent(new Event('input')); const after = document.querySelectorAll('#secList .secfind').length; s.value = ''; s.dispatchEvent(new Event('input')); return n >= 1 && after === 0; }));
       await overlaps(pg, 'security tab');
       await tab(pg, 'chat'); await pg.waitForTimeout(200);
+      check('Consecutive commands collapse into "Ran N commands"', await pg.evaluate(() => {
+        for (let i = 1; i <= 3; i++) { toolCard({ name: 'bash', summary: '$ echo ' + i, id: 'tcg' + i }); toolResult({ id: 'tcg' + i, output: String(i) }); }
+        const g = document.querySelector('#log .runsgroup'); const ok = !!g && /Ran 3 commands/.test(g.querySelector('.gsum').textContent) && g.querySelectorAll('.tgbody > details').length === 3;
+        g && g.remove(); return ok;
+      }));
+      check('Working bar shows a friendly phrase, not the raw command', await pg.evaluate(() => toolPhrase({ name: 'bash' }) === 'Running commands' && toolPhrase({ name: 'read_file' }) === 'Reading files' && toolPhrase({ name: 'web_search' }) === 'Searching the web'));
+      check('Edits show a compact "Edited <file> +N −M" summary', await pg.evaluate(() => {
+        toolCard({ name: 'multi_edit', summary: 'Edit demo.js', id: 'edsum', diff: '--- a/demo.js\n+++ b/demo.js\n@@\n-old\n+new1\n+new2\n' });
+        const c = tools['edsum']; const t = c ? c.querySelector('.sum').textContent : '';
+        c && c.remove(); return /Edited/.test(t) && t.includes('demo.js') && t.includes('+2') && (t.includes('−1') || t.includes('-1'));
+      }));
       // Activity panel and side panel button
       await pg.click('#activityBtn'); await pg.waitForTimeout(250);
       check('Activity panel lists what the agent did', await pg.isVisible('#activityPop') && (await pg.locator('#actList .arow').count()) >= 2, String(await pg.locator('#actList .arow').count()));
@@ -442,13 +453,16 @@ async function overlaps(pg, label) {
       check('Settings lists language servers with their status', (await pg.locator('.lsprow').count()) === 6 && (await pg.innerText('#lspList')).includes('Python'));
       check('Quick chat shortcut is shown in plain words', (await pg.inputValue('#quickKey')) === 'ctrl+alt+space');
       await overlaps(pg, 'settings tools'); await pg.click('#cancelSettings');
-      // appearance switch
-      await pg.click('#openSettings'); await pg.click('#tabs button[data-p="tools"]');
+      // appearance switch — now in its own Theme tab
+      await pg.click('#openSettings'); await pg.click('#tabs button[data-p="theme"]'); await pg.waitForSelector('#themeSeg button[data-t="dark"]', { timeout: 6000 }); await pg.waitForTimeout(300);
+      check('Theme tab groups Appearance, Background and Team wallpaper', await pg.isVisible('#scenePick') && await pg.isVisible('#fxSeg') && (await pg.innerText('#thWpHint')).toLowerCase().includes('team'));
       await pg.click('#themeSeg button[data-t="dark"]'); await pg.waitForTimeout(200);
       const darkBg = await pg.evaluate(() => getComputedStyle(document.body).backgroundColor);
       await pg.click('#themeSeg button[data-t="light"]'); await pg.waitForTimeout(200);
       const lightBg = await pg.evaluate(() => getComputedStyle(document.body).backgroundColor);
       check('Appearance switches between dark and light', darkBg !== lightBg && darkBg.includes('23, 19, 12'), darkBg + ' / ' + lightBg);
+      check('Effects · Lite adds performance mode', await pg.evaluate(() => { document.querySelector('#fxSeg button[data-fx="lite"]').click(); return document.body.classList.contains('perf'); }));
+      await pg.evaluate(() => document.querySelector('#fxSeg button[data-fx="auto"]').click());
       await pg.click('#themeSeg button[data-t="system"]'); await pg.click('#cancelSettings');
       check('Header has no Checkpoints / View code / New session', !(await pg.isVisible('#checkpointsBtn')) && !(await pg.isVisible('#viewCodeBtn')) && !(await pg.isVisible('#newSessionBtn')));
       await overlaps(pg, 'after a turn');
