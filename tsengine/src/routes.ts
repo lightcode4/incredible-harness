@@ -10,6 +10,7 @@ import { listModels, testConnection, mergeCfg } from "./models";
 import { scan } from "./security";
 import * as files from "./files";
 import { checkUpdate, whatsNew } from "./update";
+import * as gitops from "./gitops";
 import cyberCatalog from "./data/cyber-catalog.json";
 import providerCatalog from "./data/providers.json";
 import { homedir } from "os";
@@ -189,7 +190,14 @@ const handlers: Record<string, Handler> = {
   "/api/teams": () => ({ teams: [] }),
   "/api/commands": () => ({ commands: [] }),
   "/api/context": () => ({ files: [], rules: { allow: [], deny: [] } }),
-  "/api/git": () => ({ branch: "", files: [], branches: [] }),
+  "/api/git": (body, { chats }) => gitops.action(chats.current.cwd, body),
+  "/api/export": (body, { chats }) => {
+    const fmt = String(body?.format || "md");
+    const t = chats.current.transcript.map((m) => `**${m.role}**\n\n${m.content}`).join("\n\n---\n\n");
+    const out = join(homedir(), `lightcode4-chat-${chats.current.id}.${fmt === "html" ? "html" : "md"}`);
+    require("fs").writeFileSync(out, fmt === "html" ? `<pre>${t.replace(/</g, "&lt;")}</pre>` : t);
+    return { path: out };
+  },
   "/api/chats/search": () => ({ results: [] }),
 };
 
