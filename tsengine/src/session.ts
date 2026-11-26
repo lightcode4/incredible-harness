@@ -6,8 +6,11 @@ import { join, resolve, relative } from "path";
 import { homedir } from "os";
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "fs";
 import { randomBytes } from "crypto";
-import type { EventHub } from "./events";
+import type { Event } from "./events";
 import type { Store } from "./config";
+
+// Anything the session can push events through (the real EventHub, or a side-chat wrapper that tags them).
+export interface Emitter { put(ev: Event): void; }
 import { streamTurn, type Msg } from "./providers";
 import { TOOL_SPECS, runTool } from "./tools";
 import { projectInstructions, readMemory } from "./workspace";
@@ -50,11 +53,13 @@ export class Session {
   busy = false;
   turnNo = 0;
   checkpoints: Checkpoint[] = [];
+  ephemeral = false;
   private cur: Checkpoint | null = null;
   private stopFlag = false;
 
-  constructor(private store: Store, private events: EventHub, init?: Partial<Session> & { transcript?: Msg[] }) {
+  constructor(private store: Store, private events: Emitter, init?: Partial<Session> & { transcript?: Msg[]; ephemeral?: boolean }) {
     this.id = init?.id || "c" + randomBytes(5).toString("hex");
+    if (init?.ephemeral) this.ephemeral = true;
     this.cwd = init?.cwd || String(store.config.cwd);
     if (init?.title) this.title = init.title;
     if (init?.kind) this.kind = init.kind;
@@ -69,6 +74,7 @@ export class Session {
   }
 
   save(): void {
+    if (this.ephemeral) return;
     try {
       mkdirSync(CHATS_DIR, { recursive: true });
       writeFileSync(join(CHATS_DIR, this.id + ".json"), JSON.stringify({
@@ -78,7 +84,7 @@ export class Session {
     } catch { /* best effort */ }
   }
 
-  static load(store: Store, events: EventHub, id: string): Session | null {
+  static load(store: Store, events: Emitter, id: string): Session | null {
     try {
       const d = JSON.parse(readFileSync(join(CHATS_DIR, id + ".json"), "utf8"));
       return new Session(store, events, d);

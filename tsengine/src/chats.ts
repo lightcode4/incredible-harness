@@ -5,10 +5,11 @@ import { readdirSync, rmSync, mkdirSync } from "fs";
 import { join } from "path";
 import type { Store } from "./config";
 import type { EventHub } from "./events";
-import { Session, CHATS_DIR } from "./session";
+import { Session, CHATS_DIR, type Emitter } from "./session";
 
 export class ChatManager {
   private chats = new Map<string, Session>();
+  private sideChats = new Map<string, Session>();
   current: Session;
 
   constructor(private store: Store, private events: EventHub) {
@@ -53,6 +54,26 @@ export class ChatManager {
     this.events.put({ kind: "chats_changed" });
     return { id: s.id };
   }
+
+  // A side chat alongside the current one: ephemeral, seeded with the main transcript.
+  // Its events are tagged chat:"side-<mainid>" so the UI routes them to the side panel.
+  sideSend(text: string): { side: string } {
+    const main = this.current;
+    const sideId = "side-" + main.id;
+    let side = this.sideChats.get(main.id);
+    if (!side) {
+      const tagged: Emitter = { put: (ev) => this.events.put({ ...ev, chat: sideId }) };
+      side = new Session(this.store, tagged, {
+        id: sideId, cwd: main.cwd, kind: main.kind, ephemeral: true,
+        transcript: main.transcript.map((m) => ({ ...m })),
+      });
+      this.sideChats.set(main.id, side);
+    }
+    void side.send(text).catch(() => {});
+    return { side: sideId };
+  }
+  sideReset(): void { const s = this.sideChats.get(this.current.id); s?.stop(); this.sideChats.delete(this.current.id); }
+  sideStop(): void { this.sideChats.get(this.current.id)?.stop(); }
 
   fork(idx: number, text = ""): { id: string } {
     const meta = this.current.forkMeta(idx);

@@ -64,7 +64,17 @@ const handlers: Record<string, Handler> = {
   "/api/chat/pin": (body, { chats }) => { chats.pin(String(body?.id || ""), Boolean(body?.on)); return {}; },
   "/api/chat/delete": (body, { chats }) => { chats.delete(String(body?.id || "")); return {}; },
   "/api/activate": (body, { chats }) => { if (body?.chat) chats.open(String(body.chat)); return {}; },
+  "/api/side/send": (body, { chats }) => chats.sideSend(String(body?.text || "")),
+  "/api/side/reset": (_b, { chats }) => { chats.sideReset(); return {}; },
+  "/api/side/stop": (_b, { chats }) => { chats.sideStop(); return {}; },
   "/api/fork": (body, { chats }) => chats.fork(Number(body?.idx ?? 1e9), String(body?.text || "")),
+
+  "/api/artifact/publish": async (body, { store }) => {
+    const login = String((store.config.github_user as any)?.login || "");
+    const token = String(store.config.github_token || "");
+    if (body?.unpublish) { await gh.unpublishPage(token, login, String(body?.url || "")); return {}; }
+    return { url: await gh.publishPage(token, login, String(body?.title || "page"), String(body?.html || "")) };
+  },
   "/api/rewind": (body, { chats }) => ({ restored: chats.current.rewind(Number(body?.idx ?? -1), String(body?.text || ""), body?.undo_files !== false) }),
   "/api/undo": (body, { chats }) => ({ restored: chats.current.undo(String(body?.turn || "")) }),
   "/api/compact": (body, { chats }) => { void chats.current.compact(String(body?.focus || "")); return { ok: true }; },

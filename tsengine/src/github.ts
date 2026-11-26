@@ -94,6 +94,30 @@ export async function devicePoll(
   throw new GitHubError("The sign-in code expired. Start again.");
 }
 
+// ---- shareable pages (GitHub Pages) ----
+const PAGES_REPO = "lightcode4-pages";
+
+export async function publishPage(token: string, login: string, title: string, html: string): Promise<string> {
+  if (!login) throw new GitHubError("Connect GitHub first (Settings > GitHub).");
+  try { await api(token, "GET", `/repos/${login}/${PAGES_REPO}`); }
+  catch { await api(token, "POST", "/user/repos", { name: PAGES_REPO, auto_init: true, private: false, description: "Pages shared from LightCode4" }); }
+  const slug = (title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60)) || "page";
+  const path = `${slug}.html`;
+  let sha: string | undefined;
+  try { sha = (await api(token, "GET", `/repos/${login}/${PAGES_REPO}/contents/${path}`)).sha; } catch {}
+  const body: any = { message: `Publish ${title}`, content: Buffer.from(html).toString("base64") };
+  if (sha) body.sha = sha;
+  await api(token, "PUT", `/repos/${login}/${PAGES_REPO}/contents/${path}`, body);
+  try { await api(token, "POST", `/repos/${login}/${PAGES_REPO}/pages`, { source: { branch: "main", path: "/" } }); } catch {}
+  return `https://${login.toLowerCase()}.github.io/${PAGES_REPO}/${path}`;
+}
+
+export async function unpublishPage(token: string, login: string, url: string): Promise<void> {
+  const path = url.split("/").pop()!;
+  const sha = (await api(token, "GET", `/repos/${login}/${PAGES_REPO}/contents/${path}`)).sha;
+  await api(token, "DELETE", `/repos/${login}/${PAGES_REPO}/contents/${path}`, { message: `Unpublish ${path}`, sha });
+}
+
 // The private no-reply commit email GitHub uses, so commits link to the profile.
 export function identity(user: GitHubUser | null): [string, string] {
   const login = user?.login || "";
