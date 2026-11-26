@@ -2,9 +2,9 @@
 // Emits the same events the Python Chat emits (user / text / tool / tool_result /
 // turn_end / status / usage / title).
 
-import { join } from "path";
+import { join, resolve, relative } from "path";
 import { homedir } from "os";
-import { mkdirSync, writeFileSync, readFileSync } from "fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "fs";
 import { randomBytes } from "crypto";
 import type { EventHub } from "./events";
 import type { Store } from "./config";
@@ -18,6 +18,21 @@ const CYBER_PREAMBLE =
   "Cyber Security mode is ON. The user is authorized to test systems and apps they own, " +
   "in a lab they control. Help with security review, bug hunting and defensive analysis. " +
   "Refuse anything that targets third parties or enables real-world harm.\n\n";
+
+// Model context windows (tokens). Rough but good enough for the context rail.
+export function contextWindow(model: string, override = 0): number {
+  if (override) return override;
+  const m = (model || "").toLowerCase();
+  if (m.includes("claude") || m.includes("opus") || m.includes("sonnet") || m.includes("haiku")) return 200_000;
+  if (m.includes("gpt-5") || m.includes("gpt-4.1") || m.includes("o3") || m.includes("o4")) return 400_000;
+  if (m.includes("gpt-4o") || m.includes("gpt-4")) return 128_000;
+  if (m.includes("gemini")) return 1_000_000;
+  if (m.includes("deepseek")) return 128_000;
+  if (m.includes("grok")) return 256_000;
+  return 128_000;
+}
+
+type Checkpoint = { id: string; label: string; when: number; files: Record<string, string | null> };
 
 export type ChatMeta = {
   id: string; title: string; kind: string; cwd: string; pinned: boolean; updated: number; running: boolean;
@@ -33,6 +48,9 @@ export class Session {
   updated = Date.now() / 1000;
   transcript: Msg[] = [];
   busy = false;
+  turnNo = 0;
+  checkpoints: Checkpoint[] = [];
+  private cur: Checkpoint | null = null;
   private stopFlag = false;
 
   constructor(private store: Store, private events: EventHub, init?: Partial<Session> & { transcript?: Msg[] }) {
@@ -85,6 +103,62 @@ export class Session {
 
   stop(): void { this.stopFlag = true; }
 
+  private snapshot(path: string): void {
+    if (!this.cur) return;
+    const full = resolve(this.cwd, path);
+    const rel = relative(this.cwd, full) || path;
+    if (rel in this.cur.files) return;
+    try { this.cur.files[rel] = existsSync(full) ? readFileSync(full, "utf8") : null; }
+    catch { this.cur.files[rel] = null; }
+  }
+
+  checkpointList() {
+    return this.checkpoints.slice().reverse().map((c) => ({ turn: c.id, label: c.label, when: c.when, files: Object.keys(c.files) }));
+  }
+
+  // Revert every file changed from this checkpoint onward back to its pre-change content.
+  restoreTo(turn: string): number {
+    const idx = this.checkpoints.findIndex((c) => c.id === turn);
+    if (idx < 0) return 0;
+    let restored = 0;
+    for (let i = this.checkpoints.length - 1; i >= idx; i--) {
+      for (const [rel, original] of Object.entries(this.checkpoints[i]!.files)) {
+        const full = join(this.cwd, rel);
+        try {
+          if (original === null) { if (existsSync(full)) require("fs").rmSync(full); }
+          else writeFileSync(full, original);
+          restored++;
+        } catch { /* skip */ }
+      }
+    }
+    this.checkpoints.splice(idx);
+    this.events.put({ kind: "fs_changed" });
+    return restored;
+  }
+
+  contextReport() {
+    const est = (o: unknown) => Math.floor(JSON.stringify(o).length / 4);
+    const model = String(this.store.config.model || "");
+    const window = contextWindow(model, Number((this.store.config as any).context_window) || 0);
+    const parts = [
+      { name: "Messages", tokens: est(this.transcript) },
+      { name: "Tools", tokens: est(TOOL_SPECS) },
+      { name: "System prompt", tokens: Math.floor(this.system().length / 4) },
+    ];
+    const used = parts.reduce((a, p) => a + p.tokens, 0);
+    const at = Math.floor(window * 0.85);
+    const outputs = [...new Set(this.checkpoints.flatMap((c) => Object.keys(c.files)))].slice(0, 30);
+    let branch = "";
+    try {
+      const p = Bun.spawnSync(["git", "rev-parse", "--abbrev-ref", "HEAD"], { cwd: this.cwd });
+      if (p.exitCode === 0) branch = p.stdout.toString().trim();
+    } catch {}
+    return {
+      window, used, parts, free: Math.max(0, window - used), autocompact_at: at,
+      until_compact: Math.max(0, at - used), outputs, branch, folder: this.cwd, model, mode: this.kind,
+    };
+  }
+
   private haveKey(): boolean {
     const cfg = this.store.config, keys = (cfg.keys as any) || {};
     return Boolean(cfg.api_key || keys[cfg.service as string] || keys[cfg.provider as string]);
@@ -102,6 +176,8 @@ export class Session {
     this.events.put({ kind: "user", text });
     this.events.put({ kind: "status", busy: true });
     this.transcript.push({ role: "user", content: text });
+    this.turnNo++;
+    this.cur = { id: "t" + this.turnNo, label: text.slice(0, 40), when: Date.now() / 1000, files: {} };
     if (!this.title) {
       this.title = text.slice(0, 48).replace(/\s+/g, " ").trim();
       this.events.put({ kind: "title", chat: this.id, title: this.title });
@@ -121,6 +197,7 @@ export class Session {
         for (const tc of result.toolCalls) {
           if (this.stopFlag) break;
           this.events.put({ kind: "tool", id: tc.id, name: tc.name, input: tc.args, summary: tc.name });
+          if ((tc.name === "write_file" || tc.name === "edit_file") && tc.args?.path) this.snapshot(String(tc.args.path));
           let out: string;
           try { out = await runTool(this.cwd, tc.name, tc.args); }
           catch (e) { out = `Error: ${(e as Error).message}`; }
@@ -134,6 +211,8 @@ export class Session {
     } finally {
       this.busy = false;
       this.updated = Date.now() / 1000;
+      if (this.cur && Object.keys(this.cur.files).length) this.checkpoints.push(this.cur);
+      this.cur = null;
       this.save();
       this.events.put({ kind: "turn_end" });
       this.events.put({ kind: "status", busy: false });

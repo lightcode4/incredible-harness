@@ -82,6 +82,16 @@ test("security scanner flags a hard-coded AWS key and os.system", () => {
   expect(r.counts.high).toBeGreaterThan(0);
 });
 
+test("context report returns a window and token breakdown", async () => {
+  const c = ctx();
+  const r = (await route("/api/context", {}, c)) as any;
+  expect(r.window).toBeGreaterThan(0);
+  expect(Array.isArray(r.parts)).toBe(true);
+  expect(r.parts.some((p: any) => p.name === "Messages")).toBe(true);
+  const cp = (await route("/api/checkpoints", {}, c)) as any;
+  expect(Array.isArray(cp.checkpoints)).toBe(true);
+});
+
 test("providers catalog lists known services with key flags", async () => {
   const r = (await route("/api/providers", {}, ctx())) as any;
   const ids = r.providers.map((p: any) => p.id);

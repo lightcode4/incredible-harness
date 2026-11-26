@@ -215,7 +215,9 @@ const handlers: Record<string, Handler> = {
     if (typeof body?.text === "string") ws.writeMemory(body.text);
     return { text: ws.readMemory() };
   },
-  "/api/context": () => ({ files: [], rules: { allow: [], deny: [] } }),
+  "/api/context": (_b, { chats }) => chats.current.contextReport(),
+  "/api/checkpoints": (_b, { chats }) => ({ checkpoints: chats.current.checkpointList() }),
+  "/api/checkpoints/restore": (body, { chats }) => ({ restored: chats.current.restoreTo(String(body?.turn || "")) }),
   "/api/git": (body, { chats }) => gitops.action(chats.current.cwd, body),
   "/api/export": (body, { chats }) => {
     const fmt = String(body?.format || "md");
