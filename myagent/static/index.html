@@ -84,6 +84,19 @@ body.working aside#side:hover::before { opacity: 0; }
 .acctitem svg { width: 17px; height: 17px; fill: none; stroke: var(--muted); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .acctitem .acctlabel { flex: 1; } .acctitem kbd { font-size: 11px; color: var(--faint); border: 0; background: none; }
 .acctsep { height: 1px; background: var(--line-soft); margin: 5px 8px; }
+#whatsNew { width: min(560px, 94vw); max-height: 86vh; }
+.wnbody { max-height: 62vh; overflow-y: auto; padding: 16px 22px; }
+.wnmeta { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
+.wnmeta b { font-size: 16px; } .wnmeta span { color: var(--muted); font-size: 12.5px; font-family: var(--monoF); }
+.wncontent { font-size: 14px; line-height: 1.55; color: var(--body); } .wncontent h1, .wncontent h2, .wncontent h3 { font-size: 14.5px; font-weight: 700; color: var(--text); margin: 16px 0 6px; }
+.wncontent ul { padding-left: 20px; margin: 6px 0; } .wncontent li { margin: 4px 0; } .wncontent a { color: var(--accent); } .wncontent p { margin: 8px 0; }
+.abouthero { text-align: center; padding: 18px 16px 6px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--accent) 5%, var(--panel)); }
+.abtlogo { width: 84px; height: 76px; margin: 0 auto 8px; } .abtlogo .mascot { width: 84px; height: 76px; }
+.abtname { font-size: 26px; margin-bottom: 2px; color: var(--text); }
+.abtver { font-family: var(--monoF); font-size: 12px; color: var(--muted); }
+.abttag { color: var(--muted); font-size: 13px; max-width: 360px; margin: 10px auto 14px; line-height: 1.5; }
+.abtacts { display: flex; gap: 8px; justify-content: center; }
+.abtcheck { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 .who { font-size: 12px; color: var(--muted); padding: 2px 10px 4px; display: flex; gap: 6px; align-items: center; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; }
 .dot.off { background: var(--bad); }
@@ -1842,6 +1855,11 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
     <tr><td>Drag a chat</td><td>Reorder chats in the sidebar</td></tr>
   </table></div></dialog>
 
+<dialog id="whatsNew" aria-label="What's new">
+  <div class="dlg-head"><h2 class="serif">What's new</h2><button class="iconbtn" id="wnClose" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
+  <div class="dlg-body wnbody"><div id="wnMeta" class="wnmeta"></div><div id="wnContent" class="wncontent"></div></div>
+  <div class="dlg-foot"><span class="spacer"></span><button class="btn" id="wnReleases">All releases on GitHub</button></div>
+</dialog>
 <dialog id="settings">
   <div class="dlg-head"><h2 class="serif">Settings</h2><button class="iconbtn" id="closeSettings"><svg><use href="#i-x"/></svg></button></div>
   <div class="tabs" id="tabs">
@@ -1993,9 +2011,16 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       </div>
     </div>
     <div class="pane" data-p="about">
-      <div class="note" id="aboutText">LightCode⁴</div>
+      <div class="abouthero">
+        <div class="abtlogo" id="abtLogo"></div>
+        <div class="abtname serif">LightCode⁴</div>
+        <div class="abtver" id="aboutText">LightCode⁴</div>
+        <p class="abttag">Your personal coding agent — your API key, your machine, your rules.</p>
+        <div class="abtacts"><button class="btn small" id="abtWhatsNew">What's new</button><button class="btn small" id="abtGithub">View on GitHub</button></div>
+      </div>
+      <div class="field" style="margin-top:18px"><label>Updates</label>
       <label class="toggle"><span>Update automatically<small>New versions download quietly in the background. When one is ready you choose: restart and install now, or later.</small></span><span class="switch"><input type="checkbox" id="autoUpdate"><span></span></span></label>
-      <div><button class="btn" id="checkUpdate">Check for updates</button> <button class="btn primary" id="installUpdate" hidden>Install &amp; restart</button> <span id="updateResult" style="font-size:13px;color:var(--muted)"></span></div>
+      <div class="abtcheck"><button class="btn" id="checkUpdate">Check for updates</button> <button class="btn primary" id="installUpdate" hidden>Install &amp; restart</button> <span id="updateResult" style="font-size:13px;color:var(--muted)"></span></div></div>
       <div class="field"><label>Settings on another computer</label><div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn small" id="exportSettings">Export settings</button><button class="btn small" id="exportSettingsKeys">Export with API keys</button>
         <button class="btn small" id="importSettings">Import settings…</button><input type="file" id="importFile" accept=".json" hidden></div>
@@ -2678,7 +2703,7 @@ $("saveSettings").onclick = async () => {
 };
 $("cancelSettings").onclick = $("closeSettings").onclick = () => $("settings").close();
 // click outside any modal to leave it — no back button needed (the first-run welcome stays modal)
-["settings", "keys", "cpDlg", "modelPicker", "folderPicker", "provDlg"].forEach(id => { const d = $(id); if (d) d.addEventListener("click", e => { if (e.target === d) d.close(); }); });
+["settings", "keys", "cpDlg", "modelPicker", "folderPicker", "provDlg", "whatsNew"].forEach(id => { const d = $(id); if (d) d.addEventListener("click", e => { if (e.target === d) d.close(); }); });
 $("modelPill").onclick = () => openSettings(); $("folderPill").onclick = () => openSettings();
 // ---------- account / profile menu ----------
 const MG = {
@@ -2734,10 +2759,21 @@ function applyAccount(c) {
   $("acctIni").textContent = (gh.login || gh.name || "?").trim()[0].toUpperCase();
   $("acctName").textContent = gh.login ? (gh.name || gh.login) : "Account";
 }
-function showWhatsNew() {
-  uiDialog({ title: "What's new", text: `You're on LightCode⁴ ${config.version || ""} · build ${config.build ?? "?"}.\n\nSee the full list of changes and downloads on GitHub.`, ok: "View releases", cancel: "Close" })
-    .then(ok => { if (ok) api("/api/open-url", { url: "https://github.com/lightcode4/incredible-harness/releases" }).catch(() => {}); });
+async function showWhatsNew() {
+  $("whatsNew").showModal();
+  $("wnContent").innerHTML = '<div class="aempty">Loading the latest release notes…</div>'; $("wnMeta").textContent = "";
+  $("wnReleases").onclick = () => api("/api/open-url", { url: "https://github.com/lightcode4/incredible-harness/releases" }).catch(() => {});
+  try {
+    const r = await api("/api/whatsnew");
+    $("wnMeta").innerHTML = `<b></b><span></span>`;
+    $("wnMeta").querySelector("b").textContent = r.name || ("Build " + r.build);
+    $("wnMeta").querySelector("span").textContent = `${r.version || ""} · build ${r.build}`;
+    $("wnContent").innerHTML = r.body ? markdown(r.body.replace(/^#{1,3}\s/gm, "## ")) : `<p class="sub">You're up to date. The changes in each update will show here.</p>`;
+    if (r.url) $("wnReleases").onclick = () => api("/api/open-url", { url: r.url }).catch(() => {});
+  } catch (e) { $("wnContent").innerHTML = `<p class="sub">Couldn't load release notes: ${esc(e.message)}</p>`; }
 }
+$("wnClose").onclick = () => $("whatsNew").close();
+if ($("abtLogo")) { $("abtLogo").innerHTML = mascot(false); $("abtWhatsNew").onclick = showWhatsNew; $("abtGithub").onclick = () => api("/api/open-url", { url: "https://github.com/lightcode4/incredible-harness" }).catch(() => {}); }
 async function disconnectGitHub() { try { await api("/api/github/disconnect"); notice("Signed out of GitHub."); } catch (e) { notice(e.message); } }
 $("instrPill").onclick = () => openSettings("instr");
 $("toggleSide").onclick = () => $("side").classList.toggle("hidden");

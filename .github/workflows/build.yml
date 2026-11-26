@@ -116,12 +116,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: build-${{ github.run_number }}
         run: |
-          FILE=$(ls dist/*.dmg dist/*Setup.exe 2>/dev/null || true)
+          BUILD=${{ github.run_number }}
+          # every download carries its build number in the filename
+          for f in dist/*.dmg; do [ -e "$f" ] && mv -f "$f" "dist/LightCode4-mac-build${BUILD}.dmg"; done
+          for f in dist/*Setup.exe; do [ -e "$f" ] && mv -f "$f" "dist/LightCode4-Setup-build${BUILD}.exe"; done
+          FILE=$(ls dist/LightCode4-mac-build*.dmg dist/LightCode4-Setup-build*.exe 2>/dev/null || true)
           [ -n "$FILE" ] || { echo "No installer was built"; exit 1; }
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --prerelease \
-            --target "$GITHUB_SHA" --title "LightCode⁴ (build ${{ github.run_number }})" \
-            --notes "LightCode⁴ ${{ github.sha }} desktop installers for macOS (Apple silicon) and Windows." || sleep 10
-          gh release upload "$TAG" "$FILE" --clobber
+            --target "$GITHUB_SHA" --title "LightCode⁴ (build ${BUILD})" \
+            --notes "LightCode⁴ desktop installers for macOS (Apple silicon) and Windows." || sleep 10
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --prerelease \
+            --target "$GITHUB_SHA" --title "LightCode⁴ (build ${BUILD})" --notes "LightCode⁴ installers." || true
+          # a real "What's new" changelog, generated from the commits since the last release (mac job sets it, to avoid a race)
+          if [ "${{ matrix.name }}" = "mac" ]; then
+            gh api "repos/${{ github.repository }}/releases/generate-notes" -f tag_name="$TAG" -f target_commitish="${{ github.sha }}" -q .body > notes.md 2>/dev/null \
+              && gh release edit "$TAG" --notes-file notes.md 2>/dev/null || true
+          fi
+          gh release upload "$TAG" $FILE --clobber
 
   # Editor and browser extensions, attached to the same release as the apps.
   extensions:

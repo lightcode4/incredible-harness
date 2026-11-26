@@ -2394,6 +2394,17 @@ class Session:
         return self.remote_url
 
     # ---------------------------------------------------------------- GitHub (Settings > GitHub)
+    def whats_new(self) -> dict:
+        """The latest release's notes (GitHub auto-generated changelog), for the What's new view."""
+        rel = {}
+        try:
+            rel = px.github_json(f"{px.RELEASES_API}/repos/{REPO}/releases/latest", self.config.get("github_token", "")) or {}
+        except Exception:
+            pass
+        return {"build": BUILD, "version": __version__, "name": rel.get("name") or "",
+                "tag": rel.get("tag_name") or "", "body": rel.get("body") or "",
+                "url": rel.get("html_url") or f"https://github.com/{REPO}/releases"}
+
     def github_status(self) -> dict:
         u = self.config.get("github_user") or {}
         return {"connected": bool(self.config.get("github_token")), "user": u, "token_url": github.TOKEN_URL,
@@ -2690,6 +2701,8 @@ def make_handler(session: Session, token: str):
                     result = security.scan(chat.ws.cwd) if chat else {"findings": [], "counts": {}, "scanned": 0, "root": ""}
                 elif path == "/api/security/tools":  # the Cyber Security toolkit catalog
                     result = security_tools.catalog()
+                elif path == "/api/whatsnew":
+                    result = session.whats_new()
                 elif path == "/api/context":
                     result = chat.context_report() if chat else {}
                 elif path == "/api/files/find":

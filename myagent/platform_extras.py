@@ -131,6 +131,13 @@ def asset_name() -> str:
     return "LightCode4-mac.dmg" if sys.platform == "darwin" else "LightCode4-Setup.exe"
 
 
+def asset_match(name: str) -> bool:
+    """True if a release asset is this platform's installer — ignoring any -buildNNN in the middle."""
+    if sys.platform == "darwin":
+        return name.startswith("LightCode4-mac") and name.endswith(".dmg")
+    return name.startswith("LightCode4-Setup") and name.endswith(".exe")
+
+
 def app_bundle() -> Path | None:
     """The installed .app (macOS) when running as a packaged app."""
     if not getattr(sys, "frozen", False) or sys.platform != "darwin":
@@ -218,7 +225,7 @@ def download_update(release_api_url: str, token: str = "", progress=None) -> str
     later try (even after restarting the app) only fetches what is missing, and the file is checked against GitHub's
     sha256 before it is used."""
     rel = github_json(release_api_url, token)
-    asset = next((a for a in rel.get("assets", []) if a["name"] == asset_name()), None)
+    asset = next((a for a in rel.get("assets", []) if asset_match(a["name"])), None)
     if not asset:
         raise RuntimeError(f"The new release has no {asset_name()}.")
     size, url = int(asset.get("size") or 0), asset["browser_download_url"]

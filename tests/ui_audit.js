@@ -453,6 +453,9 @@ async function overlaps(pg, label) {
       await pg.click('#acctBtn'); await pg.waitForSelector('#acctMenu:not([hidden])', { timeout: 4000 });
       check('Account menu opens with profile actions', await pg.evaluate(() => { const t = document.getElementById('acctMenu').innerText; return t.includes('Settings') && t.includes("What's new") && t.includes('Usage'); }));
       await pg.evaluate(() => closeAcct());
+      check("What's new opens a changelog dialog", await pg.evaluate(() => { showWhatsNew(); const o = document.getElementById('whatsNew').open; document.getElementById('whatsNew').close(); return o; }));
+      await pg.evaluate(() => openSettings('about')); await pg.waitForSelector('#abtLogo .mascot', { timeout: 4000 });
+      check('About pane shows the app hero with version', /build/i.test(await pg.innerText('#aboutText')) && await pg.isVisible('#abtWhatsNew')); await pg.evaluate(() => $('settings').close());
       // settings: code intelligence + quick chat shortcut
       await pg.evaluate(() => openSettings()); await pg.click('#tabs button[data-p="tools"]'); await pg.waitForSelector('.lsprow', { timeout: 8000 });
       check('Settings lists language servers with their status', (await pg.locator('.lsprow').count()) === 6 && (await pg.innerText('#lspList')).includes('Python'));
