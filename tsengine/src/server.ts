@@ -8,6 +8,7 @@ import { EventHub, type Event } from "./events";
 import { Store } from "./config";
 import { ChatManager } from "./chats";
 import { Terminals } from "./terminal";
+import { Scheduler } from "./scheduler";
 import { route } from "./routes";
 
 const STATIC_DIR =
@@ -29,7 +30,8 @@ export function startEngine(opts: { port?: number; host?: string } = {}): Engine
   const events = new EventHub();
   const chats = new ChatManager(store, events);
   const terms = new Terminals(events);
-  const ctx = { store, events, chats, terms };
+  const scheduler = new Scheduler(store, chats, events);
+  const ctx = { store, events, chats, terms, scheduler };
 
   async function serveStatic(path: string): Promise<Response | null> {
     const rel = path === "/" ? "/index.html" : path;

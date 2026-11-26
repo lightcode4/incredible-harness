@@ -6,6 +6,8 @@ import type { Store } from "./config";
 import type { EventHub } from "./events";
 import type { ChatManager } from "./chats";
 import type { Terminals } from "./terminal";
+import type { Scheduler } from "./scheduler";
+import { existsSync, statSync } from "fs";
 import * as gh from "./github";
 import { listModels, testConnection, mergeCfg } from "./models";
 import { scan } from "./security";
@@ -20,7 +22,7 @@ import { run as runSelfcheck } from "./selfcheck";
 import { homedir } from "os";
 import { join } from "path";
 
-export type Ctx = { store: Store; events: EventHub; chats: ChatManager; terms: Terminals };
+export type Ctx = { store: Store; events: EventHub; chats: ChatManager; terms: Terminals; scheduler: Scheduler };
 type Handler = (body: any, ctx: Ctx) => unknown | Promise<unknown>;
 
 // keys the UI is allowed to write through /api/config
@@ -232,8 +234,36 @@ const handlers: Record<string, Handler> = {
   // list-returning endpoints the UI reads fields off of on boot — shaped empties
   "/api/artifacts/recent": () => ({ artifacts: [] }),
   "/api/jobs": () => ({ jobs: [] }),
-  "/api/schedules": () => ({ schedules: [] }),
-  "/api/projects": () => ({ projects: [] }),
+  // ---- scheduled tasks (Automations) ----
+  "/api/schedules": (body, { store, scheduler }) => {
+    if (Array.isArray(body?.schedules)) { store.config.schedules = body.schedules; store.save(); }
+    if (body?.run) scheduler.runById(String(body.run));
+    return { schedules: store.config.schedules || [] };
+  },
+
+  // ---- projects (local) ----
+  "/api/projects": (_b, { store, chats }) => ({
+    projects: ((store.config.projects as any[]) || []).map((p) => ({ ...p, files: [] })),
+    chats: chats.list(),
+  }),
+  "/api/project/save": (body, { store, events }) => {
+    const projs = (store.config.projects as any[]) || (store.config.projects = []);
+    const data = body?.project || {};
+    let proj = projs.find((p) => p.id === data.id);
+    if (!proj) { proj = { id: "p" + Math.random().toString(16).slice(2, 10), created: Date.now() / 1000, files: [] }; projs.push(proj); }
+    for (const k of ["name", "folder", "instructions", "color"]) if (k in data) proj[k] = String(data[k]).slice(0, 20000);
+    proj.name = (proj.name || "").trim() || "Untitled project";
+    if (proj.folder && !(existsSync(proj.folder) && statSync(proj.folder).isDirectory())) throw new Error(`No such folder: ${proj.folder}`);
+    store.save();
+    events.put({ kind: "config", config: store.publicConfig() });
+    return { project: proj };
+  },
+  "/api/project/delete": (body, { store, events }) => {
+    store.config.projects = ((store.config.projects as any[]) || []).filter((p) => p.id !== body?.id);
+    store.save();
+    events.put({ kind: "config", config: store.publicConfig() });
+    return {};
+  },
   "/api/teams": () => ({ teams: [] }),
   "/api/commands": (_b, { chats }) => ({ commands: ws.commandList(chats.current.cwd) }),
 

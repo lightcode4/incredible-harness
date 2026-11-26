@@ -6,6 +6,7 @@ import { Store } from "./config";
 import { EventHub } from "./events";
 import { ChatManager } from "./chats";
 import { Terminals } from "./terminal";
+import { Scheduler } from "./scheduler";
 import { route, KNOWN_ROUTES } from "./routes";
 import { scan } from "./security";
 
@@ -14,7 +15,8 @@ function ctx() {
   const events = new EventHub();
   const chats = new ChatManager(store, events);
   const terms = new Terminals(events);
-  return { store, events, chats, terms };
+  const scheduler = new Scheduler(store, chats, events);
+  return { store, events, chats, terms, scheduler };
 }
 
 test("public config hides secrets and exposes UI fields", () => {
@@ -80,6 +82,16 @@ test("security scanner flags a hard-coded AWS key and os.system", () => {
   expect(ids).toContain("secret.aws_key");
   expect(ids).toContain("code.os_system");
   expect(r.counts.high).toBeGreaterThan(0);
+});
+
+test("projects save and list; schedules persist", async () => {
+  const c = ctx();
+  const saved = (await route("/api/project/save", { project: { name: "Demo" } }, c)) as any;
+  expect(saved.project.id).toBeTruthy();
+  const list = (await route("/api/projects", {}, c)) as any;
+  expect(list.projects.some((p: any) => p.name === "Demo")).toBe(true);
+  await route("/api/schedules", { schedules: [{ id: "s1", name: "N", prompt: "x", every: 60, enabled: true }] }, c);
+  expect((c.store.config.schedules as any[]).length).toBe(1);
 });
 
 test("fork creates a separate session and selects it", async () => {
