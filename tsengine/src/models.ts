@@ -1,8 +1,10 @@
 // Model discovery + connection test. TS port of list_models()/test_connection().
 
 import type { Config } from "./config";
+import providerCatalog from "./data/providers.json";
 
 const SKIP = ["embed", "image", "tts", "whisper", "moderation", "dall-e", "transcribe"];
+const BY_ID: Record<string, any> = Object.fromEntries((providerCatalog as any).providers.map((p: any) => [p.id, p]));
 
 function key(cfg: Config): string {
   const keys = (cfg.keys as Record<string, string>) || {};
@@ -57,5 +59,17 @@ export function mergeCfg(stored: Config, body: any): Config {
   const o: Config = { ...stored };
   for (const k of ["provider", "base_url", "service", "model"]) if (body?.[k] != null) o[k] = body[k];
   if (body?.key) o.api_key = body.key;
+  // Resolve the catalog entry for the chosen service so the right API is used
+  // (otherwise an OpenRouter/DeepSeek/etc. key wrongly hits the Anthropic endpoint).
+  const svc = BY_ID[String(o.service || "")];
+  if (svc) {
+    o.provider = svc.kind;                              // "claude" | "openai" | "local"
+    if (!o.base_url && svc.base) o.base_url = svc.base;  // keep an explicit base_url if given
+  }
   return o;
+}
+
+// Which API a saved config talks to (used by send turns too).
+export function resolveService(cfg: Config): Config {
+  return mergeCfg(cfg, {});
 }

@@ -14,6 +14,7 @@ export interface Emitter { put(ev: Event): void; }
 import { streamTurn, type Msg } from "./providers";
 import { TOOL_SPECS, runTool } from "./tools";
 import { projectInstructions, readMemory } from "./workspace";
+import { resolveService } from "./models";
 import type { McpManager } from "./mcp";
 
 export const CHATS_DIR = join(homedir(), ".incredible-herness", "chats");
@@ -100,7 +101,7 @@ export class Session {
   }
 
   private system(): string {
-    const cfg = this.store.config;
+    const cfg = resolveService(this.store.config);
     const cyber = cfg.cyber_mode ? CYBER_PREAMBLE : "";
     let s = cyber + `You are LightCode⁴, a coding agent working in the folder ${this.cwd}. ` +
       `Be concise and act directly. Use the provided tools to read and change files and run commands.`;
@@ -200,7 +201,7 @@ export class Session {
     this.events.put({ kind: "status", busy: true });
     try {
       const prompt = `Summarize the conversation so far into a compact brief that preserves goals, decisions, file changes and open tasks${focus ? `, focusing on: ${focus}` : ""}. Write it as notes the assistant can continue from.`;
-      const res = await streamTurn(this.store.config, "You compress conversations faithfully.",
+      const res = await streamTurn(resolveService(this.store.config), "You compress conversations faithfully.",
         [...this.transcript, { role: "user", content: prompt }], [], {});
       this.transcript = [{ role: "user", content: "Summary of the conversation so far:\n\n" + (res.text || "(no summary)") }];
       this.save();
@@ -248,7 +249,7 @@ export class Session {
       this.events.put({ kind: "setup", text: "Add a provider API key in Settings first." });
       throw new Error("No API key configured.");
     }
-    const cfg = this.store.config;
+    const cfg = resolveService(this.store.config);
     this.stopFlag = false;
     this.busy = true;
     this.events.put({ kind: "user", text });

@@ -59,6 +59,11 @@ const handlers: Record<string, Handler> = {
       changed = true;
     }
     if (Array.isArray(body?.mcp)) { store.config.mcp = body.mcp; changed = true; }
+    // activating a service → adopt its API kind + address so turns route correctly
+    if (body?.service != null) {
+      const svc = (providerCatalog as any).providers.find((p: any) => p.id === body.service);
+      if (svc) { store.config.provider = svc.kind; if (!body.base_url) store.config.base_url = svc.base || ""; }
+    }
     if (changed) { store.save(); events.put({ kind: "config", config: store.publicConfig() }); }
     return store.publicConfig();
   },
