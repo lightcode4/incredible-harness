@@ -111,7 +111,7 @@ async function overlaps(pg, label) {
       await overlaps(pg, 'folder menu'); await pg.keyboard.press('Escape'); await pg.evaluate(() => document.getElementById('input').blur());
       check('Front page is clean: no big heading, no suggestion chips, no footer slogan', !(await pg.isVisible('.page > .pagehead')) && !(await pg.isVisible('.chip')) && !(await pg.innerText('body')).includes('Your machine. Your rules'));
       const mp = await pg.locator('#modelPill').boundingBox(), cb = await pg.locator('#composer').boundingBox();
-      check('Model and mode sit under the message box', mp && cb && mp.y > cb.y + cb.height - 2 && await pg.isVisible('#planBtn'), JSON.stringify([mp?.y, cb?.y, cb?.height]));
+      check('Model and mode sit in the composer control row', await pg.evaluate(() => !!document.querySelector('.comp-row #modelPill') && !!document.querySelector('.comp-row #planBtn')) && await pg.isVisible('#planBtn'));
       await pg.click('#modelPill'); await pg.waitForTimeout(500);
       check('Model name opens the provider menu', await pg.isVisible('#provMenu'));
       check('Provider menu lists providers with logos', (await pg.locator('#provList .prow').count()) >= 15 && (await pg.locator('#provList .plogo svg').count()) >= 8);

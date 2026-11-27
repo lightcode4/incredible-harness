@@ -136,15 +136,19 @@ body:not(.chatting) #scroll, body:not(.chatting) #dock { display: none; }
 .file button { border: 0; background: none; color: var(--faint); padding: 1px; display: grid; } .file button svg { width: 13px; height: 13px; }
 #input { width: 100%; border: 0; outline: 0; resize: none; background: none; min-height: 28px; max-height: 240px; padding: 2px 0; }
 #input::placeholder { color: var(--faint); }
-.comp-row { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+.comp-row { display: flex; align-items: center; gap: 4px; margin-top: 6px; position: relative; }
+.comp-row .crsp { flex: 1 1 auto; min-width: 8px; }
+.comp-row #send { margin-left: 2px; }
+.comp-row #modeMenu { left: 0; right: auto; }
+.comp-row #provMenu { left: auto; right: 0; }
 .ghost { border: 0; background: none; font-size: 13px; color: var(--muted); padding: 5px 8px; border-radius: 8px; display: flex; gap: 5px; align-items: center; }
 .ghost:hover { background: var(--hover); color: var(--text); }
 .ghost svg { width: 16px; height: 16px; }
 .ghost.on { color: var(--plan); background: color-mix(in srgb, var(--plan) 12%, transparent); }
-.send { margin-left: auto; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: #2b2722; color: #f4efe6; display: grid; place-items: center; }
-.send svg { stroke-width: 2.1; } .send:hover { background: #38322b; }
-.send:disabled { opacity: .35; cursor: default; }
-.send.stop { background: var(--text); color: var(--bg); }
+.send { margin-left: auto; width: 36px; height: 36px; border-radius: 50%; border: 0; background: #7c5cff; color: #fff; display: grid; place-items: center; }
+.send svg { stroke-width: 2.2; width: 18px; height: 18px; } .send:hover { background: #6b4ae6; }
+.send:disabled { opacity: .4; cursor: default; }
+.send.stop { background: var(--bad); color: #fff; }
 #dock { padding: 0 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 
 /* Todos */
@@ -480,7 +484,7 @@ body.panel-open #panel { display: flex; }
 .composer { width: 100%; max-width: 600px; border-radius: 24px; box-shadow: 0 6px 22px rgba(0,0,0,.16); padding: 7px 8px 7px 16px; }
 #dock #compbar, #dock #workbar { width: 100%; max-width: 600px; box-sizing: border-box; }
 #dock #input { min-height: 24px; }
-.send { border-radius: 10px; }
+.send { border-radius: 50%; }
 .foot { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); } .foot span { display: flex; gap: 5px; align-items: center; } .foot svg { width: 11px; height: 11px; }
 .user { background: var(--soft); border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--line)); border-radius: 12px; }
 details.toolcard { border-radius: 10px; box-shadow: none; }
@@ -1366,18 +1370,18 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
 #side .who { display: none; } #side .who:has(.dot.off) { display: flex; }
 #compbar { display: flex; justify-content: flex-end; align-items: center; gap: 6px; padding: 6px 4px 0; position: relative; }
 #compbar .modelbar { display: flex; align-items: center; gap: 4px; position: static; flex-wrap: nowrap; }
-#compbar .modelchip { border: 0; background: none; padding: 4px 8px; border-radius: 9px; gap: 6px; color: var(--text); font-size: 13px; }
-#compbar .modelchip:hover, #compbar .modelchip.open { background: var(--hover); }
-#compbar .modelchip > b, #compbar .modelchip > small, #compbar .modelchip > svg { max-width: none; opacity: 1; margin: 0; }
-#compbar .modelchip > b { font-weight: 500; font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
-#compbar .modelchip > small { color: var(--muted); font-size: 12.5px; } #compbar .modelchip > svg { width: 13px; height: 13px; transform: rotate(90deg); opacity: .6; }
-#compbar .modelchip .mlogo, #compbar .modelchip .plogo { width: 20px; height: 20px; font-size: 12px; border-radius: 6px; }
-#compbar #planBtn { height: auto; background: none; border: 0; padding: 4px 8px; border-radius: 9px; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 6px; }
-#compbar #planBtn:hover, #compbar #planBtn[aria-expanded="true"] { background: var(--hover); } #compbar #planBtn svg { width: 13px; height: 13px; transform: rotate(90deg); opacity: .6; }
-#compbar #planBtn.on { color: var(--accent); }
-#compbar #provMenu { top: auto; bottom: calc(100% + 8px); left: auto; right: 0; width: 360px; max-width: calc(100vw - 32px); border-radius: 16px; padding: 8px; }
-#compbar #provList { max-height: min(440px, calc(100vh - 260px)); padding-right: 2px; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); padding-bottom: 20px; }
-#compbar .modelchip .mlogo { box-shadow: none; } #compbar .modelchip .mlogo svg { width: 13px; height: 13px; } #compbar .modelchip .mlogo .pletter { font-size: 11px; }
+.comp-row .modelchip { border: 0; background: none; padding: 4px 8px; border-radius: 9px; gap: 6px; color: var(--text); font-size: 13px; }
+.comp-row .modelchip:hover, .comp-row .modelchip.open { background: var(--hover); }
+.comp-row .modelchip > b, .comp-row .modelchip > small, .comp-row .modelchip > svg { max-width: none; opacity: 1; margin: 0; }
+.comp-row .modelchip > b { font-weight: 500; font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.comp-row .modelchip > small { color: var(--muted); font-size: 12.5px; } .comp-row .modelchip > svg { width: 13px; height: 13px; transform: rotate(90deg); opacity: .6; }
+.comp-row .modelchip .mlogo, .comp-row .modelchip .plogo { width: 20px; height: 20px; font-size: 12px; border-radius: 6px; }
+.comp-row #planBtn { height: auto; background: none; border: 0; padding: 4px 8px; border-radius: 9px; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.comp-row #planBtn:hover, .comp-row #planBtn[aria-expanded="true"] { background: var(--hover); } .comp-row #planBtn svg { width: 13px; height: 13px; transform: rotate(90deg); opacity: .6; }
+.comp-row #planBtn.on { color: var(--accent); }
+.comp-row #provMenu { top: auto; bottom: calc(100% + 8px); left: auto; right: 0; width: 360px; max-width: calc(100vw - 32px); border-radius: 16px; padding: 8px; }
+.comp-row #provList { max-height: min(440px, calc(100vh - 260px)); padding-right: 2px; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); padding-bottom: 20px; }
+.comp-row .modelchip .mlogo { box-shadow: none; } .comp-row .modelchip .mlogo svg { width: 13px; height: 13px; } .comp-row .modelchip .mlogo .pletter { font-size: 11px; }
 /* permission chip: a shield + short label (Ask / Auto / Plan), coloured by mode */
 #planBtn.modechip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; }
 #planBtn.modechip:hover { background: var(--hover); }
@@ -1389,7 +1393,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
 #planBtn.mode-auto .chk { display: inline; }
 #planBtn.mode-plan { color: var(--plan); border-color: color-mix(in srgb, var(--plan) 40%, var(--line)); background: color-mix(in srgb, var(--plan) 10%, transparent); }
 /* transient workspace + branch bar: shows while composing, fades out after sending */
-#branchBar { display: flex; gap: 16px; justify-content: center; align-items: center; margin: 7px auto 0; max-width: 600px; font-size: 12px; color: var(--faint); opacity: 0; transform: translateY(-3px); transition: opacity .2s ease, transform .2s ease; pointer-events: none; }
+#branchBar { display: flex; gap: 16px; justify-content: space-between; align-items: center; margin: 7px auto 0; max-width: 780px; width: 100%; padding: 0 16px; box-sizing: border-box; font-size: 12px; color: var(--faint); opacity: 0; transform: translateY(-3px); transition: opacity .2s ease, transform .2s ease; pointer-events: none; }
 #branchBar.show { opacity: .8; transform: none; }
 #branchBar[hidden] { display: none; }
 #branchBar.show { pointer-events: auto; }
@@ -1707,33 +1711,30 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <textarea id="input" aria-label="Message" rows="1" placeholder="Ask LightCode⁴ to build, fix or explain something…"></textarea>
       <div class="comp-row">
         <button class="ghost" id="attach" title="Attach images, PDFs or text files" aria-label="Attach files"><svg><use href="#i-clip"/></svg></button>
+        <button class="ghost modechip mode-ask" id="planBtn" title="How the agent works: asks first, auto-approve, or plan mode" aria-haspopup="menu" aria-expanded="false"><svg class="shield" viewBox="0 0 24 24"><path d="M12 3l7 2.6v5.1c0 4.3-3 7.5-7 8.3-4-.8-7-4-7-8.3V5.6z"/><path class="chk" d="M9.2 12l1.9 1.9L15 10"/></svg><span id="modeLabel">Ask</span><svg class="cv"><use href="#i-chev"/></svg></button>
+        <div id="modeMenu" role="menu" hidden>
+          <button role="menuitemradio" data-mode="ask"><b>Asks first</b><small>Approve each change and command</small></button>
+          <button role="menuitemradio" data-mode="auto"><b>Auto-approve</b><small>Works without stopping to ask</small></button>
+          <button role="menuitemradio" data-mode="plan"><b>Plan mode</b><small>Researches and proposes a plan, changes nothing</small></button>
+        </div>
+        <span class="crsp"></span>
+        <div id="provMenu" class="card" hidden role="menu" aria-label="Choose a provider">
+          <div class="pmhead">A model for every possibility</div>
+          <div id="effortRow" hidden><span>Effort</span><div class="artseg" role="radiogroup" aria-label="Effort"><button data-e="low">Low</button><button data-e="medium">Medium</button><button data-e="high">High</button><button data-e="xhigh">Extra</button><button data-e="max">Max</button></div></div>
+          <div id="provList"></div>
+          <button class="pmfoot" id="provAll"><svg><use href="#i-list"/></svg>All models &amp; API settings<svg class="arrow"><use href="#i-up"/></svg></button>
+        </div>
+        <button class="modelchip" id="modelPill" title="Model — click to switch" aria-label="Model"><span class="mlogo serif">✳</span><b id="modelName">model</b><small id="modelBy">by Anthropic</small><svg><use href="#i-chev"/></svg></button>
+        <span id="sdkName" hidden></span>
+        <span id="instrPill" class="sdk" hidden data-keep-hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
         <button class="ghost" id="micBtn" title="Voice typing" aria-label="Voice typing"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
         <button class="ghost" id="sideBtn" title="Side chat (⌘;) — a quick question that doesn't change this chat" aria-label="Side chat"><svg viewBox="0 0 24 24"><path d="M4 12a7 7 0 1 1 3.2 5.9L4 19l1.1-3.1A7 7 0 0 1 4 12z"/><circle cx="16.5" cy="16.5" r="3.6" fill="var(--panel)"/></svg></button>
         <button id="ctxMeter" hidden title="How full the model's memory of this chat is. Click to summarize it (/compact)."><span class="ring"></span><span id="ctxText">0%</span></button>
-        <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg><use href="#i-enter"/></svg></button>
+        <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg><use href="#i-up"/></svg></button>
       </div>
       <input type="file" id="fileInput" multiple hidden>
     </div>
-          <div id="compbar">
-            <div class="modelbar">
-      <div id="provMenu" class="card" hidden role="menu" aria-label="Choose a provider">
-        <div class="pmhead">A model for every possibility</div>
-        <div id="effortRow" hidden><span>Effort</span><div class="artseg" role="radiogroup" aria-label="Effort"><button data-e="low">Low</button><button data-e="medium">Medium</button><button data-e="high">High</button><button data-e="xhigh">Extra</button><button data-e="max">Max</button></div></div>
-        <div id="provList"></div>
-        <button class="pmfoot" id="provAll"><svg><use href="#i-list"/></svg>All models &amp; API settings<svg class="arrow"><use href="#i-up"/></svg></button>
-      </div>
-      <button class="modelchip" id="modelPill" title="Model — click to switch" aria-label="Model"><span class="mlogo serif">✳</span><b id="modelName">model</b><small id="modelBy">by Anthropic</small><svg><use href="#i-chev"/></svg></button>
-      <span id="sdkName" hidden></span>
-      <span id="instrPill" class="sdk" hidden data-keep-hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
-      <span class="spacer"></span>
-      <button class="ghost modechip mode-ask" id="planBtn" title="How the agent works: asks first, auto-approve, or plan mode" aria-haspopup="menu" aria-expanded="false"><svg class="shield" viewBox="0 0 24 24"><path d="M12 3l7 2.6v5.1c0 4.3-3 7.5-7 8.3-4-.8-7-4-7-8.3V5.6z"/><path class="chk" d="M9.2 12l1.9 1.9L15 10"/></svg><span id="modeLabel">Ask</span><svg class="cv"><use href="#i-chev"/></svg></button>
-      <div id="modeMenu" role="menu" hidden>
-        <button role="menuitemradio" data-mode="ask"><b>Asks first</b><small>Approve each change and command</small></button>
-        <button role="menuitemradio" data-mode="auto"><b>Auto-approve</b><small>Works without stopping to ask</small></button>
-        <button role="menuitemradio" data-mode="plan"><b>Plan mode</b><small>Researches and proposes a plan, changes nothing</small></button>
-      </div>
-    </div>
-          <span id="footMode" hidden></span></div>
+          <span id="footMode" hidden></span>
           <div id="branchBar" hidden>
             <div class="fwrap bb-item"><button class="ghost" id="folderBtn" aria-haspopup="menu" aria-expanded="false" title="Workspace — current checkout or a new worktree"><svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span id="folderBtnName">Local checkout</span><svg class="chev"><use href="#i-chev"/></svg></button>
               <div id="folderMenu" role="menu" hidden></div></div>
@@ -3174,8 +3175,8 @@ function greeting() {
 }
 function placeComposer() {
   const chatting = document.body.classList.contains("chatting");
-  if (chatting) { if (!$("dock").contains($("composer")) || $("composer").previousElementSibling !== $("jumpLatest")) $("dock").prepend($("workbar"), $("jumpLatest"), $("composer"), $("compbar")); }
-  else if (!$("wslot").contains($("composer"))) { $("wslot").append($("composer"), $("compbar")); }
+  if (chatting) { if (!$("dock").contains($("composer")) || $("composer").previousElementSibling !== $("jumpLatest")) $("dock").prepend($("workbar"), $("jumpLatest"), $("composer"), $("branchBar")); }
+  else if (!$("wslot").contains($("composer"))) { $("wslot").append($("composer"), $("branchBar")); }
   if (!config.plan) $("input").placeholder = defaultPH();
   if (!chatting) { $("hello").textContent = greeting(); loadRecents(); }
 }
