@@ -1378,6 +1378,28 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
 #compbar #provMenu { top: auto; bottom: calc(100% + 8px); left: auto; right: 0; width: 360px; max-width: calc(100vw - 32px); border-radius: 16px; padding: 8px; }
 #compbar #provList { max-height: min(440px, calc(100vh - 260px)); padding-right: 2px; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); padding-bottom: 20px; }
 #compbar .modelchip .mlogo { box-shadow: none; } #compbar .modelchip .mlogo svg { width: 13px; height: 13px; } #compbar .modelchip .mlogo .pletter { font-size: 11px; }
+/* permission chip: a shield + short label (Ask / Auto / Plan), coloured by mode */
+#planBtn.modechip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; }
+#planBtn.modechip:hover { background: var(--hover); }
+#planBtn.modechip .shield { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+#planBtn.modechip .chk { display: none; }
+#planBtn.modechip .cv { width: 13px; height: 13px; opacity: .6; }
+#planBtn.mode-ask { color: var(--muted); }
+#planBtn.mode-auto { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); background: color-mix(in srgb, var(--ok) 10%, transparent); }
+#planBtn.mode-auto .chk { display: inline; }
+#planBtn.mode-plan { color: var(--plan); border-color: color-mix(in srgb, var(--plan) 40%, var(--line)); background: color-mix(in srgb, var(--plan) 10%, transparent); }
+/* transient workspace + branch bar: shows while composing, fades out after sending */
+#branchBar { display: flex; gap: 16px; justify-content: center; align-items: center; margin: 7px auto 0; max-width: 600px; font-size: 12px; color: var(--faint); opacity: 0; transform: translateY(-3px); transition: opacity .2s ease, transform .2s ease; pointer-events: none; }
+#branchBar.show { opacity: .8; transform: none; }
+#branchBar[hidden] { display: none; }
+#branchBar.show { pointer-events: auto; }
+#branchBar .bb-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; position: relative; }
+#branchBar svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+/* the folder/worktree dropdown lives here now — kept subtle to match the bar */
+#branchBar .fwrap #folderBtn { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: inherit; font-size: 12px; padding: 2px 4px; border-radius: 7px; cursor: pointer; }
+#branchBar .fwrap #folderBtn:hover { background: var(--hover); color: var(--muted); }
+#branchBar .fwrap #folderBtn .chev { width: 11px; height: 11px; opacity: .7; }
+#branchBar #folderMenu { bottom: calc(100% + 8px); left: 0; }
 #modeMenu { position: absolute; right: 0; bottom: calc(100% + 8px); width: 280px; z-index: 31; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,.14); }
 #modeMenu[hidden] { display: none; }
 #modeMenu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 9px; cursor: pointer; color: var(--text); }
@@ -1693,8 +1715,6 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <input type="file" id="fileInput" multiple hidden>
     </div>
           <div id="compbar">
-            <div class="fwrap"><button class="ghost" id="folderBtn" aria-haspopup="menu" aria-expanded="false" title="Project or folder this chat works in"><svg><use href="#i-folder"/></svg><span id="folderBtnName">Project or folder</span><svg class="chev"><use href="#i-chev"/></svg></button>
-              <div id="folderMenu" role="menu" hidden></div></div>
             <div class="modelbar">
       <div id="provMenu" class="card" hidden role="menu" aria-label="Choose a provider">
         <div class="pmhead">A model for every possibility</div>
@@ -1706,7 +1726,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <span id="sdkName" hidden></span>
       <span id="instrPill" class="sdk" hidden data-keep-hidden title="Project instructions in use"><svg><use href="#i-file"/></svg><span id="instrName"></span></span>
       <span class="spacer"></span>
-      <button class="ghost" id="planBtn" title="How the agent works: asks first, auto-approve, or plan mode" aria-haspopup="menu" aria-expanded="false"><span id="modeLabel">Asks first</span><svg><use href="#i-chev"/></svg></button>
+      <button class="ghost modechip mode-ask" id="planBtn" title="How the agent works: asks first, auto-approve, or plan mode" aria-haspopup="menu" aria-expanded="false"><svg class="shield" viewBox="0 0 24 24"><path d="M12 3l7 2.6v5.1c0 4.3-3 7.5-7 8.3-4-.8-7-4-7-8.3V5.6z"/><path class="chk" d="M9.2 12l1.9 1.9L15 10"/></svg><span id="modeLabel">Ask</span><svg class="cv"><use href="#i-chev"/></svg></button>
       <div id="modeMenu" role="menu" hidden>
         <button role="menuitemradio" data-mode="ask"><b>Asks first</b><small>Approve each change and command</small></button>
         <button role="menuitemradio" data-mode="auto"><b>Auto-approve</b><small>Works without stopping to ask</small></button>
@@ -1714,6 +1734,11 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       </div>
     </div>
           <span id="footMode" hidden></span></div>
+          <div id="branchBar" hidden>
+            <div class="fwrap bb-item"><button class="ghost" id="folderBtn" aria-haspopup="menu" aria-expanded="false" title="Workspace — current checkout or a new worktree"><svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span id="folderBtnName">Local checkout</span><svg class="chev"><use href="#i-chev"/></svg></button>
+              <div id="folderMenu" role="menu" hidden></div></div>
+            <span class="bb-item bb-branch" hidden><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="17" cy="9" r="2.4"/><path d="M6 8.4v7.2M17 11.4c0 3-4 3.4-9 5.2"/></svg><span id="bbBranch"></span></span>
+          </div>
         </div>
       </section>
           <section id="panel">
@@ -2810,7 +2835,8 @@ function syncSideToggle() { const hidden = $("side").classList.contains("hidden"
 $("toggleSide").onclick = () => { $("side").classList.toggle("hidden"); syncSideToggle(); }; syncSideToggle();
 function updateModeBtn() {
   const m = config.plan ? "plan" : config.auto ? "auto" : "ask";
-  $("modeLabel").textContent = { ask: "Asks first", auto: "Auto-approve", plan: "Plan mode" }[m];
+  $("modeLabel").textContent = { ask: "Ask", auto: "Auto", plan: "Plan" }[m];
+  $("planBtn").classList.remove("mode-ask", "mode-auto", "mode-plan"); $("planBtn").classList.add("mode-" + m);
   document.querySelectorAll("#modeMenu [data-mode]").forEach(b => { b.classList.toggle("on", b.dataset.mode === m); b.setAttribute("aria-checked", b.dataset.mode === m); });
 }
 function toggleModeMenu(on = $("modeMenu").hidden) {
@@ -3789,9 +3815,33 @@ async function sendMsg() {
   if (um && !pendingFiles.length && (config.commands || []).some(c => c.kind === "ui" && c.name === um[1])) { $("input").value = ""; autosize(); await uiCommand(um[1], um[2]); return; }
   const attachments = pendingFiles.map(({ name, mime, data }) => ({ name, mime, data }));
   $("input").value = ""; pendingFiles = []; renderFiles(); autosize();
+  if (typeof hideBranchBar === "function") hideBranchBar();   // branch bar retracts once the command is sent
   try { await api("/api/send", { text, attachments }); } catch (e) { startChatting(); notice(e.message); $("input").value = text; }
   $("input").focus();
 }
+// workspace + branch bar: slides out while composing, hides after sending
+(function () {
+  const bar = $("branchBar"), inp = $("input"), branchItem = () => bar.querySelector(".bb-branch");
+  let loadedCwd = null;
+  async function refresh() {
+    const cwd = config.chat_cwd || config.cwd || "";
+    try {
+      const r = await api("/api/git", { action: "status" });
+      if (r && r.repo && r.branch) { $("bbBranch").textContent = r.branch; branchItem().hidden = false; }
+      else branchItem().hidden = true;
+    } catch (e) { branchItem().hidden = true; }
+    loadedCwd = cwd;
+  }
+  function show() { if (loadedCwd !== (config.chat_cwd || config.cwd || "")) refresh(); bar.hidden = false; requestAnimationFrame(() => bar.classList.add("show")); }
+  window.hideBranchBar = () => { bar.classList.remove("show"); setTimeout(() => { bar.hidden = true; }, 220); };
+  inp.addEventListener("focus", show);
+  inp.addEventListener("input", () => { if (inp.value.trim()) show(); });
+  inp.addEventListener("blur", (e) => {
+    const toBar = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest("#branchBar");
+    if (toBar || !$("folderMenu").hidden) return;   // keep the bar open while using its folder/worktree dropdown
+    if (!inp.value.trim()) window.hideBranchBar();
+  });
+})();
 function autosize() { const t = $("input"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 240) + "px"; updateSend(); }
 $("input").addEventListener("input", autosize);
 $("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMsg(); } });

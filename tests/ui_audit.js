@@ -105,9 +105,10 @@ async function overlaps(pg, label) {
       check('The chosen background is remembered after a restart', await pg.evaluate(() => new Promise(r => setTimeout(() => r(!document.getElementById('bgm') && document.querySelector('#scenePick [data-s="none"]').classList.contains('on')), 800))));
       await pg.evaluate(() => document.querySelector('#scenePick [data-s="daybreak"]').click()); await pg.waitForTimeout(300);
       check('The message box sits in the middle on a new chat', await pg.evaluate(() => document.getElementById('wslot').contains(document.getElementById('composer'))) && /What should we build|How can I help/.test(await pg.getAttribute('#input', 'placeholder')));
+      await pg.focus('#input'); await pg.waitForTimeout(200);  // the folder/worktree dropdown lives in the branch bar, which appears while composing
       await pg.click('#folderBtn'); await pg.waitForTimeout(300);
       check('Project or folder menu lists folders and a way to choose another', await pg.isVisible('#folderMenu') && (await pg.innerText('#folderMenu')).includes('Choose another folder'));
-      await overlaps(pg, 'folder menu'); await pg.keyboard.press('Escape');
+      await overlaps(pg, 'folder menu'); await pg.keyboard.press('Escape'); await pg.evaluate(() => document.getElementById('input').blur());
       check('Front page is clean: no big heading, no suggestion chips, no footer slogan', !(await pg.isVisible('.page > .pagehead')) && !(await pg.isVisible('.chip')) && !(await pg.innerText('body')).includes('Your machine. Your rules'));
       const mp = await pg.locator('#modelPill').boundingBox(), cb = await pg.locator('#composer').boundingBox();
       check('Model and mode sit under the message box', mp && cb && mp.y > cb.y + cb.height - 2 && await pg.isVisible('#planBtn'), JSON.stringify([mp?.y, cb?.y, cb?.height]));
@@ -134,11 +135,11 @@ async function overlaps(pg, label) {
       await pg.click('#planBtn'); await pg.waitForTimeout(200); check('Mode button opens the mode menu', await pg.isVisible('#modeMenu'));
       await overlaps(pg, 'mode menu');
       await pg.click('#modeMenu [data-mode="plan"]'); await pg.waitForTimeout(250);
-      check('Choosing Plan mode turns it on', await pg.evaluate(() => document.getElementById('planBtn').classList.contains('on')) && (await pg.innerText('#modeLabel')) === 'Plan mode');
+      check('Choosing Plan mode turns it on', await pg.evaluate(() => document.getElementById('planBtn').classList.contains('on')) && (await pg.innerText('#modeLabel')) === 'Plan');
       await pg.click('#planBtn'); await pg.click('#modeMenu [data-mode="auto"]'); await pg.waitForTimeout(250);
-      check('Auto-approve can be chosen', (await pg.innerText('#modeLabel')) === 'Auto-approve' && !(await pg.evaluate(() => document.getElementById('planBtn').classList.contains('on'))));
+      check('Auto-approve can be chosen', (await pg.innerText('#modeLabel')) === 'Auto' && !(await pg.evaluate(() => document.getElementById('planBtn').classList.contains('on'))));
       await pg.click('#planBtn'); await pg.click('#modeMenu [data-mode="ask"]'); await pg.waitForTimeout(250);
-      check('Back to Asks first', (await pg.innerText('#modeLabel')) === 'Asks first');
+      check('Back to Asks first', (await pg.innerText('#modeLabel')) === 'Ask');
       await pg.click('#termToggle'); check('Terminal button opens the Terminal', await pg.isVisible('#termBox'));
       await pg.click('#browserToggle'); check('Browser button opens the Browser', await pg.isVisible('#bview'));
       await pg.click('#maxPanel'); check('Maximize gives the panel the whole window', await pg.evaluate(() => document.body.classList.contains('panel-max') && getComputedStyle(document.querySelector('.chatcard')).display === 'none' && document.getElementById('panel').getBoundingClientRect().width > innerWidth * 0.6));
