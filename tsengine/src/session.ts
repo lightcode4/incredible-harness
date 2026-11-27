@@ -56,6 +56,7 @@ export class Session {
   turnNo = 0;
   checkpoints: Checkpoint[] = [];
   ephemeral = false;
+  queue: { text: string }[] = [];
   private cur: Checkpoint | null = null;
   private stopFlag = false;
 
@@ -97,7 +98,7 @@ export class Session {
   }
 
   replayEvent() {
-    return { kind: "replay", chat: { id: this.id, title: this.title, kind: this.kind }, transcript: this.transcript.map((m) => ({ role: m.role, content: m.content })) };
+    return { kind: "replay", chat: { id: this.id, title: this.title, kind: this.kind }, queue: this.queue.map((q) => q.text), busy: this.busy, transcript: this.transcript.map((m) => ({ role: m.role, content: m.content })) };
   }
 
   private system(): string {
@@ -113,6 +114,16 @@ export class Session {
   }
 
   stop(): void { this.stopFlag = true; }
+
+  // Queue a message to run as soon as the current reply is done (model is re-read per send,
+  // so switching the model mid-run takes effect on the queued/next message).
+  private enqueue(text: string): void {
+    this.queue.push({ text });
+    this.events.put({ kind: "queued", items: this.queue.map((q) => q.text) });
+  }
+  // "Send now": stop the current reply so the first queued message goes straight away.
+  queueNow(): void { if (this.busy && this.queue.length) this.stopFlag = true; }
+  queueClear(): void { this.queue = []; this.events.put({ kind: "queued", items: [] }); }
 
   private snapshot(path: string): void {
     if (!this.cur) return;
@@ -244,7 +255,7 @@ export class Session {
   }
 
   async send(text: string): Promise<void> {
-    if (this.busy) throw new Error("The agent is already working. Stop it first.");
+    if (this.busy) { this.enqueue(text); return; }   // queue it: runs as soon as the current reply is done
     if (!this.haveKey()) {
       this.events.put({ kind: "setup", text: "Add a provider API key in Settings first." });
       throw new Error("No API key configured.");
@@ -301,6 +312,11 @@ export class Session {
       this.events.put({ kind: "turn_end" });
       this.events.put({ kind: "status", busy: false });
       this.events.put({ kind: "chats_changed" });
+      if (this.queue.length) {   // next queued message: always sent, even after Stop (the × cancels the queue)
+        const next = this.queue.shift()!;
+        this.events.put({ kind: "queued", items: this.queue.map((q) => q.text) });
+        void this.send(next.text).catch(() => {});
+      }
     }
   }
 }

@@ -1186,11 +1186,20 @@ body.chatting .sc-day .scrim { background: rgba(255,252,245,.62); }
 .ghrepo .gi { flex: 1; min-width: 0; } .ghrepo b { font-size: 13.5px; font-weight: 600; } .ghrepo em { font-style: normal; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; margin-left: 6px; }
 .ghrepo small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ghrepo .btn { flex: none; }
 .ghempty { color: var(--muted); font-size: 13px; padding: 14px 4px; }
-#queueBar { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 8px; } #queueBar[hidden] { display: none; }
-.qchip .qnow { flex: none; border: 0; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); font-size: 12px; padding: 3px 9px; border-radius: 6px; margin-left: 4px; cursor: pointer; } .qchip .qnow:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
-.qchip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 12px; color: var(--body); background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 3px 4px 3px 8px; }
-.qchip b { font-weight: 600; color: var(--accent); font-size: 11px; } .qchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 420px; }
-.qchip button { border: 0; background: none; color: var(--muted); padding: 2px; border-radius: 5px; display: grid; } .qchip button svg { width: 12px; height: 12px; }
+/* queued messages: composer-styled boxes that branch UP out of the main composer, with their own branch bar on top */
+#queueBar { position: absolute; left: 14px; right: 14px; bottom: calc(100% + 7px); display: flex; flex-direction: column; gap: 7px; z-index: 6; pointer-events: none; }
+#queueBar[hidden] { display: none; }
+/* a drawer that sits above the queue stack — mirror of the composer's bottom branch bar */
+.qbranch { pointer-events: auto; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; margin: 0 12px -8px; padding: 6px 18px 11px; font-size: 12px; color: var(--faint); background: color-mix(in srgb, var(--text) 4%, var(--panel)); border: 1px solid var(--line-soft); border-bottom: 0; border-radius: 14px 14px 0 0; position: relative; z-index: -1; }
+.qbranch .bb-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.qbranch svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+.qbranch .chev { width: 11px; height: 11px; opacity: .55; transform: rotate(90deg); }
+.qchip { pointer-events: auto; display: flex; align-items: center; gap: 9px; width: 100%; box-sizing: border-box; font-size: 13px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 15px; padding: 8px 9px 8px 14px; box-shadow: 0 4px 16px rgba(0,0,0,.12); animation: qpop .18s ease; }
+@keyframes qpop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.qchip b { flex: none; font-weight: 600; color: var(--accent); font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; }
+.qchip > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.qchip .qnow { flex: none; border: 0; background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); font-weight: 600; font-size: 12px; padding: 4px 11px; border-radius: 8px; cursor: pointer; } .qchip .qnow:hover { background: color-mix(in srgb, var(--accent) 32%, transparent); }
+.qchip button.qx { border: 0; background: none; color: var(--muted); padding: 4px; border-radius: 7px; display: grid; cursor: pointer; } .qchip button.qx:hover { background: var(--hover); color: var(--text); } .qchip button.qx svg { width: 13px; height: 13px; }
 #atMenu { position: absolute; left: 12px; bottom: calc(100% + 6px); width: min(460px, calc(100% - 24px)); max-height: 260px; overflow-y: auto; z-index: 33; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 5px; box-shadow: 0 12px 40px rgba(0,0,0,.14); }
 #atMenu[hidden] { display: none; } .wslot #atMenu { bottom: auto; top: calc(100% + 6px); }
 .atrow { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 6px 9px; border-radius: 8px; text-align: left; color: var(--text); font: 12.5px var(--monoF); cursor: pointer; }
@@ -1393,19 +1402,25 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
 #planBtn.modechip .cv { width: 13px; height: 13px; opacity: .55; }
 #planBtn.mode-auto .chk { display: inline; }   /* a tick in the shield for auto, no colour fill */
 /* transient workspace + branch bar: shows while composing, fades out after sending */
-#branchBar { display: flex; gap: 16px; justify-content: space-between; align-items: center; margin: 5px auto 0; max-width: 744px; width: calc(100% - 20px); box-sizing: border-box; padding: 4px 14px; font-size: 11.5px; color: var(--faint);
-  background: color-mix(in srgb, var(--panel) 32%, transparent); border-radius: 10px;
-  opacity: 0; transform: translateY(-4px); transition: opacity .18s ease, transform .18s ease; pointer-events: none; }
-#branchBar.show { opacity: .9; transform: none; }
-#branchBar svg { opacity: .7; }
+/* a drawer that slides out from behind the composer bottom: slightly inset, folder-left / branch-right */
+#branchBar { position: absolute; left: 14px; right: 14px; top: 100%; display: flex; gap: 16px; justify-content: space-between; align-items: center; box-sizing: border-box; padding: 7px 18px 8px; font-size: 12px; color: var(--faint);
+  background: color-mix(in srgb, var(--text) 4%, var(--panel)); border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 15px 15px;
+  opacity: 0; transform: translateY(-9px); transition: opacity .16s ease, transform .16s ease; pointer-events: none; z-index: -1; }
 #branchBar[hidden] { display: none; }
-#branchBar.show { pointer-events: auto; }
+#branchBar.show { opacity: 1; transform: translateY(-1px); pointer-events: auto; }
+#branchBar svg { opacity: .7; }
+body.branch-open #dock { padding-bottom: 56px; }
 #branchBar .bb-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; position: relative; }
 #branchBar svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+/* folder + branch glyphs carry the brand accent colour (chevrons stay subtle) */
+#branchBar #folderBtn > svg:first-child, #branchBar .bb-branch > svg:first-child,
+.qbranch .bb-item > svg:first-child { stroke: var(--accent); opacity: 1; }
 /* the folder/worktree dropdown lives here now — kept subtle to match the bar */
 #branchBar .fwrap #folderBtn { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: inherit; font-size: 12px; padding: 2px 4px; border-radius: 7px; cursor: pointer; }
 #branchBar .fwrap #folderBtn:hover { background: var(--hover); color: var(--muted); }
 #branchBar .fwrap #folderBtn .chev { width: 11px; height: 11px; opacity: .7; }
+#branchBar .bb-branch .chev { width: 11px; height: 11px; opacity: .55; transform: rotate(90deg); }
+#branchBar .bb-branch { gap: 6px; }
 #branchBar #folderMenu { bottom: calc(100% + 8px); left: 0; }
 #modeMenu { position: absolute; right: 0; bottom: calc(100% + 8px); width: 280px; z-index: 31; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,.14); }
 #modeMenu[hidden] { display: none; }
@@ -1736,14 +1751,13 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 19V6M6 12l6-6 6 6"/></svg></button>
       </div>
       <input type="file" id="fileInput" multiple hidden>
+      <div id="branchBar" hidden>
+        <div class="fwrap bb-item"><button class="ghost" id="folderBtn" aria-haspopup="menu" aria-expanded="false" title="Workspace — current checkout or a new worktree"><svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span id="folderBtnName">Current checkout</span><svg class="chev"><use href="#i-chev"/></svg></button>
+          <div id="folderMenu" role="menu" hidden></div></div>
+        <span class="bb-item bb-branch" hidden><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="17" cy="9" r="2.4"/><path d="M6 8.4v7.2M17 11.4c0 3-4 3.4-9 5.2"/></svg><span id="bbBranch"></span><svg class="chev"><use href="#i-chev"/></svg></span>
+      </div>
     </div>
           <span id="footMode" hidden></span>
-          <div id="branchBar" hidden>
-            <div class="fwrap bb-item"><button class="ghost" id="folderBtn" aria-haspopup="menu" aria-expanded="false" title="Workspace — current checkout or a new worktree"><svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span id="folderBtnName">Local checkout</span><svg class="chev"><use href="#i-chev"/></svg></button>
-              <div id="folderMenu" role="menu" hidden></div></div>
-            <span class="bb-item bb-branch" hidden><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="17" cy="9" r="2.4"/><path d="M6 8.4v7.2M17 11.4c0 3-4 3.4-9 5.2"/></svg><span id="bbBranch"></span></span>
-          </div>
-        </div>
       </section>
           <section id="panel">
             <div class="ptabs" role="tablist" aria-label="Panel">
@@ -3178,8 +3192,8 @@ function greeting() {
 }
 function placeComposer() {
   const chatting = document.body.classList.contains("chatting");
-  if (chatting) { if (!$("dock").contains($("composer")) || $("composer").previousElementSibling !== $("jumpLatest")) $("dock").prepend($("workbar"), $("jumpLatest"), $("composer"), $("branchBar")); }
-  else if (!$("wslot").contains($("composer"))) { $("wslot").append($("composer"), $("branchBar")); }
+  if (chatting) { if (!$("dock").contains($("composer")) || $("composer").previousElementSibling !== $("jumpLatest")) $("dock").prepend($("workbar"), $("jumpLatest"), $("composer")); }
+  else if (!$("wslot").contains($("composer"))) { $("wslot").append($("composer")); }
   if (!config.plan) $("input").placeholder = defaultPH();
   if (!chatting) { $("hello").textContent = greeting(); loadRecents(); }
 }
@@ -3212,7 +3226,8 @@ async function loadRecents() {
 $("recAll").onclick = () => { recAll = !recAll; loadRecents(); };
 // folder / project picker under the message box
 function folderLabel() { const p = (config.chat_project && (PJ_CACHE || []).find(x => x.id === config.chat_project)); const f = config.chat_cwd || config.cwd || "";
-  $("folderBtnName").textContent = p ? p.name : (f ? f.split(/[\\/]/).filter(Boolean).pop() || f : "Project or folder"); }
+  const isPrimary = !config.chat_project && (!config.chat_cwd || config.chat_cwd === config.cwd);
+  $("folderBtnName").textContent = p ? p.name : isPrimary ? "Current checkout" : (f ? f.split(/[\\/]/).filter(Boolean).pop() || f : "Project or folder"); }
 let PJ_CACHE = [];
 async function toggleFolderMenu(on = $("folderMenu").hidden) {
   $("folderMenu").hidden = !on; $("folderBtn").setAttribute("aria-expanded", on); if (!on) return;
@@ -3237,13 +3252,33 @@ document.addEventListener("pointerdown", e => { if (!$("folderMenu").hidden && !
 const reportFocus = () => new URLSearchParams(location.search).get("quick") ? 0 : api("/api/focus", { focused: document.hasFocus() && !document.hidden }).catch(() => {});
 addEventListener("focus", reportFocus); addEventListener("blur", reportFocus); document.addEventListener("visibilitychange", reportFocus); setTimeout(reportFocus, 500);
 // ---------- queued messages ----------
+const Q_FOLDER_SVG = '<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>';
+const Q_BRANCH_SVG = '<svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="17" cy="9" r="2.4"/><path d="M6 8.4v7.2M17 11.4c0 3-4 3.4-9 5.2"/></svg>';
 function showQueue(items) {
   const bar = $("queueBar"); bar.innerHTML = ""; bar.hidden = !items.length;
-  items.forEach((t, i) => { const c = el("span", "qchip", `<b>Queued${items.length > 1 ? " " + (i + 1) : ""}</b><span></span>`); c.querySelector("span").textContent = t; c.title = t; bar.appendChild(c); });
-  if (items.length) { const now = el("button", "qnow", "Send now"); now.title = "Stop the current reply and send this now";
-    now.onclick = () => { now.disabled = true; api("/api/queue/now").catch(e => notice(e.message)); }; bar.lastChild.appendChild(now);
-    const x = el("button", "", icon("x")); x.title = "Cancel queued messages"; x.setAttribute("aria-label", "Cancel queued messages");
-    x.onclick = () => api("/api/queue/clear").catch(e => notice(e.message)); bar.lastChild.appendChild(x); }
+  if (!items.length) return;
+  // mirror the composer's bottom branch bar, on top of the queue stack
+  const fName = ($("folderBtnName") && $("folderBtnName").textContent) || "Current checkout";
+  const brName = ($("bbBranch") && $("bbBranch").textContent) || "";
+  const qb = el("div", "qbranch",
+    `<span class="bb-item">${Q_FOLDER_SVG}<span></span><svg class="chev"><use href="#i-chev"/></svg></span>` +
+    (brName ? `<span class="bb-item">${Q_BRANCH_SVG}<span></span><svg class="chev"><use href="#i-chev"/></svg></span>` : ""));
+  qb.querySelector(".bb-item span").textContent = fName;
+  if (brName) qb.querySelectorAll(".bb-item")[1].querySelector("span").textContent = brName;
+  bar.appendChild(qb);
+  // normal column: render last → first so items[0] (next to run) ends nearest the composer (bottom)
+  for (let i = items.length - 1; i >= 0; i--) {
+    const t = items[i];
+    const c = el("div", "qchip", `<b>Queued${items.length > 1 ? " " + (i + 1) : ""}</b><span></span>`);
+    c.querySelector("span").textContent = t; c.title = t;
+    if (i === 0) {   // the next-up box carries the controls
+      const now = el("button", "qnow", "Send now"); now.title = "Stop the current reply and send this one now";
+      now.onclick = () => { now.disabled = true; api("/api/queue/now").catch(e => notice(e.message)); }; c.appendChild(now);
+      const x = el("button", "qx", icon("x")); x.title = "Cancel all queued messages"; x.setAttribute("aria-label", "Cancel queued messages");
+      x.onclick = () => api("/api/queue/clear").catch(e => notice(e.message)); c.appendChild(x);
+    }
+    bar.appendChild(c);
+  }
 }
 // ---------- @-mention project files ----------
 let atSel = 0, atItems = [], atTimer = null;
@@ -3836,8 +3871,8 @@ async function sendMsg() {
     } catch (e) { branchItem().hidden = true; }
     loadedCwd = cwd;
   }
-  function show() { if (loadedCwd !== (config.chat_cwd || config.cwd || "")) refresh(); bar.hidden = false; requestAnimationFrame(() => bar.classList.add("show")); }
-  window.hideBranchBar = () => { bar.classList.remove("show"); setTimeout(() => { bar.hidden = true; }, 220); };
+  function show() { if (loadedCwd !== (config.chat_cwd || config.cwd || "")) refresh(); bar.hidden = false; $("composer").classList.add("branched"); document.body.classList.add("branch-open"); requestAnimationFrame(() => bar.classList.add("show")); }
+  window.hideBranchBar = () => { bar.classList.remove("show"); $("composer").classList.remove("branched"); document.body.classList.remove("branch-open"); };
   inp.addEventListener("focus", show);
   inp.addEventListener("input", () => { if (inp.value.trim()) show(); });
   inp.addEventListener("blur", (e) => {
@@ -4733,7 +4768,7 @@ function mpRender() {
 }
 async function mpChoose(m) {
   $("modelPicker").close();
-  try { await api("/api/config", { model: m }); startChatting(); notice(`Model switched to ${m}.`); } catch (e) { startChatting(); notice(e.message); }
+  try { await api("/api/config", { model: m }); startChatting(); notice(busy ? `Switched to ${m} — your next reply (and any queued messages) will use it.` : `Model switched to ${m}.`); } catch (e) { startChatting(); notice(e.message); }
 }
 $("mpSearch").addEventListener("input", () => { mpSel = 0; mpRender(); });
 $("mpSearch").addEventListener("keydown", e => {
@@ -4868,7 +4903,7 @@ $("pdUse").onclick = async () => {
   if ($("pdKey").value.trim()) await api("/api/provider/key", { service: id, key: $("pdKey").value.trim() }).catch(e => pdSay(e.message, false));
   if ($("pdModel").value.trim()) body.model = $("pdModel").value.trim();
   if (!$("pdBaseField").hidden && $("pdBase").value.trim()) body.base_url = $("pdBase").value.trim();
-  try { await api("/api/config", body); $("provDlg").close(); await loadProviders(); mpLoaded = ""; startChatting(); notice(`Using ${PROVS.find(p => p.id === id)?.name} · ${config.model}.`); }
+  try { await api("/api/config", body); $("provDlg").close(); await loadProviders(); mpLoaded = ""; startChatting(); notice(`Using ${PROVS.find(p => p.id === id)?.name} · ${config.model}.${busy ? " Your next reply will use it." : ""}`); }
   catch (e) { pdSay(e.message, false); }
 };
 $("pdClose").onclick = () => $("provDlg").close();

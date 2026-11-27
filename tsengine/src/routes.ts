@@ -77,6 +77,8 @@ const handlers: Record<string, Handler> = {
   },
 
   "/api/stop": (_b, { chats }) => { chats.current.stop(); return { ok: true }; },
+  "/api/queue/now": (_b, { chats }) => { chats.current.queueNow(); return { ok: true }; },
+  "/api/queue/clear": (_b, { chats }) => { chats.current.queueClear(); return { ok: true }; },
 
   // ---- chats (Sessions list + New session) ----
   "/api/chats": (_b, { chats }) => ({ chats: chats.list(), current: chats.current.id }),
@@ -340,7 +342,7 @@ const STUBS = [
   "/api/approve", "/api/chrome", "/api/chrome/folder", "/api/github", "/api/github/connect",
   "/api/github/signin", "/api/github/disconnect", "/api/github/repos", "/api/github/clone",
   "/api/services", "/api/security/scan", "/api/security/tools", "/api/context", "/api/files/find",
-  "/api/queue/now", "/api/queue/clear", "/api/checkpoints", "/api/checkpoints/restore", "/api/focus",
+  "/api/checkpoints", "/api/checkpoints/restore", "/api/focus",
   "/api/mode", "/api/activate", "/api/chat/open", "/api/chats/order", "/api/chat/rename",
   "/api/chat/pin", "/api/chat/delete", "/api/worktree/finish", "/api/undo", "/api/jobs",
   "/api/jobs/stop", "/api/files/list", "/api/files/read", "/api/files/write", "/api/side/send",
