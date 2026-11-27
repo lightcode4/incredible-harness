@@ -127,6 +127,34 @@ test("context report returns a window and token breakdown", async () => {
   expect(Array.isArray(cp.checkpoints)).toBe(true);
 });
 
+test("queue: send while busy enqueues, clear empties, replay carries queue", async () => {
+  const c = ctx();
+  const s = c.chats.current;
+  const seen: any[] = [];
+  const unsub = c.events.subscribe((e) => seen.push(e));
+  s.busy = true;                     // simulate an in-progress turn
+  await s.send("first queued");      // should enqueue, not throw
+  await s.send("second queued");
+  expect(s.queue.map((q) => q.text)).toEqual(["first queued", "second queued"]);
+  const queuedEvents = seen.filter((e) => e.kind === "queued");
+  expect(queuedEvents.length).toBe(2);
+  expect(queuedEvents.at(-1).items).toEqual(["first queued", "second queued"]);
+  // replay (used to restore the UI on reconnect) carries the pending queue
+  const replay = s.replayEvent() as any;
+  expect(replay.queue).toEqual(["first queued", "second queued"]);
+  // clearing empties it and announces an empty queue
+  s.queueClear();
+  expect(s.queue.length).toBe(0);
+  expect(seen.filter((e) => e.kind === "queued").at(-1).items).toEqual([]);
+  unsub();
+});
+
+test("queue routes: /api/queue/now and /api/queue/clear are wired to the session", async () => {
+  const c = ctx();
+  expect(((await route("/api/queue/now", {}, c)) as any).ok).toBe(true);
+  expect(((await route("/api/queue/clear", {}, c)) as any).ok).toBe(true);
+});
+
 test("providers catalog lists known services with key flags", async () => {
   const r = (await route("/api/providers", {}, ctx())) as any;
   const ids = r.providers.map((p: any) => p.id);

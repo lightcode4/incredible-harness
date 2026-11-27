@@ -1190,7 +1190,9 @@ body.chatting .sc-day .scrim { background: rgba(255,252,245,.62); }
 /* queued messages appear in the session as pending user messages, pinned to the bottom, each with Send now */
 #pendingQueue { order: 999; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
 .qpend-msg { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; max-width: 85%; align-self: flex-end; }
-.qpend-msg .user { max-width: 100%; opacity: .6; border-style: dashed; }
+/* pending look: muted + dashed, but kept opaque so the wallpaper never bleeds through in OLED/photo themes */
+.qpend-msg .user { max-width: 100%; color: var(--muted); border-style: dashed; background: color-mix(in srgb, var(--text) 8%, var(--panel)); }
+body.has-photo .qpend-msg .user, body.has-bgm .qpend-msg .user { background: color-mix(in srgb, var(--panel) 92%, var(--text)); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .qpend-ctl { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--faint); padding-right: 2px; }
 .qpend-ctl .qp-label { font-weight: 600; letter-spacing: .02em; }
 .qpend-ctl .qnow { border: 0; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-weight: 600; font-size: 12px; padding: 3px 11px; border-radius: 8px; cursor: pointer; } .qpend-ctl .qnow:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
