@@ -1186,20 +1186,15 @@ body.chatting .sc-day .scrim { background: rgba(255,252,245,.62); }
 .ghrepo .gi { flex: 1; min-width: 0; } .ghrepo b { font-size: 13.5px; font-weight: 600; } .ghrepo em { font-style: normal; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; margin-left: 6px; }
 .ghrepo small { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ghrepo .btn { flex: none; }
 .ghempty { color: var(--muted); font-size: 13px; padding: 14px 4px; }
-/* queued messages: composer-styled boxes that branch UP out of the main composer, with their own branch bar on top */
-#queueBar { position: absolute; left: 14px; right: 14px; bottom: calc(100% + 7px); display: flex; flex-direction: column; gap: 7px; z-index: 6; pointer-events: none; }
-#queueBar[hidden] { display: none; }
-/* a drawer that sits above the queue stack — mirror of the composer's bottom branch bar */
-.qbranch { pointer-events: auto; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; margin: 0 12px -8px; padding: 6px 18px 11px; font-size: 12px; color: var(--faint); background: color-mix(in srgb, var(--text) 4%, var(--panel)); border: 1px solid var(--line-soft); border-bottom: 0; border-radius: 14px 14px 0 0; position: relative; z-index: -1; }
-.qbranch .bb-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.qbranch svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
-.qbranch .chev { width: 11px; height: 11px; opacity: .55; transform: rotate(90deg); }
-.qchip { pointer-events: auto; display: flex; align-items: center; gap: 9px; width: 100%; box-sizing: border-box; font-size: 13px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 15px; padding: 8px 9px 8px 14px; box-shadow: 0 4px 16px rgba(0,0,0,.12); animation: qpop .18s ease; }
-@keyframes qpop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.qchip b { flex: none; font-weight: 600; color: var(--accent); font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; }
-.qchip > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
-.qchip .qnow { flex: none; border: 0; background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); font-weight: 600; font-size: 12px; padding: 4px 11px; border-radius: 8px; cursor: pointer; } .qchip .qnow:hover { background: color-mix(in srgb, var(--accent) 32%, transparent); }
-.qchip button.qx { border: 0; background: none; color: var(--muted); padding: 4px; border-radius: 7px; display: grid; cursor: pointer; } .qchip button.qx:hover { background: var(--hover); color: var(--text); } .qchip button.qx svg { width: 13px; height: 13px; }
+#queueBar { display: none; }   /* queued messages now render inside the session, not above the composer */
+/* queued messages appear in the session as pending user messages, pinned to the bottom, each with Send now */
+#pendingQueue { order: 999; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+.qpend-msg { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; max-width: 85%; align-self: flex-end; }
+.qpend-msg .user { max-width: 100%; opacity: .6; border-style: dashed; }
+.qpend-ctl { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--faint); padding-right: 2px; }
+.qpend-ctl .qp-label { font-weight: 600; letter-spacing: .02em; }
+.qpend-ctl .qnow { border: 0; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); font-weight: 600; font-size: 12px; padding: 3px 11px; border-radius: 8px; cursor: pointer; } .qpend-ctl .qnow:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+.qpend-ctl .qx { border: 0; background: none; color: var(--muted); padding: 3px; border-radius: 6px; display: grid; cursor: pointer; } .qpend-ctl .qx:hover { background: var(--hover); color: var(--text); } .qpend-ctl .qx svg { width: 13px; height: 13px; }
 #atMenu { position: absolute; left: 12px; bottom: calc(100% + 6px); width: min(460px, calc(100% - 24px)); max-height: 260px; overflow-y: auto; z-index: 33; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 5px; box-shadow: 0 12px 40px rgba(0,0,0,.14); }
 #atMenu[hidden] { display: none; } .wslot #atMenu { bottom: auto; top: calc(100% + 6px); }
 .atrow { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 6px 9px; border-radius: 8px; text-align: left; color: var(--text); font: 12.5px var(--monoF); cursor: pointer; }
@@ -3252,33 +3247,26 @@ document.addEventListener("pointerdown", e => { if (!$("folderMenu").hidden && !
 const reportFocus = () => new URLSearchParams(location.search).get("quick") ? 0 : api("/api/focus", { focused: document.hasFocus() && !document.hidden }).catch(() => {});
 addEventListener("focus", reportFocus); addEventListener("blur", reportFocus); document.addEventListener("visibilitychange", reportFocus); setTimeout(reportFocus, 500);
 // ---------- queued messages ----------
-const Q_FOLDER_SVG = '<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>';
-const Q_BRANCH_SVG = '<svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="17" cy="9" r="2.4"/><path d="M6 8.4v7.2M17 11.4c0 3-4 3.4-9 5.2"/></svg>';
 function showQueue(items) {
-  const bar = $("queueBar"); bar.innerHTML = ""; bar.hidden = !items.length;
-  if (!items.length) return;
-  // mirror the composer's bottom branch bar, on top of the queue stack
-  const fName = ($("folderBtnName") && $("folderBtnName").textContent) || "Current checkout";
-  const brName = ($("bbBranch") && $("bbBranch").textContent) || "";
-  const qb = el("div", "qbranch",
-    `<span class="bb-item">${Q_FOLDER_SVG}<span></span><svg class="chev"><use href="#i-chev"/></svg></span>` +
-    (brName ? `<span class="bb-item">${Q_BRANCH_SVG}<span></span><svg class="chev"><use href="#i-chev"/></svg></span>` : ""));
-  qb.querySelector(".bb-item span").textContent = fName;
-  if (brName) qb.querySelectorAll(".bb-item")[1].querySelector("span").textContent = brName;
-  bar.appendChild(qb);
-  // normal column: render last → first so items[0] (next to run) ends nearest the composer (bottom)
-  for (let i = items.length - 1; i >= 0; i--) {
-    const t = items[i];
-    const c = el("div", "qchip", `<b>Queued${items.length > 1 ? " " + (i + 1) : ""}</b><span></span>`);
-    c.querySelector("span").textContent = t; c.title = t;
-    if (i === 0) {   // the next-up box carries the controls
-      const now = el("button", "qnow", "Send now"); now.title = "Stop the current reply and send this one now";
-      now.onclick = () => { now.disabled = true; api("/api/queue/now").catch(e => notice(e.message)); }; c.appendChild(now);
-      const x = el("button", "qx", icon("x")); x.title = "Cancel all queued messages"; x.setAttribute("aria-label", "Cancel queued messages");
-      x.onclick = () => api("/api/queue/clear").catch(e => notice(e.message)); c.appendChild(x);
+  let box = document.getElementById("pendingQueue");
+  if (!items.length) { if (box) box.remove(); return; }
+  if (!box) { box = el("div", ""); box.id = "pendingQueue"; }
+  $("log").appendChild(box);   // keep it in the log; order:999 pins it below the in-progress reply
+  box.innerHTML = "";
+  items.forEach((t, i) => {
+    const wrap = el("div", "qpend-msg");
+    const u = el("div", "user"); u.appendChild(document.createTextNode(t)); u.title = t; wrap.appendChild(u);
+    const ctl = el("div", "qpend-ctl");
+    ctl.appendChild(el("span", "qp-label", items.length > 1 ? "Queued " + (i + 1) : "Queued"));
+    if (i === 0) {   // the next-up message can be sent immediately
+      const now = el("button", "qnow", "Send now"); now.title = "Stop the current reply and send this now";
+      now.onclick = () => { now.disabled = true; api("/api/queue/now").catch(e => notice(e.message)); }; ctl.appendChild(now);
     }
-    bar.appendChild(c);
-  }
+    const x = el("button", "qx", icon("x")); x.title = "Cancel queued message"; x.setAttribute("aria-label", "Cancel queued message");
+    x.onclick = () => api("/api/queue/clear").catch(e => notice(e.message)); ctl.appendChild(x);
+    wrap.appendChild(ctl); box.appendChild(wrap);
+  });
+  scroll(true);
 }
 // ---------- @-mention project files ----------
 let atSel = 0, atItems = [], atTimer = null;
