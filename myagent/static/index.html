@@ -1235,7 +1235,6 @@ body.has-photo .qpend-msg .user, body.has-bgm .qpend-msg .user { background: col
 .askbtn:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
 @media (max-width: 640px) { .askfoot { flex-wrap: wrap; } .askfoot .askfb { flex-basis: 100%; } .askrow { grid-template-columns: 1fr; gap: 2px; } }
 /* ---- folder menu rows: name first, path after ---- */
-#folderMenu { width: 340px; } #folderMenu button span { flex: 1; } #folderMenu button small { max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 /* ---- settings tabs never squeezed ---- */
 /* ---- Settings: sections on the left, Daybreak cards on the right ---- */
 #settings { width: min(960px, 94vw); }
@@ -1315,17 +1314,6 @@ body:not(.chatting) .chatcard { justify-content: flex-start; }
 .wslot #composer textarea { font-size: 16px; min-height: 52px; }
 .wslot #compbar { padding: 10px 6px 0; } .wslot #compbar .modelbar { margin-left: auto; }
 #compbar { justify-content: flex-end; } .wslot #compbar { justify-content: space-between; }
-.fwrap { position: relative; display: none; margin-right: auto; } .wslot .fwrap { display: block; }
-#folderBtn { display: flex; align-items: center; gap: 7px; border: 0; background: none; padding: 5px 8px; border-radius: 9px; font-size: 13.5px; color: var(--text); max-width: 320px; }
-#folderBtn:hover, #folderBtn[aria-expanded="true"] { background: var(--hover); } #folderBtn svg { width: 15px; height: 15px; } #folderBtn .chev { transform: rotate(90deg); opacity: .6; width: 13px; height: 13px; }
-#folderBtn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#folderMenu { position: absolute; left: 0; top: calc(100% + 6px); width: 300px; z-index: 32; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,.14); max-height: 360px; overflow-y: auto; }
-#folderMenu[hidden] { display: none; }
-#folderMenu .fmsec { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 8px 10px 4px; }
-#folderMenu button { display: flex; align-items: center; gap: 9px; width: 100%; border: 0; background: none; padding: 7px 10px; border-radius: 9px; text-align: left; color: var(--text); font-size: 13px; cursor: pointer; }
-#folderMenu button:hover, #folderMenu button:focus-visible { background: var(--hover); outline: none; } #folderMenu button svg { width: 15px; height: 15px; color: var(--muted); flex: none; }
-#folderMenu button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } #folderMenu button small { color: var(--faint); margin-left: auto; font-size: 11px; flex: none; }
-#folderMenu button.on { background: var(--soft); }
 .recents { width: min(760px, 100%); margin-top: 56px; }
 .rhead { display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px 12px; } .rhead span { color: var(--muted); font-size: 14px; } .rhead .linkbtn { font-size: 13px; }
 #recGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
@@ -1398,27 +1386,6 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
 #planBtn.modechip .chk { display: none; }
 #planBtn.modechip .cv { width: 13px; height: 13px; opacity: .55; }
 #planBtn.mode-auto .chk { display: inline; }   /* a tick in the shield for auto, no colour fill */
-/* transient workspace + branch bar: shows while composing, fades out after sending */
-/* a drawer that slides out from behind the composer bottom: slightly inset, folder-left / branch-right */
-#branchBar { position: absolute; left: 14px; right: 14px; top: 100%; display: flex; gap: 16px; justify-content: space-between; align-items: center; box-sizing: border-box; padding: 7px 18px 8px; font-size: 12px; color: var(--faint);
-  background: color-mix(in srgb, var(--text) 4%, var(--panel)); border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 15px 15px;
-  opacity: 0; transform: translateY(-9px); transition: opacity .16s ease, transform .16s ease; pointer-events: none; z-index: -1; }
-#branchBar[hidden] { display: none; }
-#branchBar.show { opacity: 1; transform: translateY(-1px); pointer-events: auto; }
-#branchBar svg { opacity: .7; }
-body.branch-open #dock { padding-bottom: 56px; }
-#branchBar .bb-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; position: relative; }
-#branchBar svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-/* folder + branch glyphs carry the brand accent colour (chevrons stay subtle) */
-#branchBar #folderBtn > svg:first-child, #branchBar .bb-branch > svg:first-child,
-.qbranch .bb-item > svg:first-child { stroke: var(--accent); opacity: 1; }
-/* the folder/worktree dropdown lives here now — kept subtle to match the bar */
-#branchBar .fwrap #folderBtn { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: inherit; font-size: 12px; padding: 2px 4px; border-radius: 7px; cursor: pointer; }
-#branchBar .fwrap #folderBtn:hover { background: var(--hover); color: var(--muted); }
-#branchBar .fwrap #folderBtn .chev { width: 11px; height: 11px; opacity: .7; }
-#branchBar .bb-branch .chev { width: 11px; height: 11px; opacity: .55; transform: rotate(90deg); }
-#branchBar .bb-branch { gap: 6px; }
-#branchBar #folderMenu { bottom: calc(100% + 8px); left: 0; }
 #modeMenu { position: absolute; right: 0; bottom: calc(100% + 8px); width: 280px; z-index: 31; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,.14); }
 #modeMenu[hidden] { display: none; }
 #modeMenu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 9px; cursor: pointer; color: var(--text); }
@@ -1748,11 +1715,6 @@ body.branch-open #dock { padding-bottom: 56px; }
         <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 19V6M6 12l6-6 6 6"/></svg></button>
       </div>
       <input type="file" id="fileInput" multiple hidden>
-      <div id="branchBar" hidden>
-        <div class="fwrap bb-item"><button class="ghost" id="folderBtn" aria-haspopup="menu" aria-expanded="false" title="Workspace — current checkout or a new worktree"><svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg><span id="folderBtnName">Current checkout</span><svg class="chev"><use href="#i-chev"/></svg></button>
-          <div id="folderMenu" role="menu" hidden></div></div>
-        <span class="bb-item bb-branch" hidden><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="17" cy="9" r="2.4"/><path d="M6 8.4v7.2M17 11.4c0 3-4 3.4-9 5.2"/></svg><span id="bbBranch"></span><svg class="chev"><use href="#i-chev"/></svg></span>
-      </div>
     </div>
           <span id="footMode" hidden></span>
       </section>
@@ -2669,7 +2631,7 @@ function setPlan(on) { config.plan = on; $("planBtn").classList.toggle("on", on)
 function defaultPH() { return document.body.classList.contains("chatting") ? "Reply to LightCode⁴…" : document.body.classList.contains("mode-chat") ? "How can I help you today?" : "What should we build? Describe a coding task…"; }
 function showConfig(c) {
   if ($("autoUpdate")) $("autoUpdate").checked = c.auto_update !== false;
-  config = c; if (c.chat_kind) setModeUI(c.chat_kind); setTimeout(() => { if (typeof folderLabel === "function") { folderLabel(); if (!document.body.classList.contains("chatting")) $("hello").textContent = greeting(); } }, 0); if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
+  config = c; if (c.chat_kind) setModeUI(c.chat_kind); setTimeout(() => { if (!document.body.classList.contains("chatting")) $("hello").textContent = greeting(); }, 0); if (needsWelcome(c)) setTimeout(() => { const go = (n = 0) => PROVS.length ? showWelcome() : n < 25 && setTimeout(() => go(n + 1), 200); go(); }, 300);
   if (c.theme && !$("settings").open) applyTheme(c.theme);
   if (typeof applyScene === "function" && (c.scene || "auto") !== document.body.dataset.scene) applyScene(c.scene || "auto");
   document.body.classList.toggle("cyber-on", !!c.cyber_mode); if ($("cyOn")) $("cyOn").hidden = !c.cyber_mode; if ($("cyGlobal")) $("cyGlobal").checked = !!c.cyber_mode;
@@ -3221,30 +3183,8 @@ async function loadRecents() {
   $("recents").hidden = !grid.children.length; $("recAll").textContent = recAll ? "Show less" : "View all";
 }
 $("recAll").onclick = () => { recAll = !recAll; loadRecents(); };
-// folder / project picker under the message box
-function folderLabel() { const p = (config.chat_project && (PJ_CACHE || []).find(x => x.id === config.chat_project)); const f = config.chat_cwd || config.cwd || "";
-  const isPrimary = !config.chat_project && (!config.chat_cwd || config.chat_cwd === config.cwd);
-  $("folderBtnName").textContent = p ? p.name : isPrimary ? "Current checkout" : (f ? f.split(/[\\/]/).filter(Boolean).pop() || f : "Project or folder"); }
+// project cache (used by the projects view); the folder/worktree picker is reached via the header folder pill and the command palette (openFolderPicker)
 let PJ_CACHE = [];
-async function toggleFolderMenu(on = $("folderMenu").hidden) {
-  $("folderMenu").hidden = !on; $("folderBtn").setAttribute("aria-expanded", on); if (!on) return;
-  try { PJ_CACHE = (await api("/api/projects")).projects; } catch (e) {}
-  const m = $("folderMenu"), cur = config.chat_cwd || config.cwd; m.innerHTML = "";
-  const item = (iconHtml, label, small, on, fn) => { const b = el("button", on ? "on" : "", iconHtml + "<span></span><small></small>"); b.setAttribute("role", "menuitem"); b.querySelector("span").textContent = label; b.querySelector("small").textContent = small || ""; b.title = small || label; b.onclick = () => { toggleFolderMenu(false); fn(); }; m.appendChild(b); };
-  if (PJ_CACHE.length) { m.appendChild(el("div", "fmsec", "Projects"));
-    PJ_CACHE.forEach(p => item('<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>', p.name, "", config.chat_project === p.id,
-      () => api("/api/project/chat", { id: p.id }).catch(e => notice(e.message)))); }
-  m.appendChild(el("div", "fmsec", "Folders"));
-  [...new Set([cur, ...(config.recent_folders || [])].filter(Boolean))].slice(0, 8).forEach(f => item('<svg><use href="#i-folder"/></svg>', f.split(/[\\/]/).filter(Boolean).pop() || f, f.replace(/^\/Users\/[^/]+/, "~"), f === cur && !config.chat_project, () => useFolder(f)));
-  item('<svg><use href="#i-plus"/></svg>', "Choose another folder…", "", false, () => openFolderPicker());
-  item('<svg viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/><path d="M12 11v6M9 14h6"/></svg>', "New project…", "", false, () => openProjects());
-  setTimeout(() => m.querySelector("button")?.focus(), 10);
-}
-$("folderBtn").onclick = e => { e.stopPropagation(); toggleFolderMenu(); };
-$("folderMenu").addEventListener("keydown", e => { const items = [...$("folderMenu").querySelectorAll("button")], i = items.indexOf(document.activeElement);
-  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); items[(i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus(); }
-  if (e.key === "Escape") { e.preventDefault(); toggleFolderMenu(false); $("folderBtn").focus(); } });
-document.addEventListener("pointerdown", e => { if (!$("folderMenu").hidden && !e.target.closest("#folderMenu, #folderBtn")) toggleFolderMenu(false); });
 // ---------- tell the app whether you're looking at it (for notifications) ----------
 const reportFocus = () => new URLSearchParams(location.search).get("quick") ? 0 : api("/api/focus", { focused: document.hasFocus() && !document.hidden }).catch(() => {});
 addEventListener("focus", reportFocus); addEventListener("blur", reportFocus); document.addEventListener("visibilitychange", reportFocus); setTimeout(reportFocus, 500);
@@ -3844,33 +3784,9 @@ async function sendMsg() {
   if (um && !pendingFiles.length && (config.commands || []).some(c => c.kind === "ui" && c.name === um[1])) { $("input").value = ""; autosize(); await uiCommand(um[1], um[2]); return; }
   const attachments = pendingFiles.map(({ name, mime, data }) => ({ name, mime, data }));
   $("input").value = ""; pendingFiles = []; renderFiles(); autosize();
-  if (typeof hideBranchBar === "function") hideBranchBar();   // branch bar retracts once the command is sent
   try { await api("/api/send", { text, attachments }); } catch (e) { startChatting(); notice(e.message); $("input").value = text; }
   $("input").focus();
 }
-// workspace + branch bar: slides out while composing, hides after sending
-(function () {
-  const bar = $("branchBar"), inp = $("input"), branchItem = () => bar.querySelector(".bb-branch");
-  let loadedCwd = null;
-  async function refresh() {
-    const cwd = config.chat_cwd || config.cwd || "";
-    try {
-      const r = await api("/api/git", { action: "status" });
-      if (r && r.repo && r.branch) { $("bbBranch").textContent = r.branch; branchItem().hidden = false; }
-      else branchItem().hidden = true;
-    } catch (e) { branchItem().hidden = true; }
-    loadedCwd = cwd;
-  }
-  function show() { if (loadedCwd !== (config.chat_cwd || config.cwd || "")) refresh(); bar.hidden = false; $("composer").classList.add("branched"); document.body.classList.add("branch-open"); requestAnimationFrame(() => bar.classList.add("show")); }
-  window.hideBranchBar = () => { bar.classList.remove("show"); $("composer").classList.remove("branched"); document.body.classList.remove("branch-open"); };
-  inp.addEventListener("focus", show);
-  inp.addEventListener("input", () => { if (inp.value.trim()) show(); });
-  inp.addEventListener("blur", (e) => {
-    const toBar = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest("#branchBar");
-    if (toBar || !$("folderMenu").hidden) return;   // keep the bar open while using its folder/worktree dropdown
-    if (!inp.value.trim()) window.hideBranchBar();
-  });
-})();
 function autosize() { const t = $("input"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 240) + "px"; updateSend(); }
 $("input").addEventListener("input", autosize);
 $("input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMsg(); } });

@@ -105,10 +105,9 @@ async function overlaps(pg, label) {
       check('The chosen background is remembered after a restart', await pg.evaluate(() => new Promise(r => setTimeout(() => r(!document.getElementById('bgm') && document.querySelector('#scenePick [data-s="none"]').classList.contains('on')), 800))));
       await pg.evaluate(() => document.querySelector('#scenePick [data-s="daybreak"]').click()); await pg.waitForTimeout(300);
       check('The message box sits in the middle on a new chat', await pg.evaluate(() => document.getElementById('wslot').contains(document.getElementById('composer'))) && /What should we build|How can I help/.test(await pg.getAttribute('#input', 'placeholder')));
-      await pg.focus('#input'); await pg.waitForTimeout(200);  // the folder/worktree dropdown lives in the branch bar, which appears while composing
-      await pg.click('#folderBtn'); await pg.waitForTimeout(300);
-      check('Project or folder menu lists folders and a way to choose another', await pg.isVisible('#folderMenu') && (await pg.innerText('#folderMenu')).includes('Choose another folder'));
-      await overlaps(pg, 'folder menu'); await pg.keyboard.press('Escape'); await pg.evaluate(() => document.getElementById('input').blur());
+      await pg.click('#folderPill'); await pg.waitForTimeout(300);  // workspace folder is chosen from the header folder pill (opens the folder picker)
+      check('Folder pill opens the project-folder picker with a way to choose another', await pg.evaluate(() => { const d = document.getElementById('folderPicker'); return !!(d && d.open); }) && (await pg.innerText('#folderPicker')).toLowerCase().includes('folder'));
+      await pg.keyboard.press('Escape'); await pg.evaluate(() => document.getElementById('input').blur());
       check('Front page is clean: no big heading, no suggestion chips, no footer slogan', !(await pg.isVisible('.page > .pagehead')) && !(await pg.isVisible('.chip')) && !(await pg.innerText('body')).includes('Your machine. Your rules'));
       const mp = await pg.locator('#modelPill').boundingBox(), cb = await pg.locator('#composer').boundingBox();
       check('Model and mode sit in the composer control row', await pg.evaluate(() => !!document.querySelector('.comp-row #modelPill') && !!document.querySelector('.comp-row #planBtn')) && await pg.isVisible('#planBtn'));
@@ -369,8 +368,9 @@ async function overlaps(pg, label) {
       check('Checkpoints opens with its list (or a clear empty state)', (await pg.locator('#cpList .cprow').count()) >= 1 ? (await pg.innerText('#cpList')).includes('Restore to before this') : (await pg.innerText('#cpList')).includes('No checkpoints yet'));
       await overlaps(pg, 'checkpoints'); await pg.click('#cpClose');
       await pg.evaluate(() => showQueue(['add tests next'])); await pg.waitForTimeout(100);
-      check('Queued messages show above the message box', (await pg.innerText('#queueBar')).includes('add tests next'));
+      check('Queued messages show in the session as a pending message with Send now', await pg.evaluate(() => { const b = document.getElementById('pendingQueue'); return !!b && b.innerText.includes('add tests next') && b.innerText.includes('Send now'); }));
       await pg.evaluate(() => showQueue([]));
+      check('Clearing the queue removes the pending message from the session', await pg.evaluate(() => !document.getElementById('pendingQueue')));
       // effort switch, find in chat
       await pg.click('#modelPill'); await pg.waitForTimeout(300);
       check('Model menu has an effort switch for Claude', await pg.isVisible('#effortRow') && (await pg.innerText('#effortRow')).includes('Max'));
