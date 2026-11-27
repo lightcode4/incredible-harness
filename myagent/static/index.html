@@ -141,6 +141,9 @@ body:not(.chatting) #scroll, body:not(.chatting) #dock { display: none; }
 .comp-row #send { margin-left: 2px; }
 .comp-row #modeMenu { left: 0; right: auto; }
 .comp-row #provMenu { left: auto; right: 0; }
+.comp-row #sideBtn { display: none; }                 /* side chat stays on ⌘; — keeps the row to the reference set */
+.comp-row .modelchip > small { display: none; }       /* show just the model name, no "by Provider" */
+.comp-row .modelchip > b { font-weight: 600; }
 .ghost { border: 0; background: none; font-size: 13px; color: var(--muted); padding: 5px 8px; border-radius: 8px; display: flex; gap: 5px; align-items: center; }
 .ghost:hover { background: var(--hover); color: var(--text); }
 .ghost svg { width: 16px; height: 16px; }
@@ -1383,18 +1386,18 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
 .comp-row #provList { max-height: min(440px, calc(100vh - 260px)); padding-right: 2px; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); padding-bottom: 20px; }
 .comp-row .modelchip .mlogo { box-shadow: none; } .comp-row .modelchip .mlogo svg { width: 13px; height: 13px; } .comp-row .modelchip .mlogo .pletter { font-size: 11px; }
 /* permission chip: a shield + short label (Ask / Auto / Plan), coloured by mode */
-#planBtn.modechip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; }
+#planBtn.modechip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; color: var(--text); background: none; }
 #planBtn.modechip:hover { background: var(--hover); }
-#planBtn.modechip .shield { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+#planBtn.modechip .shield { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; opacity: .85; }
 #planBtn.modechip .chk { display: none; }
-#planBtn.modechip .cv { width: 13px; height: 13px; opacity: .6; }
-#planBtn.mode-ask { color: var(--muted); }
-#planBtn.mode-auto { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); background: color-mix(in srgb, var(--ok) 10%, transparent); }
-#planBtn.mode-auto .chk { display: inline; }
-#planBtn.mode-plan { color: var(--plan); border-color: color-mix(in srgb, var(--plan) 40%, var(--line)); background: color-mix(in srgb, var(--plan) 10%, transparent); }
+#planBtn.modechip .cv { width: 13px; height: 13px; opacity: .55; }
+#planBtn.mode-auto .chk { display: inline; }   /* a tick in the shield for auto, no colour fill */
 /* transient workspace + branch bar: shows while composing, fades out after sending */
-#branchBar { display: flex; gap: 16px; justify-content: space-between; align-items: center; margin: 7px auto 0; max-width: 780px; width: 100%; padding: 0 16px; box-sizing: border-box; font-size: 12px; color: var(--faint); opacity: 0; transform: translateY(-3px); transition: opacity .2s ease, transform .2s ease; pointer-events: none; }
-#branchBar.show { opacity: .8; transform: none; }
+#branchBar { display: flex; gap: 16px; justify-content: space-between; align-items: center; margin: 5px auto 0; max-width: 744px; width: calc(100% - 20px); box-sizing: border-box; padding: 4px 14px; font-size: 11.5px; color: var(--faint);
+  background: color-mix(in srgb, var(--panel) 32%, transparent); border-radius: 10px;
+  opacity: 0; transform: translateY(-4px); transition: opacity .18s ease, transform .18s ease; pointer-events: none; }
+#branchBar.show { opacity: .9; transform: none; }
+#branchBar svg { opacity: .7; }
 #branchBar[hidden] { display: none; }
 #branchBar.show { pointer-events: auto; }
 #branchBar .bb-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; position: relative; }
@@ -1710,7 +1713,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
       <div id="files"></div>
       <textarea id="input" aria-label="Message" rows="1" placeholder="Ask LightCode⁴ to build, fix or explain something…"></textarea>
       <div class="comp-row">
-        <button class="ghost" id="attach" title="Attach images, PDFs or text files" aria-label="Attach files"><svg><use href="#i-clip"/></svg></button>
+        <button class="ghost" id="attach" title="Attach images, PDFs or text files" aria-label="Attach files"><svg><use href="#i-plus"/></svg></button>
         <button class="ghost modechip mode-ask" id="planBtn" title="How the agent works: asks first, auto-approve, or plan mode" aria-haspopup="menu" aria-expanded="false"><svg class="shield" viewBox="0 0 24 24"><path d="M12 3l7 2.6v5.1c0 4.3-3 7.5-7 8.3-4-.8-7-4-7-8.3V5.6z"/><path class="chk" d="M9.2 12l1.9 1.9L15 10"/></svg><span id="modeLabel">Ask</span><svg class="cv"><use href="#i-chev"/></svg></button>
         <div id="modeMenu" role="menu" hidden>
           <button role="menuitemradio" data-mode="ask"><b>Asks first</b><small>Approve each change and command</small></button>
@@ -1730,7 +1733,7 @@ body:not(.panel-open) #scroll { padding-right: 58px; }  /* keeps messages clear 
         <button class="ghost" id="micBtn" title="Voice typing" aria-label="Voice typing"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
         <button class="ghost" id="sideBtn" title="Side chat (⌘;) — a quick question that doesn't change this chat" aria-label="Side chat"><svg viewBox="0 0 24 24"><path d="M4 12a7 7 0 1 1 3.2 5.9L4 19l1.1-3.1A7 7 0 0 1 4 12z"/><circle cx="16.5" cy="16.5" r="3.6" fill="var(--panel)"/></svg></button>
         <button id="ctxMeter" hidden title="How full the model's memory of this chat is. Click to summarize it (/compact)."><span class="ring"></span><span id="ctxText">0%</span></button>
-        <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg><use href="#i-up"/></svg></button>
+        <button class="send" id="send" title="Send (Enter)" aria-label="Send" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 19V6M6 12l6-6 6 6"/></svg></button>
       </div>
       <input type="file" id="fileInput" multiple hidden>
     </div>

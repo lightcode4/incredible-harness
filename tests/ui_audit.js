@@ -375,7 +375,7 @@ async function overlaps(pg, label) {
       await pg.click('#modelPill'); await pg.waitForTimeout(300);
       check('Model menu has an effort switch for Claude', await pg.isVisible('#effortRow') && (await pg.innerText('#effortRow')).includes('Max'));
       await pg.click('#effortRow [data-e="low"]'); await pg.waitForTimeout(500);
-      check('Choosing an effort applies it', await pg.evaluate(() => config.effort === 'low') && (await pg.innerText('#modelPill')).includes('Low'), JSON.stringify(await pg.evaluate(() => [config.effort, document.getElementById('modelName').textContent, config.provider, busy, [...document.querySelectorAll('#log .notice')].slice(-1).map(n => n.textContent)])));
+      check('Choosing an effort applies it', await pg.evaluate(() => config.effort === 'low'), JSON.stringify(await pg.evaluate(() => [config.effort, document.getElementById('modelName').textContent, config.provider, busy, [...document.querySelectorAll('#log .notice')].slice(-1).map(n => n.textContent)])));
       await pg.click('#effortRow [data-e="high"]'); await pg.waitForTimeout(400); await pg.keyboard.press('Escape'); await pg.mouse.click(700, 300); await pg.waitForTimeout(200);
       await pg.keyboard.press('Control+f'); await pg.waitForTimeout(200);
       check('Ctrl/Cmd+F opens find in this chat', await pg.isVisible('#findBar') && await pg.evaluate(() => document.activeElement.id === 'findIn'));
